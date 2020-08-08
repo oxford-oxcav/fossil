@@ -1,0 +1,10 @@
+z3-solver
+matplotlib
+numpy
+sympy
+torch
+pytest
+pylint
+dreal
+tabulate
+scipy
