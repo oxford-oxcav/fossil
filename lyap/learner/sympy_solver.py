@@ -1,7 +1,9 @@
 import sympy as sp
 
+from shared.learner import Learner
 
-class SympySolver:
+
+class SympySolver(Learner):
 
     @staticmethod
     def solver_fncts() -> {}:

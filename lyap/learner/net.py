@@ -1,13 +1,15 @@
 import torch
 import torch.nn as nn
 import numpy as np
+
+from shared.learner import Learner
 from shared.activations import ActivationType, activation, activation_der
 from lyap.utils import Timer, timer
 
 T = Timer()
 
 
-class NN(nn.Module):
+class NN(nn.Module, Learner):
     def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0):
         super(NN, self).__init__()
 
@@ -135,14 +137,17 @@ class NN(nn.Module):
                 E, derivative_e = torch.tensor(1.0), torch.tensor(0.0)
 
         return E, derivative_e
+    
+    def get(self, **kw):
+        return self.learn(kw['optimizer'], kw['S'], kw['Sdot'], kw['factors'])
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, S_dot, factors):
+    def learn(self, optimizer, S, Sdot, factors):
         """
         :param optimizer: torch optimiser
         :param S: tensor of data
-        :param S_dot: tensor contain f(data)
+        :param Sdot: tensor contain f(data)
         :param margin: performance threshold
         :return: --
         """
@@ -154,7 +159,7 @@ class NN(nn.Module):
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            V, Vdot, circle = self.numerical_net(S, S_dot, factors)
+            V, Vdot, circle = self.numerical_net(S, Sdot, factors)
             learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
 
             slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))

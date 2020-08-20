@@ -2,11 +2,14 @@ import torch
 from barrier.utils import *
 from z3 import *
 
+from shared.component import Component
+
 T = Timer()
 
 
-class Verifier:
+class Verifier(Component):
     def __init__(self, n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, solver_vars):
+        super().__init__()
         self.iter = -1
         self.n = n_vars
         self.domain = whole_domain
@@ -55,6 +58,9 @@ class Verifier:
         """Example: return float(model[var[0, 0]].as_fraction())"""
         raise NotImplementedError('')
 
+    def get(self, **kw):
+        return self.verify(kw['B'], kw['Bdot'])
+
     @timer(T)
     def verify(self, B, Bdot):
         """
@@ -64,7 +70,7 @@ class Verifier:
                 found_lyap: True if V is valid
                 C: a list of ctx
         """
-        found_barrier = False
+        found = False
         s_init = self.new_solver()
         s_unsafe = self.new_solver()
         s_lie = self.new_solver()
@@ -102,7 +108,7 @@ class Verifier:
         results = {'lie': res_lie, 'init': res_init, 'unsafe': res_unsafe}
         if all(self.is_unsat(res) for res in results.values()):
             print('No counterexamples found!')
-            found_barrier = True
+            found = True
         else:
             for index, o in enumerate(results.items()):
                 solver, res = o
@@ -112,7 +118,7 @@ class Verifier:
                 else:
                     print(res)
 
-        return found_barrier, C
+        return found, C
 
     def normalize_number(self, n):
         return n

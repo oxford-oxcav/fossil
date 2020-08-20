@@ -3,11 +3,12 @@ import torch.nn as nn
 import numpy as np
 from shared.activations import ActivationType, activation, activation_der
 from barrier.utils import Timer, timer
+from shared.learner import Learner
 
 T = Timer()
 
 
-class NN(nn.Module):
+class NN(nn.Module, Learner):
     def __init__(self, n_inp, *args, activate=ActivationType.SQUARE, bias=False, **kw):
         super(NN, self).__init__()
 
@@ -86,16 +87,19 @@ class NN(nn.Module):
 
         return B, Bdot, circle
 
+    def get(self, **kw):
+        return self.learn(kw['optimizer'], kw['S'], kw['Sdot'])
+
     @timer(T)
-    def learn(self, optimizer, S, S_dot):
+    def learn(self, optimizer, S, Sdot):
         """
         :param optimizer: torch optimiser
         :param S: tensor of data
-        :param S_dot: tensor contain f(data)
+        :param Sdot: tensor contain f(data)
         :param margin: performance threshold
         :return: --
         """
-        assert (len(S) == len(S_dot))
+        assert (len(S) == len(Sdot))
 
         learn_loops = 1000
         margin = 0.1
@@ -106,9 +110,9 @@ class NN(nn.Module):
 
             # permutation_index = torch.randperm(S[0].size()[0])
             # permuted_S, permuted_Sdot = S[0][permutation_index], S_dot[0][permutation_index]
-            B_d, Bdot_d, __ = self.numerical_net(S[0], S_dot[0])
-            B_i, _, __ = self.numerical_net(S[1], S_dot[1])
-            B_u, _, __ = self.numerical_net(S[2], S_dot[2])
+            B_d, Bdot_d, __ = self.numerical_net(S[0], Sdot[0])
+            B_i, _, __ = self.numerical_net(S[1], Sdot[1])
+            B_u, _, __ = self.numerical_net(S[2], Sdot[2])
 
             learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
             percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[1]) + len(S[2]))

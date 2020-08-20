@@ -1,14 +1,10 @@
 import traceback
 import timeit
-import numpy as np
-import sympy as sp
 from lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from barrier.cegis_barrier import Cegis as Cegis_for_bc
-from lyap.utils import compute_bounds, compute_equilibria, check_real_solutions, dict_to_array
 from shared.activations import ActivationType
 from shared.consts import VerifierType, LearnerType
 from functools import partial
-from lyap.sympy_solver import *
 
 
 def lyap_synthesis(benchmark, n_vars):
