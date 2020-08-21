@@ -4,11 +4,10 @@ import sympy as sp
 from z3 import *
 import logging
 from shared.consts import LearnerType, VerifierType
-from lyap.z3verifier import Z3Verifier
-from lyap.drealverifier import DRealVerifier
-from lyap.verifier import *
+from lyap.verifier.z3verifier import Z3Verifier
+from lyap.verifier.drealverifier import DRealVerifier
 from lyap.utils import get_symbolic_formula, print_section, compute_trajectory
-from lyap.net import NN
+from lyap.learner.net import NN
 from functools import partial
 from shared.sympy_converter import sympy_converter
 try:

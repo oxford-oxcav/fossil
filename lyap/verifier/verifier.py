@@ -3,12 +3,14 @@ from lyap.utils import Timer, timer
 import numpy as np
 import timeit
 from lyap.utils import z3_replacements
+from shared.component import Component
 
 T = Timer()
 
 
-class Verifier:
+class Verifier(Component):
     def __init__(self, n_vars, equilibrium, inner_radius, outer_radius, solver_vars):
+        super().__init__()
         self.iter = -1
         self.n = n_vars
         self.eq = equilibrium
@@ -57,6 +59,9 @@ class Verifier:
         """Example: return float(model[var[0, 0]].as_fraction())"""
         raise NotImplementedError('')
 
+    def get(self, **kw):
+        return self.verify(kw['V'], kw['Vdot'])
+
     @timer(T)
     def verify(self, V, Vdot):
         """
@@ -66,7 +71,7 @@ class Verifier:
                 found_lyap: True if V is valid
                 C: a list of ctx
         """
-        found_lyap = False
+        found = False
         s = self.new_solver()
         fmls = self.domain_constraints(V, Vdot)
 
@@ -78,7 +83,7 @@ class Verifier:
         C = []
         if self.is_unsat(res):
             print('No counterexamples found!')
-            found_lyap = True
+            found = True
         else:
             original_point = self.compute_model(s, res)
             value_in_ctx, value_in_vdot = z3_replacements(V, self.xs, original_point.numpy().T), \
@@ -87,7 +92,7 @@ class Verifier:
             print('Vdot(ctx) = ', value_in_vdot)
             C = self.randomise_counterex(original_point)
 
-        return found_lyap, C
+        return found, C
 
     def domain_constraints(self, V, Vdot):
         """

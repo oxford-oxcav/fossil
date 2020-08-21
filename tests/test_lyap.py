@@ -2,12 +2,12 @@ import torch
 import timeit
 import sympy as sp
 from lyap.cegis import Cegis
-from lyap.utils import compute_bounds, compute_equilibria, check_real_solutions, dict_to_array
+from lyap.utils import compute_equilibria, check_real_solutions, dict_to_array
 from tests.benchmarks.benchmarks_lyap import *
 from shared.activations import ActivationType
 from shared.consts import VerifierType, LearnerType
 from functools import partial
-from lyap.sympy_solver import *
+from lyap.learner.sympy_solver import *
 
 
 def main():
