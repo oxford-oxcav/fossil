@@ -32,7 +32,7 @@ def network_until_last_layer(net, x, rounding):
     :return:
     """
     z = x
-    jacobian = np.eye(net.n_inp, net.n_inp)
+    jacobian = np.eye(net.input_size, net.input_size)
 
     for idx, layer in enumerate(net.layers[:-1]):
         w = np.round(layer.weight.data.numpy(), rounding)
@@ -41,10 +41,10 @@ def network_until_last_layer(net, x, rounding):
         else:
             b = 0
         zhat = np.dot(w, z) + b
-        z = activation_z3(net.activation[idx], zhat)
+        z = activation_z3(net.acts[idx], zhat)
         # Vdot
         jacobian = np.dot(w, jacobian)
-        jacobian = np.dot(np.diagflat(activation_der_z3(net.activation[idx], zhat)), jacobian)
+        jacobian = np.dot(np.diagflat(activation_der_z3(net.acts[idx], zhat)), jacobian)
 
     return z, jacobian
 
@@ -139,13 +139,13 @@ def forward_Vdot(net, x, f):
     y = x[None, :]
     xdot = torch.stack(f(x))
 
-    jacobian = torch.diag_embed(torch.ones(x.shape[0], net.n_inp))
+    jacobian = torch.diag_embed(torch.ones(x.shape[0], net.input_size))
 
     for idx, layer in enumerate(net.layers[:-1]):
         z = layer(y)
-        y = activation(net.activation[idx], z)
+        y = activation(net.acts[idx], z)
         jacobian = torch.matmul(layer.weight, jacobian)
-        jacobian = torch.matmul(torch.diag_embed(activation_der(net.activation[idx], z)), jacobian)
+        jacobian = torch.matmul(torch.diag_embed(activation_der(net.acts[idx], z)), jacobian)
 
     jacobian = torch.matmul(net.layers[-1].weight, jacobian)
 
