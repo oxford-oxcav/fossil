@@ -1,0 +1,199 @@
+\documentclass[]{article}
+\usepackage{amsmath, amssymb}
+
+\begin{document}
+
+\section{Lyapunov Neural Networks with Factorisation}
+\label{sec:factorisation}
+
+Consider a $n$ dimensional dynamical system 
+\begin{equation}
+\dot{x} = f(x),
+\end{equation}
+where $x \in \mathbb{R}^n$ and
+with $m$ equilibria in $x_{eq, 1}$, $\dots$, $x_{eq, m}$. Let us define the set of equilibria $E$.
+To guarantee the stability of a system within a domain $\mathcal{D}$,  we may find a Lyapunov function $V : \mathbb{R}^n \rightarrow \mathbb{R}$ that fulfils the Lyapunov conditions 
+\begin{eqnarray}
+& 1. V(x_{eq, i}) = 0,  \forall i, 
+\\
+& 2. V(x) > 0, \forall x \in \mathcal{D}, x \notin E, 
+\\ 
+& 3. \dot{V}(x) < 0, \forall x \in \mathcal{D}, x \notin E. 
+\end{eqnarray}
+
+Condition 1. is particularly complex to guarantee when $V$ is the output of a neural network. 
+%
+When $V$ is a $k$-layer neural network, we can write its expression analytically
+\begin{equation}
+V(x) = W_k \cdot \sigma_{k-1}( W_{k-1} \dots \sigma_1( W_1 x + b_1) + b_{k-1}), 
+\end{equation}
+where we assume the last layer is activation- and bias-free.
+
+One way to achieve $V(x_{eq, i}) = 0$ is 
+via the so-called {\it projected gradient descent}, a modification of the classical gradient descent / backpropagation, 
+which updates the weight matrix $W_k$ so that 
+\begin{equation}
+W_k \cdot z_{k-1}^{eq, i} = 0, 
+\end{equation}
+where $z_{k-1} = \sigma_{k-1}(\dots)$ and $z_{k-1}^{eq, i}$ is $z_{k-1}$ when we input $x_{eq, i}$.
+%
+This method is computationally heavy: it needs an exact computation of projection matrices, achievable only using rationals. 
+
+A more efficient option entails the addition of quadratic factors, such that the Lyapunov function results in 
+\begin{equation}
+V(x) = \prod_i (x - x_{eq, i})^2 \cdot N(x) = E(x) \cdot N(x), 
+\end{equation}
+where $N(x)$ is the output of a neural network and we denote $E(x)$, for brevity, the product of all quadratic factors.
+By definition, we now guarantee $V(x_{eq, i}) \equiv 0$ for all $x_{eq, i}$.
+
+The Lie derivative holds
+\begin{equation}
+\dot{V} = \frac{\partial V}{\partial x} ^T f(x), 
+\end{equation}
+where the gradient results in
+\begin{equation}
+\label{eq:gradient-V}
+\frac{\partial V}{\partial x} = 
+\frac{\partial E}{\partial x}   \cdot N(x) 
++
+E(x) \cdot \frac{\partial N}{\partial x}.
+\end{equation}
+Notice that both $E(x)$ and $N(x)$ are scalar, hence the size of $\frac{\partial V}{\partial x}$ is given by $\frac{\partial E}{\partial x}$ and $\frac{\partial N}{\partial x}$.
+
+Let us consider the first term, $E(x)$. 
+In general we may write $E(x)$
+\begin{multline}
+\label{eq:definition-E}
+E(x) 
+= 
+\prod_i [x - x_{eq, i}]^2 
+= 
+\\
+=
+\prod_i [ (x(1) - x_{eq, i}(1))^2 + \dots + (x(n) - x_{eq, i}(n))^2 ]
+\end{multline}
+where we indicate $x(i)$ the $i$-th component of the vector $x$. 
+%
+By definition, its gradient results in
+%
+\begin{equation}
+\label{eq:dE/dx - clean}
+\frac{\partial E}{\partial x} 
+= 
+\left[
+\frac{\partial E}{\partial x(1)}, \dots, \frac{\partial E}{\partial x(n)}
+\right]^T.
+\end{equation}
+
+
+%$E(x)$ is a product of similar factors, where the derivative of the $i$-th factor is trivially $2 (x-x_{eq, i})$. 
+
+Let us now focus on a single component of the gradient.
+By the chain rule, the derivative of $E$ holds 
+\begin{multline}
+\label{eq:dE/dx}
+\frac{\partial E}{\partial x(i)} = 
+2 [x(i) - x_{eq, 1}(i)] \cdot E_{-1}(x) + \dots
+\\ 
+\dots + 
+2 [x(i) - x_{eq, m}(i)] \cdot E_{-m}(x),
+\end{multline}
+where we define $E_{-i}$ as the total product $E$ lacking the $i$-th factor, i.e. 
+\begin{equation}
+E_{-i}(x) = 
+\frac{E(x)}{(x-x_{eq, i})^2}.
+\end{equation}
+
+
+We thus may substitute this expression of $E_{-i}$ into 
+ Equation \eqref{eq:dE/dx} and obtain 
+\begin{multline}
+\label{eq:dE/dx - code}
+\frac{\partial E}{\partial x(i)} = 
+2 \cdot 
+\left[
+ \frac{(x(i) - x_{eq, 1}(i))}{(x - x_{eq, 1})^2} + \dots + 
+ \frac{(x(i) - x_{eq, m}(i))}{(x - x_{eq, m})^2}
+\right]
+\cdot E(x) 
+\end{multline}
+Note that we cannot simplify the numerator and denominator, since the term $(x - x_{eq, i})$ contains all elements $x(1) - x_{eq, i}(1)$, $\dots$, $x(n) - x_{eq, i}(n)$ .
+
+
+
+The other gradient term $\dfrac{\partial N}{\partial x}$ can be computed as usual, i.e. as in the previous works. 
+
+\bigskip
+
+From the coding point of view, we must compute $\dot{V}$ in  two formats: on the learner side using \verb#Tensors# of \verb#PyTorch#, and on the verifier side using symbolic expressions. 
+Further, we must account for the batch computation of the learner: the \verb#tensors# contain all sample points and the computation of $\dot{V}$ should be done in a single pass. 
+As an example, for a system of 2 variables we may generate a 500-sample \verb#tensor#, which has dimensions $(500, 2)$;
+we should be able to compute $\dot{V}$ for all 500 points at once. 
+
+Let us assume a \verb#tensor# \verb#S# of dimension $(b, n)$ , where $b$ is the number of samples and $n$ is the number of system variables -- e.g. $b=500$ and $n=2$.
+%
+Equation \eqref{eq:gradient-V} is composed of four terms. We may obtain $N(\texttt{S})$ and $\frac{\partial N(\texttt{S})}{\partial x}$ using the standard functions of a neural network. 
+Notice that $N(\texttt{S})$ has dimensions $(b, 1)$ while $\frac{\partial N(\texttt{S})}{\partial x}$ has dimensions $(b, n)$. 
+
+We may now calculate $E(x)$ by computing its factors. 
+By definition (Equation \eqref{eq:definition-E}) $E(x)$ is made up of singular components 
+\begin{equation}
+\label{eq:singular-components-of-E}
+[x(i) - x_{eq, j}(i)]
+\qquad
+\text{ for }
+i \in [1, n], 
+j \in [1, m]
+\end{equation}
+that must be squared later on. 
+These components can be arranged in a matrix of dimension $(n, m)$.
+
+Recall that we must compute these factors for all the $b$ samples contained in \verb#S#.
+We first initialise a 3D tensor of size $(b, n, m)$
+\begin{verbatim}
+factors = torch.zeros(S.shape[0], self.input_size, self.eq.shape[0])
+\end{verbatim}
+so that 
+\verb#factors[k, :, :]# will contain the singular components of Equation \eqref{eq:singular-components-of-E} for sample $k$. 
+
+To actually compute $E$ and its factors we loop over $m$, i.e. the number of equilibrium points, since usually $m < n< b$. 
+ At each loop, we store $(b \times n)$ singular components: 
+\begin{verbatim}
+for idx in range(self.eq.shape[0]):
+    # S - self.eq == [ x-x_eq, y-y_eq ]
+    # torch.power(S - self.eq, 2) == [ (x-x_eq)**2, (y-y_eq)**2 ]
+    # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
+    factors[:, :, idx] = S-torch.tensor(self.eq[idx, :])
+    E *= torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
+\end{verbatim}
+Notice that \verb#E# is a \verb#tensor# of size $(b, 1)$.
+
+\bigskip
+
+We may now compute $\frac{\partial E(\texttt{S})}{\partial x}$. The symbolic gradient has dimensions $(1, n)$, whereas the numerical version $\frac{\partial E(\texttt{S})}{\partial x}$ has size $(b, n)$:
+\begin{verbatim}
+# derivative = 2*(x-eq)*E/E_i
+grad_e = torch.zeros(S.shape[0], self.input_size)
+\end{verbatim}
+
+We use Equation \eqref{eq:dE/dx - code} to compute the gradient of $E$, using the components contained in \verb#factors#.  
+Recall that \verb#factors[k, i, j]# is the singular component $(x(i) - x_{eq, j}(i))$ for sample $k$, $i$-th element, $j$-th equilibrium point; similarly \verb#factors[:, i, j]# contains $(x(i) - x_{eq, j}(i))$ for all samples.
+
+
+\begin{verbatim}
+for var in range(self.input_size):
+    for idx in range(self.eq.shape[0]):
+        grad_e[:, var] += E * factors[:,var,idx] / 
+                 torch.sum(
+                     torch.pow(
+                         S-torch.tensor(self.eq[idx, :]), 2
+                         ), dim=1
+                     )
+derivative_e = 2*grad_e
+\end{verbatim}
+
+
+Issues: 
+Python handles vectors differently from matrices. \verb#tensors# that should have size $(b, 1)$ actually have size $(b)$ -- there is no second dimension -- and this needs an smart solution. 
+
+\end{document}
