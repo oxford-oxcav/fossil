@@ -34,7 +34,7 @@ def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
 
     if isinstance(E, sp.Add):
         V = sp.expand(z[0, 0] * E)
-        Vdot = sp.expand(Vdot[0])
+        Vdot = sp.expand(Vdot[0, 0])
     else:
         V = z[0, 0] * E
         Vdot = Vdot[0, 0]

@@ -185,6 +185,28 @@ def compute_Vdot_grad(net, point, f):
     return grad_v_dot, num_v_dot
 
 
+def forward_Vdot(net, x, f):
+    """
+    :param x: tensor of data points
+    :param xdot: tensor of data points
+    :return:
+            Vdot: tensor, evaluation of x in derivative net
+    """
+    y = x[None, :]
+    xdot = torch.stack(f(y.T))
+    jacobian = torch.diag_embed(torch.ones(x.shape[0], net.input_size))
+
+    for idx, layer in enumerate(net.layers[:-1]):
+        z = layer(y)
+        y = activation(net.acts[idx], z)
+        jacobian = torch.matmul(layer.weight, jacobian)
+        jacobian = torch.matmul(torch.diag_embed(activation_der(net.acts[idx], z)), jacobian)
+
+    jacobian = torch.matmul(net.layers[-1].weight, jacobian)
+
+    return torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)[0]
+
+
 def timer(t):
     assert isinstance(t, Timer)
 
