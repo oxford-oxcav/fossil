@@ -19,7 +19,7 @@ def main():
     try:
         start = timeit.default_timer()
         c = Cegis(2, LearnerType.NN, VerifierType.Z3, activations, system, hidden_neurons,
-                  sp_simplify=False, cegis_time=30 * MIN_TO_SEC, sp_handle=False, symmetric_belt=True)
+                  sp_simplify=False, cegis_time=30 * MIN_TO_SEC, sp_handle=False, symmetric_belt=False)
         _, found, _ = c.solve()
         end = timeit.default_timer()
 

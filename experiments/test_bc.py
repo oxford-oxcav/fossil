@@ -10,7 +10,7 @@ from experiments.benchmarks.elementary import main as elementary_test
 from experiments.benchmarks.pj_mod import main as pjmod_test
 
 
-def nips_benchamrks():
+def nips_benchmarks():
     darboux_test()
     hybrid_test()
     oa_test()
@@ -20,4 +20,4 @@ def nips_benchamrks():
 
 if __name__ == '__main__':
     torch.manual_seed(167)
-    nips_benchamrks()
+    nips_benchmarks()
