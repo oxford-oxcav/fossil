@@ -4,10 +4,10 @@ from functools import partial
 import torch
 import timeit
 
-from experiments.benchmarks import obstacle_avoidance
-from barrier.cegis import Cegis
-from barrier.activations import ActivationType
-from barrier.consts import VerifierType, LearnerType
+from experiments.benchmarks.benchmarks_bc import obstacle_avoidance
+from src.barrier.cegis_barrier import Cegis
+from src.shared.activations import ActivationType
+from src.shared.consts import VerifierType, LearnerType
 
 
 def main():
