@@ -1,5 +1,6 @@
 import sympy as sp
 import re
+import z3 as z3
 from experiments.benchmarks.domain_fcns import *
 
 
@@ -23,10 +24,10 @@ def nonpoly0(batch_size, functions, inner=0.0, outer=10.0):
 
     def XD(_, v):
         x, y = v
-        return _And(x ** 2 + y ** 2 > inner**2, x ** 2 + y ** 2 <= outer**2)
+        return _And(x > 0, y > 0, x ** 2 + y ** 2 <= outer**2)
 
     def SD():
-        return circle_init_data((0, 0), outer**2, batch_size)
+        return slice_init_data((0, 0), outer**2, batch_size)
 
     return f, XD, SD()
 
@@ -43,17 +44,60 @@ def nonpoly1(batch_size, functions, inner=0.0, outer=10.0):
 
     def XD(_, v):
         x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer**2)
+        return _And(x > 0, y > 0, x ** 2 + y ** 2 <= outer**2)
 
     def SD():
-        return circle_init_data((0, 0), outer**2, batch_size)
+        return slice_init_data((0, 0), outer**2, batch_size)
+
+    return f, XD, SD()
+
+
+def nonpoly2(batch_size, functions, inner=0.0, outer=10.0):
+    _And = functions['And']
+
+    def f(_, v):
+        x, y, z = v
+        return  [
+                -x,
+                -2*y + 0.1*x*y**2 + z,
+                -z -1.5*y
+                ]
+
+    def XD(_, v):
+        x, y, z = v
+        return _And(x > 0, y > 0, z > 0, x ** 2 + y ** 2 + z**2 <= outer**2)
+
+    def SD():
+        return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
+
+    return f, XD, SD()
+
+
+def nonpoly3(batch_size, functions, inner=0.0, outer=10.0):
+    _And = functions['And']
+
+    def f(_, v):
+        x, y, z = v
+        return  [
+                -3*x - 0.1*x*y**3,
+                -y + z,
+                -z
+                ]
+
+    def XD(_, v):
+        x, y, z = v
+        return _And(x > 0, y > 0, z > 0, x ** 2 + y ** 2 + z**2 <= outer**2)
+
+    def SD():
+        return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
 
     return f, XD, SD()
 
 
 ######################
-### TACAS benchmarks
+# TACAS benchmarks
 ######################
+
 
 def benchmark_0(batch_size, functions, inner=0.0, outer=10.0):
     _And = functions['And']
@@ -105,12 +149,12 @@ def benchmark_3(batch_size, functions, inner=0.0, outer=10.0):
     _And = functions['And']
 
     def f(_, v):
-        # x,y = v
-        if v.shape[0] == 1:
-            return [- v[0, 0] ** 3 + v[0, 1], - v[0, 0] - v[0, 1]]
-        else:
-            return [- v[:, 0] ** 3 + v[:, 1], - v[:, 0] - v[:, 1]]
-        # return [- x**3 + y, - x - y]
+        # if v.shape[0] == 1:
+        #     return [- v[0, 0] ** 3 + v[0, 1], - v[0, 0] - v[0, 1]]
+        # else:
+        #     return [- v[:, 0] ** 3 + v[:, 1], - v[:, 0] - v[:, 1]]
+        x,y = v
+        return [- x**3 + y, - x - y]
 
     def XD(_, v):
         x, y = v
@@ -206,6 +250,7 @@ def benchmark_8(x):
         x[1],
         -(m+2)*x[0] - x[1]
     ]
+
 
 def benchmark_9(x):
     # todo: parametric model

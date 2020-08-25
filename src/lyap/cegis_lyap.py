@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import sympy as sp
+import timeit
 from z3 import *
 import logging
 from src.shared.consts import LearnerType, VerifierType
@@ -26,7 +27,7 @@ class Cegis():
         self.sp_simplify = kw.get('sp_simplify', True)
         self.sp_handle = kw.get('sp_handle', True)
         self.fcts = kw.get('factors', None)
-        self.eq = kw.get('eq', None)
+        self.eq = kw.get('eq', np.zeros((1, n_vars))) # default equilibrium in zero
 
         self.n = n_vars
         self.learner_type = learner_type
@@ -53,7 +54,7 @@ class Cegis():
         self.verifier = verifier(self.n, self.eq, self.inner, self.outer, self.x)
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
         self.domain = self.f_whole_domain(verifier.solver_fncts(), self.x)
-        self.S_d = self.S_d(self.x)
+        self.S_d = self.S_d
 
         self.xdot = self.f(self.verifier.solver_fncts(), np.array(self.x).reshape(len(self.x), 1))
         self.x = np.matrix(self.x).T

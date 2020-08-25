@@ -4,7 +4,7 @@ from functools import partial
 import torch
 import timeit
 
-from experiments.benchmarks import darboux
+from experiments.benchmarks.benchmarks_bc import darboux
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType

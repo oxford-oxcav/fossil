@@ -93,7 +93,7 @@ class NN(nn.Module, Learner):
         # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
         # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
         gradV = nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn) \
-                + grad_nn * E.expand_as(grad_nn)
+                + grad_nn * E.expand_as(grad_nn.T).T
         # Vdot = gradV * f(x)
         Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
 
@@ -153,7 +153,7 @@ class NN(nn.Module, Learner):
         """
 
         batch_size = len(S)
-        learn_loops = 100
+        learn_loops = 1000
         margin = 0*0.01
 
         for t in range(learn_loops):

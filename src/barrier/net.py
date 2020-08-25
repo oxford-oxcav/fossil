@@ -9,15 +9,15 @@ T = Timer()
 
 
 class NN(nn.Module, Learner):
-    def __init__(self, n_inp, *args, activate=ActivationType.SQUARE, bias=False, **kw):
+    def __init__(self, input_size, *args, activate=ActivationType.SQUARE, bias=False, **kw):
         super(NN, self).__init__()
 
         self.print_all = kw.get('print_all', False)
         self.symmetric_belt = kw.get('symmetric_belt', False)
-        self.n_inp = n_inp
-        n_prev = n_inp
-        self.equilibrium = torch.zeros((1, self.n_inp))
-        self.activation = activate
+        self.input_size = input_size
+        n_prev = input_size
+        self.equilibrium = torch.zeros((1, self.input_size))
+        self.acts = activate
         self._is_there_bias = bias
         self.layers = []
         k = 1
@@ -57,14 +57,14 @@ class NN(nn.Module, Learner):
                 Vdot: tensor, evaluation of x in derivative net
         """
         y = x
-        jacobian = torch.diag_embed(torch.ones(x.shape[0], self.n_inp))
+        jacobian = torch.diag_embed(torch.ones(x.shape[0], self.input_size))
 
         for idx, layer in enumerate(self.layers[:-1]):
             z = layer(y)
-            y = activation(self.activation[idx], z)
+            y = activation(self.acts[idx], z)
 
             jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(torch.diag_embed(activation_der(self.activation[idx], z)), jacobian)
+            jacobian = torch.matmul(torch.diag_embed(activation_der(self.acts[idx], z)), jacobian)
 
         numerical_b = torch.matmul(y, self.layers[-1].weight.T)
         jacobian = torch.matmul(self.layers[-1].weight, jacobian)

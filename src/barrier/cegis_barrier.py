@@ -8,6 +8,7 @@ from src.shared.consts import VerifierType, LearnerType
 from src.barrier.utils import get_symbolic_formula, print_section, compute_trajectory
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
+from src.barrier.drealverifier import DRealVerifier
 
 
 class Cegis:

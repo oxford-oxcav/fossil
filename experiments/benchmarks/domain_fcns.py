@@ -35,6 +35,24 @@ def round_init_data(centre, r, batch_size):
         raise ValueError('Hyper-sphere Not (Yet) Implemented')
 
 
+# generates data for x>0, y>0
+def slice_init_data(centre, r, batch_size):
+    """
+    :param centre: list/tuple/tensor containing the 'n' coordinates of the centre
+    :param radius: int
+    :param batch_size: int
+    :return:
+    """
+    r = np.sqrt(r)
+    angle = (np.pi/2) * torch.rand(batch_size, 1)
+    radius = r * torch.rand(batch_size, 1)
+    x_coord = radius * np.cos(angle)
+    y_coord = radius * np.sin(angle)
+    offset = torch.cat([x_coord, y_coord], dim=1)
+
+    return torch.tensor(centre) + offset.requires_grad_(True)
+
+
 # generates data for (X - centre)**2 <= radius
 def circle_init_data(centre, r, batch_size):
     """
@@ -75,6 +93,29 @@ def sphere_init_data(centre, r, batch_size):
     # z = r cos(theta)
     theta = (2*np.pi) * torch.rand(batch_size, 1)
     phi = np.pi * torch.rand(batch_size, 1)
+    radius = r * torch.rand(batch_size, 1)
+    x_coord = radius * np.sin(theta) * np.cos(phi)
+    y_coord = radius * np.sin(theta) * np.sin(phi)
+    z_coord = radius * np.cos(theta)
+    offset = torch.cat([x_coord, y_coord, z_coord], dim=1)
+
+    return torch.tensor(centre) + offset
+
+
+# generates data for (X - centre)**2 <= radius
+def slice_3d_init_data(centre, r, batch_size):
+    """
+    :param centre: list/tupe/tensor containing the 3 coordinates of the centre
+    :param radius: int
+    :param batch_size: int
+    :return:
+    """
+    # spherical coordinates
+    # x = r sin(theta) cos(phi)
+    # y = r sin(theta) sin(phi)
+    # z = r cos(theta)
+    theta = (np.pi/2) * torch.rand(batch_size, 1)
+    phi = np.pi/2 * torch.rand(batch_size, 1)
     radius = r * torch.rand(batch_size, 1)
     x_coord = radius * np.sin(theta) * np.cos(phi)
     y_coord = radius * np.sin(theta) * np.sin(phi)
