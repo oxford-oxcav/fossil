@@ -1,7 +1,7 @@
 import sympy as sp
 from experiments.benchmarks.create_bcmk import create_benchmark_for_lyap
 from functools import partial
-from experiments.init_synth import lyap_synthesis
+from tst.reg.init_synth import lyap_synthesis
 
 
 def synthesis_rm_lyap(input_rm):

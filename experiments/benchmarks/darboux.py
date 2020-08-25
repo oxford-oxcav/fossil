@@ -11,7 +11,7 @@ from src.shared.consts import VerifierType, LearnerType
 
 
 def main():
-    MIN_TO_SEC = 60
+    min_to_sec = 60
     batch_size = 500
     system = partial(darboux, batch_size)
     activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
@@ -19,7 +19,7 @@ def main():
     try:
         start = timeit.default_timer()
         c = Cegis(2, LearnerType.NN, VerifierType.DREAL, activations, system, hidden_neurons,
-                  sp_simplify=True, cegis_time=30 * MIN_TO_SEC)
+                  sp_simplify=True, cegis_time=30 * min_to_sec)
         _, found, _ = c.solve()
         end = timeit.default_timer()
 

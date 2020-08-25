@@ -2,7 +2,7 @@ import sympy as sp
 import torch
 from experiments.benchmarks.create_bcmk import create_benchmark_for_lyap, create_benchmark_for_barrier
 from functools import partial
-from experiments.init_synth import lyap_synthesis, barrier_synthesis
+from tst.reg.init_synth import lyap_synthesis, barrier_synthesis
 
 
 def main():

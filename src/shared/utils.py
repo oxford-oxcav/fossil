@@ -8,6 +8,12 @@ from src.shared.activations import activation, activation_der
 from src.shared.activations_symbolic import activation_z3, activation_der_z3
 
 
+def z3_to_string(f):
+    if len(f.children()) == 0:
+        return str(f)
+    return str(f.decl()).join(z3_to_string(c) for c in f.children())
+
+
 def extract_val_from_z3(model, vars, useSympy):
     """
     :param model: a z3 model
@@ -256,6 +262,10 @@ class Timer:
             return 0
         assert self._sum > 0
         return self._sum / self.n_updates
+
+    @property
+    def sum(self):
+        return self._sum
 
     def __repr__(self):
         return "total={}s,min={}s,max={}s,avg={}s".format(
