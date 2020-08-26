@@ -61,6 +61,16 @@ class Verifier(Component):
     def get(self, **kw):
         return self.verify(kw['V'], kw['Vdot'])
 
+    @property
+    def timeout(self):
+        return self._solver_timeout
+
+    @timeout.setter
+    def timeout(self, _t):
+        t = int(_t)
+        assert t >= 0
+        self._solver_timeout = t
+
     @timer(T)
     def verify(self, V, Vdot):
         """
@@ -105,7 +115,6 @@ class Verifier(Component):
         lyap_negated = _Or(V <= 0, Vdot > 0)
 
         domain_constr = []
-        domain_fml = True
         for idx in range(self.eq.shape[0]):
             circle = self.circle_constr(self.eq[idx, :])
             domain_constr += [_And(circle > self.inner ** 2, circle < self.outer ** 2)]
@@ -173,8 +182,7 @@ class Verifier(Component):
         return torch.stack(C, dim=1)[0, :, :]
 
     def in_bounds(self, var, n):
-        left, right = self._vars_bounds[var]
-        return left < n < right
+        return True
 
     @staticmethod
     def get_timer():

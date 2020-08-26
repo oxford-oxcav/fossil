@@ -11,30 +11,29 @@ except:
 from src.barrier.z3verifier import Z3Verifier
 
 
-def _sympy_converter(var_map, exp, target, expand_pow=False):
+def sympy_converter(syms: {}, exp: sp.Expr, to_number=lambda x: float(x), expand_pow=True):
     rv = None
-    assert isinstance(exp, sp.Expr) and target is not None
-
+    assert isinstance(exp, sp.Expr)
     if isinstance(exp, sp.Symbol):
-        rv = var_map.get(exp.name, None)
+        rv = syms.get(exp.name, None)
     elif isinstance(exp, sp.Number):
         try:
-            rv = RealVal(exp) if isinstance(target, Z3Verifier) else sp.RealNumber(exp)
-        except:  # Z3 parser error
+            rv = to_number(exp)
+        except:  # Z3 parser error?
             rep = sp.Float(exp, len(str(exp)))
             rv = RealVal(rep)
     elif isinstance(exp, sp.Add):
         # Add(exp_0, ...)
-        rv = _sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow)  # eval this expression
+        rv = sympy_converter(syms, exp.args[0], to_number, expand_pow=expand_pow)  # eval this expression
         for e in exp.args[1:]:  # add it to all other remaining expressions
-            rv += _sympy_converter(var_map, e, target, expand_pow=expand_pow)
+            rv += sympy_converter(syms, e, to_number, expand_pow=expand_pow)
     elif isinstance(exp, sp.Mul):
-        rv = _sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow)
+        rv = sympy_converter(syms, exp.args[0], to_number, expand_pow=expand_pow)
         for e in exp.args[1:]:
-            rv *= _sympy_converter(var_map, e, target, expand_pow=expand_pow)
+            rv *= sympy_converter(syms, e, to_number, expand_pow=expand_pow)
     elif isinstance(exp, sp.Pow):
-        x = _sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow)
-        e = _sympy_converter(var_map, exp.args[1], target, expand_pow=expand_pow)
+        x = sympy_converter(syms, exp.args[0], to_number, expand_pow=expand_pow)
+        e = sympy_converter(syms, exp.args[1], to_number, expand_pow=expand_pow)
         if expand_pow:
             try:
                 i = float(e.sexpr())
@@ -44,25 +43,19 @@ def _sympy_converter(var_map, exp, target, expand_pow=False):
                 for _ in range(i):
                     rv *= x
             except:  # fallback
-                rv = _sympy_converter(var_map, exp, target, expand_pow=False)
+                rv = sympy_converter(syms, exp, to_number, expand_pow=False)
+        elif 'pow' in syms:
+            rv = syms['pow'](x, e)
         else:
             rv = x ** e
     elif isinstance(exp, sp.Function):
-        # check various activation types ONLY FOR DREAL
-        if isinstance(exp, sp.tanh):
-            rv = dr.tanh(_sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow))
-        elif isinstance(exp, sp.sin):
-            rv = dr.sin(_sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow))
-        elif isinstance(exp, sp.cos):
-            rv = dr.cos(_sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow))
-        elif isinstance(exp, sp.exp):
-            rv = dr.exp(_sympy_converter(var_map, exp.args[0], target, expand_pow=expand_pow))
-        else:
-            ValueError('Term ' + str(exp) + ' not recognised')
-
-    assert rv is not None
+        for f in [sp.tanh, sp.sin, sp.cos]:
+            if isinstance(exp, f):
+                a = sympy_converter(syms, exp.args[0], to_number, expand_pow=expand_pow)
+                rv = syms.get(f.__name__)(a)
+                break
+    else:
+        ValueError('Term ' + str(exp) + ' not recognised')
+    if rv is None:
+        raise ValueError("Could not convert exp:{} (type:{}) with syms:{}".format(exp, type(exp), syms))
     return rv
-
-
-def sympy_converter(exp, target=Z3Verifier, var_map={}):
-    return _sympy_converter(var_map, exp, target)
