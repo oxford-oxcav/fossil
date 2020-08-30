@@ -101,7 +101,7 @@ class Verifier(Component):
             print('Vdot(ctx) = ', value_in_vdot)
             C = self.randomise_counterex(original_point)
 
-        return found, C
+        return {'found': found, 'ces': C}
 
     def domain_constraints(self, V, Vdot):
         """

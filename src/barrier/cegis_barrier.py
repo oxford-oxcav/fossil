@@ -60,6 +60,11 @@ class Cegis:
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
+        if self.sp_handle:
+            self.x_sympy = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
+            self.xdot_s = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp, }, self.x_sympy)
+            self.x_sympy, self.xdot_s = np.matrix(self.x_sympy).T, np.matrix(self.xdot_s).T
+
     def solve(self):
         """
         :return:
@@ -76,57 +81,77 @@ class Cegis:
 
         # the CEGIS loop
         iters = 0
-        stop, found = False, False
+        stop = False
         start = timeit.default_timer()
-        if self.sp_handle:
-            x_sympy = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
-            xdot_s = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp, }, x_sympy)
-            x_sympy, xdot_s = np.matrix(x_sympy).T, np.matrix(xdot_s).T
+
+        learner_to_next_component_inputs = {
+            'x_map': self.x_map,
+            'x': self.x,
+            'xdot': self.xdot,
+            'x_sympy': self.x_sympy,
+            'xdot_s': self.xdot_s,
+            'sp_simplify': self.sp_simplify,
+            'sp_handle': self.sp_handle,
+        }
+
+        components = [
+            {
+                'name': 'learner',
+                'instance': self.learner,
+                'to_next_component': lambda _outputs, next_component, **kw:
+                    self.learner.to_next_component(self.learner, next_component, **{
+                        **learner_to_next_component_inputs, **kw
+                    }),
+            },
+            {
+                'name': 'verifier',
+                'instance': self.verifier,
+                'to_next_component': lambda _outputs, **kw: kw,
+            },
+        ]
+
+        state = {
+            'optimizer': self.optimizer,
+            'S': S,
+            'Sdot': Sdot,
+            'B': None,
+            'Bdot': None,
+        }
 
         while not stop:
-            print_section('Learning', iters)
-            self.learner.learn(self.optimizer, S, Sdot)
-            if not self.sp_handle:  # z3 does all the handling
-                B, Bdot = get_symbolic_formula(self.learner, self.x, self.xdot)
-                if isinstance(B, z3.ArithRef):
-                    B, Bdot = z3.simplify(B), z3.simplify(Bdot)
-                B_s, Bdot_s = B, Bdot
-            else:
-                B_s, Bdot_s = get_symbolic_formula(self.learner, x_sympy, xdot_s)
+            for component_idx in range(len(components)):
+                component = components[component_idx]
+                next_component = components[(component_idx + 1) % len(components)]
 
-            if self.sp_simplify:
-                B_s = sp.simplify(B_s)
-                Bdot_s = sp.simplify(Bdot_s)
-            if self.sp_handle:
-                B = sympy_converter(B_s, target=self.verifier, var_map=self.x_map)
-                Bdot = sympy_converter(Bdot_s, target=self.verifier, var_map=self.x_map)
+                print_section(component['name'], iters)
+                outputs = self.learner.get(**state)
 
-            print_section('Candidate', iters)
-            print(f'B: {B_s}')
-            print(f'Bdot: {Bdot_s}')
+                state = {**state, **outputs}
 
-            print_section('Verification', iters)
-            found, ces = self.verifier.verify(B, Bdot)
+                print_section('Outputs', state)
+
+                state = {**state, **(component['to_next_component'](outputs, next_component['instance'], **state))}
+
+                if state['found']:
+                    break
 
             if self.max_cegis_iter == iters or timeit.default_timer() - start > self.max_cegis_time:
                 print('Out of Cegis resources: iters=%d elapsed time=%ss' % (iters, timeit.default_timer() - start))
                 stop = True
 
-            if found:
+            if state['found']:
                 print('Certified!')
-                print(f'B: {B}')
-                print(f'Bdot: {Bdot}')
                 stop = True
             else:
                 iters += 1
-                S, Sdot = self.add_ces_to_data(S, Sdot, ces)
+                S, Sdot = self.add_ces_to_data(S, Sdot, state['ces'])
 
                 # compute climbing towards Bdot
-                S, Sdot = self.trajectoriser(S, Sdot, ces)
+                S, Sdot = self.trajectoriser(S, Sdot, state['ces'])
 
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
-        return self.learner, found, iters
+        return self.learner, state['found'], iters
 
     def add_ces_to_data(self, S, Sdot, ces):
         """

@@ -1,9 +1,14 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import sympy as sp
+import z3
+
+from src.barrier.verifier import Verifier
 from src.shared.activations import ActivationType, activation, activation_der
-from src.barrier.utils import Timer, timer
+from src.barrier.utils import Timer, timer, get_symbolic_formula
 from src.shared.learner import Learner
+from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
 
@@ -166,6 +171,32 @@ class NN(nn.Module, Learner):
             if condition and condition_old:
                 break
             condition_old = condition
+
+        return {}
+
+    def to_next_component(self, out, component, **kw):
+        if isinstance(component, Verifier):
+            sp_handle = kw.get('sp_handle', False)
+            sp_simplify = kw.get('sp_simplify', False)
+            x, xdot = kw['x'], kw['xdot']
+            x_sympy, xdot_s = kw['x_sympy'], kw['xdot_s']
+            if not sp_handle:  # z3 does all the handling
+                B, Bdot = get_symbolic_formula(out, x, xdot)
+                if isinstance(B, z3.ArithRef):
+                    B, Bdot = z3.simplify(B), z3.simplify(Bdot)
+                B_s, Bdot_s = B, Bdot
+            else:
+                B_s, Bdot_s = get_symbolic_formula(out, x_sympy, xdot_s)
+
+            if sp_simplify:
+                B_s = sp.simplify(B_s)
+                Bdot_s = sp.simplify(Bdot_s)
+            if sp_handle:
+                x_map = kw['x_map']
+                B = sympy_converter(x_map, B_s)
+                Bdot = sympy_converter(x_map, Bdot_s)
+            return {'B': B, 'Bdot': Bdot}
+        return out
 
     # todo: mv to utils
     def orderOfMagnitude(self, number):
