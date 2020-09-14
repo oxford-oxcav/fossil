@@ -1,8 +1,4 @@
-import traceback
-from functools import partial
-
 import torch
-import timeit
 from experiments.benchmarks.darboux import main as darboux_test
 from experiments.benchmarks.hybrid import main as hybrid_test
 from experiments.benchmarks.obstacle_avoidance import main as oa_test

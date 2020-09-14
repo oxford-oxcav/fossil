@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import sympy as sp
+import z3
 
+from src.lyap.verifier.verifier import Verifier
+from src.lyap.verifier.z3verifier import Z3Verifier
 from src.shared.learner import Learner
 from src.shared.activations import ActivationType, activation, activation_der
-from src.lyap.utils import Timer, timer
+from src.lyap.utils import Timer, timer, get_symbolic_formula
+from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
 
@@ -131,7 +136,7 @@ class NN(nn.Module, Learner):
                 for var in range(self.input_size):
                     for idx in range(self.eq.shape[0]):
                         grad_e[:, var] += \
-                            E * factors[:,var,idx] / torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
+                            E * factors[:, var, idx] / torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
                 derivative_e = 2*grad_e
             else:
                 E, derivative_e = torch.tensor(1.0), torch.tensor(0.0)
@@ -141,6 +146,35 @@ class NN(nn.Module, Learner):
     def get(self, **kw):
         return self.learn(kw['optimizer'], kw['S'], kw['Sdot'], kw['factors'])
 
+    def to_next_component(self, out, component, **kw):
+        assert isinstance(component, Verifier)
+        if isinstance(component, Verifier):
+            # to disable rounded numbers, set rounding=-1
+            sp_handle = kw.get('sp_handle', False)
+            eq = kw['eq']
+            fcts = kw['factors']
+            x = kw['x']
+            if sp_handle:
+                f_verifier = kw['f_verifier']
+                x_map = kw['x_map']
+                x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
+                V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
+                                                   f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
+                                                   eq, rounding=3, lf=fcts)
+                V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
+                V = sympy_converter(x_map, V_s)
+                Vdot = sympy_converter(x_map, Vdot_s)
+            # verifier handles
+            else:
+                xdot = kw['xdot']
+                V, Vdot = get_symbolic_formula(out, x, xdot,
+                                               eq, rounding=3, lf=fcts)
+            if isinstance(component, Z3Verifier):
+                V, Vdot = z3.simplify(V), z3.simplify(Vdot)
+
+            return {'V': V, 'Vdot': Vdot}
+        return {}
+
     # backprop algo
     @timer(T)
     def learn(self, optimizer, S, Sdot, factors):
@@ -148,7 +182,7 @@ class NN(nn.Module, Learner):
         :param optimizer: torch optimiser
         :param S: tensor of data
         :param Sdot: tensor contain f(data)
-        :param margin: performance threshold
+        :param factors:
         :return: --
         """
 
@@ -166,7 +200,7 @@ class NN(nn.Module, Learner):
             leaky_relu = torch.nn.LeakyReLU(1 / slope)
             loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
 
-            if t%100 == 0 or t==learn_loops-1:
+            if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
 
             loss.backward(retain_graph=True)
@@ -177,6 +211,7 @@ class NN(nn.Module, Learner):
 
             # if self._is_there_bias:
             #     self.weights_projection()
+        return {}
 
     def weights_projection(self):
         # bias_vector = self.layers[0].bias

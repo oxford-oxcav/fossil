@@ -5,7 +5,6 @@ from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType
 from functools import partial
-from src.lyap.learner.sympy_solver import *
 
 
 def test_lnn(benchmark, n_vars):
@@ -41,4 +40,3 @@ if __name__ == '__main__':
     # test_lnn(benchmark=nonpoly1, n_vars=2)
     # test_lnn(benchmark=nonpoly2, n_vars=3)
     test_lnn(benchmark=nonpoly3, n_vars=3)
-

@@ -102,7 +102,7 @@ class Verifier(Component):
                     res_lie, s_lie = self.fail_safe(B, Bdot)
                     solvers = {'lie': s_lie, 'init': s_init, 'unsafe': s_unsafe}
 
-        C = [[], [], []]
+        ces = [[], [], []]
 
         results = {'lie': res_lie, 'init': res_init, 'unsafe': res_unsafe}
         if all(self.is_unsat(res) for res in results.values()):
@@ -113,11 +113,11 @@ class Verifier(Component):
                 solver, res = o
                 if self.is_sat(res):
                     original_point = self.compute_model(solvers[solver], res)
-                    C[index] = self.randomise_counterex(original_point)
+                    ces[index] = self.randomise_counterex(original_point)
                 else:
                     print(res)
 
-        return found, C
+        return {'found': found, 'ces': ces}
 
     def normalize_number(self, n):
         return n

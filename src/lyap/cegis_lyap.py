@@ -4,6 +4,8 @@ import sympy as sp
 import timeit
 from z3 import *
 import logging
+
+from src.lyap.verifier.verifier import Verifier
 from src.shared.consts import LearnerType, VerifierType
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.lyap.verifier.drealverifier import DRealVerifier
@@ -17,7 +19,7 @@ except Exception as e:
     logging.exception('Exception while importing dReal')
 
 
-class Cegis():
+class Cegis:
     # todo: set params for NN and avoid useless definitions
     # (n_vars, system, learner_type, activations, n_hidden_neurons, verifier_type, inner_radius, outer_radius,
     #               linear_factor=linear_factors)
@@ -83,45 +85,67 @@ class Cegis():
         stats = {}
         # the CEGIS loop
         iters = 0
-        stop, found = False, False
-        start = timeit.default_timer()
-        #
+        stop = False
+        learner_to_next_component_inputs = {
+            'x_map': self.x_map,
+            'x': self.x,
+            'xdot': self.xdot,
+            'sp_simplify': self.sp_simplify,
+            'sp_handle': self.sp_handle,
+            'factors': self.fcts,
+            'f_verifier': self.f_verifier,
+            'eq': self.eq,
+        }
+        components = [
+            {
+                'name': 'learner',
+                'instance': self.learner,
+                'to_next_component': lambda _outputs, next_component, **kw:
+                    self.learner.to_next_component(self.learner, next_component, **{
+                        **kw, **learner_to_next_component_inputs,
+                    }),
+            },
+            {
+                'name': 'verifier',
+                'instance': self.verifier,
+                'to_next_component': lambda _outputs, next_component, **kw: kw,
+            },
+        ]
+
+        state = {
+            'optimizer': self.optimizer,
+            'S': S,
+            'Sdot': Sdot,
+            'factors': self.fcts,
+            'V': None,
+            'Vdot': None,
+        }
+
         while not stop:
+            for component_idx in range(len(components)):
+                component = components[component_idx]
+                next_component = components[(component_idx + 1) % len(components)]
 
-            print_section('Learning', iters)
-            learned = self.learner.learn(self.optimizer, S, Sdot, self.fcts)
+                print_section(component['name'], iters)
+                outputs = self.learner.get(**state)
 
-            # to disable rounded numbers, set rounding=-1
-            if self.sp_handle:
-                x_sp = [sp.Symbol('x%d' % i) for i in range(len(self.x))]
-                V_s, Vdot_s = get_symbolic_formula(self.learner, sp.Matrix(x_sp),
-                                                   self.f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
-                                                   self.eq, rounding=3, lf=self.fcts)
-                V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
-                V = sympy_converter(V_s, var_map=self.x_map, target=type(self.verifier))
-                Vdot = sympy_converter(Vdot_s, var_map=self.x_map, target=type(self.verifier))
-            else: # verifier handles
-                V, Vdot = get_symbolic_formula(self.learner, self.x, self.xdot,
-                                                   self.eq, rounding=3, lf=self.fcts)
-            if self.verifier == Z3Verifier:
-                V, Vdot = z3.simplify(V), z3.simplify(Vdot)
+                state = {**state, **outputs}
 
-            print_section('Candidate', iters)
-            print(f'V: {V}')
-            print(f'Vdot: {Vdot}')
+                print_section('Outputs', state)
 
-            print_section('Verification', iters)
-            found, ces = self.verifier.verify(V, Vdot)
+                state = {**state, **(component['to_next_component'](outputs, next_component['instance'], **state))}
+
+                if state['found']:
+                    print('Found a Lyapunov function')
+                    stop = True
 
             if self.max_cegis_iter == iters:
                 print('Out of Cegis loops')
                 stop = True
 
-            if found:
-                print('Found a Lyapunov function, baby!')
-                stop = True
-            else:
-                iters += 1
+            iters += 1
+            if not state['found']:
+                ces = state['ces']
                 if len(ces) > 0:
                     S, Sdot = self.add_ces_to_data(S, Sdot, ces)
                     # the original ctx is in the last row of ces
@@ -130,7 +154,7 @@ class Cegis():
 
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
-        return self.learner, found, iters
+        return self.learner, state['found'], iters
 
     def add_ces_to_data(self, S, Sdot, ces):
         """
