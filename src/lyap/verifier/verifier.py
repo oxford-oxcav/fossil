@@ -8,14 +8,13 @@ T = Timer()
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, equilibrium, inner_radius, outer_radius, solver_vars):
+    def __init__(self, n_vars, equilibrium, domain, solver_vars):
         super().__init__()
         self.iter = -1
         self.n = n_vars
         self.eq = equilibrium
-        self.inner = inner_radius
         self.counterexample_n = 50
-        self.outer = outer_radius
+        self.domain = domain
         self._last_cex = []
         self._n_cex_to_keep = self.counterexample_n * 1
         self.xs = solver_vars
@@ -114,12 +113,12 @@ class Verifier(Component):
 
         lyap_negated = _Or(V <= 0, Vdot > 0)
 
-        domain_constr = []
-        for idx in range(self.eq.shape[0]):
-            circle = self.circle_constr(self.eq[idx, :])
-            domain_constr += [_And(circle > self.inner ** 2, circle < self.outer ** 2)]
-        # _And(*(domain_constr for _ in range(len(domain_constr))))
-        return _And(_And(domain_constr), lyap_negated)
+        # domain_constr = []
+        # for idx in range(self.eq.shape[0]):
+        #     circle = self.circle_constr(self.eq[idx, :])
+        #     domain_constr += [_And(circle > self.inner ** 2, circle < self.outer ** 2)]
+        # # _And(*(domain_constr for _ in range(len(domain_constr))))
+        return _And(self.domain, lyap_negated)
 
     def circle_constr(self, c):
         """
@@ -175,7 +174,7 @@ class Verifier(Component):
         shape = (1, max(point.shape[0], point.shape[1]))
         point = point.reshape(shape)
         for i in range(self.counterexample_n):
-            random_point = point + 5*1e-4 * torch.randn(shape)
+            random_point = point + 5*1e-3 * torch.randn(shape)
             # if self.inner < torch.norm(random_point) < self.outer:
             C.append(random_point)
         C.append(point)

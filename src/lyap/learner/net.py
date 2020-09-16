@@ -36,9 +36,11 @@ class NN(nn.Module, Learner):
 
         # free output layer
         layer = nn.Linear(n_prev, 1, bias=False)
+        # last layer of ones
+        # layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
         self.register_parameter("W" + str(k), layer.weight)
         self.layers.append(layer)
-        self.output_layer = torch.tensor(layer.weight)
+        # self.output_layer = layer.weight.clone().detach()
         # or
         # self.output_layer = torch.ones(1, n_prev)
 
@@ -160,7 +162,7 @@ class NN(nn.Module, Learner):
                 x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
                 V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
                                                    f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
-                                                   eq, rounding=3, lf=fcts)
+                                                   eq, rounding=20, lf=fcts)
                 V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
                 V = sympy_converter(x_map, V_s)
                 Vdot = sympy_converter(x_map, Vdot_s)
@@ -197,13 +199,13 @@ class NN(nn.Module, Learner):
             learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
 
             slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1 / slope)
-            loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
+            leaky_relu = torch.nn.LeakyReLU(1/slope)
+            loss = (leaky_relu(Vdot + margin)).mean() + (leaky_relu(-V + margin)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
 
-            loss.backward(retain_graph=True)
+            loss.backward()
             optimizer.step()
 
             if learn_accuracy == batch_size:
@@ -234,7 +236,7 @@ class NN(nn.Module, Learner):
     @staticmethod
     def order_of_magnitude(number):
         if number.item() != 0:
-            return np.floor(np.log10(number))
+            return np.ceil(np.log10(number))
         else:
             return 1.0
 

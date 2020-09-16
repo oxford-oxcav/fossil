@@ -177,3 +177,4 @@ class Cegis:
             S, Sdot = self.add_ces_to_data(S, Sdot, [torch.stack(trajectory), [], []])
 
         return S, Sdot
+

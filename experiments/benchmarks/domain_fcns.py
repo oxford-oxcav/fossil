@@ -50,7 +50,7 @@ def slice_init_data(centre, r, batch_size):
     y_coord = radius * np.sin(angle)
     offset = torch.cat([x_coord, y_coord], dim=1)
 
-    return torch.tensor(centre) + offset.requires_grad_(True)
+    return torch.tensor(centre) + offset
 
 
 # generates data for (X - centre)**2 <= radius
@@ -76,7 +76,7 @@ def circle_init_data(centre, r, batch_size):
     offset_border = torch.cat([x_coord, y_coord], dim=1)
     offset = torch.cat([offset, offset_border])
 
-    return torch.tensor(centre) + offset.requires_grad_(True)
+    return torch.tensor(centre) + offset
 
 
 # generates data for (X - centre)**2 <= radius
@@ -100,6 +100,20 @@ def sphere_init_data(centre, r, batch_size):
     offset = torch.cat([x_coord, y_coord, z_coord], dim=1)
 
     return torch.tensor(centre) + offset
+
+
+# generates points in a n-dim sphere: X**2 <= radius**2
+# adapted from http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
+# method 20: Muller generalised
+def n_dim_sphere_init_data(centre, radius, batch_size):
+
+    dim = len(centre)
+    u = torch.randn(batch_size, dim)  # an array of d normally distributed random variables
+    norm = torch.sum(u ** 2, dim=1) ** (0.5)
+    r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
+    x = torch.div(r*u, norm[:, None])
+
+    return x
 
 
 # generates data for (X - centre)**2 <= radius
@@ -163,3 +177,10 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
     new_data = torch.stack(new_data)
 
     return new_data
+
+
+if __name__ == '__main__':
+    X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
+    # print(X)
+    print(f'max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}')
+    print(f'min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}')
