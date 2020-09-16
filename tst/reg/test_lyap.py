@@ -14,11 +14,11 @@ def test_lnn(benchmark, n_vars):
 
     # define domain constraints
     outer_radius = 10
-    inner_radius = 0.1
+    inner_radius = 0.01
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [10] * len(activations)
+    n_hidden_neurons = [20] * len(activations)
 
     learner_type = LearnerType.NN
     verifier_type = VerifierType.Z3
@@ -37,6 +37,7 @@ def test_lnn(benchmark, n_vars):
 if __name__ == '__main__':
     torch.manual_seed(167)
     # test_lnn(benchmark=nonpoly0, n_vars=2)
-    # test_lnn(benchmark=nonpoly1, n_vars=2)
+    test_lnn(benchmark=nonpoly1, n_vars=2)
     # test_lnn(benchmark=nonpoly2, n_vars=3)
-    test_lnn(benchmark=nonpoly3, n_vars=3)
+    # test_lnn(benchmark=nonpoly3, n_vars=3)
+

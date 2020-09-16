@@ -114,6 +114,7 @@ def z3_replacements(V, Vdot, z3_vars, ctx):
     return V_replace, Vdot_replace
 
 
+# todo: remove because unused
 def forward_V(net, x):
     """
     :param x: tensor of data points
@@ -129,6 +130,7 @@ def forward_V(net, x):
     return y
 
 
+# todo: remove because unused
 def forward_Vdot(net, x, f):
     """
     :param x: tensor of data points

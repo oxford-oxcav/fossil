@@ -2,6 +2,7 @@ import sympy as sp
 import re
 import z3 as z3
 from experiments.benchmarks.domain_fcns import *
+import matplotlib.pyplot as plt
 
 
 ###############################
@@ -211,11 +212,12 @@ def benchmark_6(batch_size, functions, inner=0.0, outer=10.0):
         return [-x + y**3 - 3*w*z, -x - y**3, x*z - w, x*w - z**3]
 
     def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+        x, y, w, z = v
+        return _And(x ** 2 + y ** 2 + w ** 2 + z ** 2 > inner**2,
+                    x ** 2 + y ** 2 + w ** 2 + z ** 2 <= outer ** 2)
 
     def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+        return n_dim_sphere_init_data((0, 0, 0, 0), outer ** 2, batch_size)
 
     return f, XD, SD()
 
@@ -235,11 +237,12 @@ def benchmark_7(batch_size, functions, inner=0.0, outer=10.0):
         ]
 
     def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+        x0, x1, x2, x3, x4, x5 = v
+        return _And(x0 ** 2 + x1 ** 2 + x2 ** 2 + x3 ** 2 + x4 ** 2 + x5 ** 2 > inner ** 2,
+                    x0 ** 2 + x1 ** 2 + x2 ** 2 + x3 ** 2 + x4 ** 2 + x5 ** 2 <= outer ** 2)
 
     def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+        return n_dim_sphere_init_data((0, 0, 0, 0, 0, 0), outer ** 2, batch_size)
 
     return f, XD, SD()
 
@@ -273,3 +276,9 @@ def max_degree_poly(p):
     except:
         print("Exception in %s for %s" % (max_degree_poly.__name__, p))
         return 0
+
+
+if __name__ == '__main__':
+    f, XD, SD = benchmark_7(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
+    plt.scatter(SD[:, 0].detach(), SD[:, 1].detach(), color='b')
+    plt.show()

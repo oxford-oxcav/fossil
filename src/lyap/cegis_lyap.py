@@ -9,6 +9,7 @@ from src.lyap.verifier.verifier import Verifier
 from src.shared.consts import LearnerType, VerifierType
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.lyap.verifier.drealverifier import DRealVerifier
+from src.shared.Trajectoriser import Trajectoriser
 from src.lyap.utils import get_symbolic_formula, print_section, compute_trajectory
 from src.lyap.learner.net import NN
 from functools import partial
@@ -21,8 +22,6 @@ except Exception as e:
 
 class Cegis:
     # todo: set params for NN and avoid useless definitions
-    # (n_vars, system, learner_type, activations, n_hidden_neurons, verifier_type, inner_radius, outer_radius,
-    #               linear_factor=linear_factors)
     def __init__(self, n_vars, system, learner_type, activations, n_hidden_neurons,
                  verifier_type, inner_radius, outer_radius,
                  **kw):
@@ -51,20 +50,20 @@ class Cegis:
         self.x = verifier.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
-        self.f, self.f_whole_domain, self.S_d = system(functions=verifier.solver_fncts())
+        self.f, self.f_whole_domain, self.S_d = \
+            system(functions=verifier.solver_fncts(), inner=inner_radius, outer=outer_radius)
+        # self.S_d = self.S_d.requires_grad_(True)
 
-        self.verifier = verifier(self.n, self.eq, self.inner, self.outer, self.x)
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
         self.domain = self.f_whole_domain(verifier.solver_fncts(), self.x)
-        self.S_d = self.S_d
+        self.verifier = verifier(self.n, self.eq, self.domain, self.x)
 
         self.xdot = self.f(self.verifier.solver_fncts(), np.array(self.x).reshape(len(self.x), 1))
         self.x = np.matrix(self.x).T
         self.xdot = np.matrix(self.xdot).T
 
         if learner_type == LearnerType.NN:
-            self.learner = self.learner = NN(n_vars, *n_hidden_neurons,
-                                             bias=True, activate=activations, equilibria=self.eq)
+            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations, equilibria=self.eq)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
             raise ValueError('No learner of type {}'.format(learner_type))
@@ -72,12 +71,14 @@ class Cegis:
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
+        self.trajectoriser = Trajectoriser(self.f_learner)
+
     # the cegis loop
     # todo: fix return, fix map(f, S)
     def solve(self):
 
         Sdot = self.f_learner(self.S_d.T)
-        S, Sdot = self.S_d, torch.stack(Sdot).reshape(self.S_d.shape)
+        S, Sdot = self.S_d, torch.stack(Sdot).T
 
         if self.learner_type == LearnerType.NN:
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
@@ -119,6 +120,8 @@ class Cegis:
             'factors': self.fcts,
             'V': None,
             'Vdot': None,
+            'found': False,
+            'ces': None
         }
 
         while not stop:
@@ -127,11 +130,11 @@ class Cegis:
                 next_component = components[(component_idx + 1) % len(components)]
 
                 print_section(component['name'], iters)
-                outputs = self.learner.get(**state)
+                outputs = component['instance'].get(**state)
 
                 state = {**state, **outputs}
 
-                print_section('Outputs', state)
+                print_section('Outputs', state['Vdot'])
 
                 state = {**state, **(component['to_next_component'](outputs, next_component['instance'], **state))}
 
@@ -149,8 +152,9 @@ class Cegis:
                 if len(ces) > 0:
                     S, Sdot = self.add_ces_to_data(S, Sdot, ces)
                     # the original ctx is in the last row of ces
-                    trajectory = self.trajectoriser(ces[-1])
-                    S, Sdot = self.add_ces_to_data(S, Sdot, trajectory)
+                    trajectory = self.trajectoriser.compute_trajectory(self.learner, ces[-1])
+                    state['S'], state['Sdot'] = \
+                        self.add_ces_to_data(state['S'], state['Sdot'], torch.stack(trajectory))
 
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
@@ -165,12 +169,13 @@ class Cegis:
                 S: torch tensor, added new ctx
                 Sdot torch tensor, added  f(new_ctx)
         """
-        S = torch.cat([S, ces], dim=0)
-        Sdot = torch.cat([Sdot, torch.stack(self.f_learner(ces.T)).reshape(ces.shape)], dim=0)
+        S = torch.cat([S, ces], dim=0).detach()
+        Sdot = torch.stack(self.f_learner(S.T)).T
+        # torch.cat([Sdot, torch.stack(self.f_learner(ces.T)).T], dim=0)
         return S, Sdot
 
     # NOTA: using ReLU activations, the gradient is often zero
-    def trajectoriser(self, point):
+    def trajectoriser_method(self, point):
         """
         :param point: tensor
         :return: tensor (points towards max Vdot)
