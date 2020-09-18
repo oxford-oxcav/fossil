@@ -35,10 +35,10 @@ class Cegis:
         self.inner = inner_radius
         self.outer = outer_radius
         self.h = n_hidden_neurons
-        self.max_cegis_iter = 5
+        self.max_cegis_iter = 10
 
         # batch init
-        self.learning_rate = .05
+        self.learning_rate = .1
 
         if verifier_type == VerifierType.Z3:
             verifier = Z3Verifier
@@ -111,9 +111,15 @@ class Cegis:
                 'instance': self.verifier,
                 'to_next_component': lambda _outputs, next_component, **kw: kw,
             },
+            {
+                'name': 'trajectoriser',
+                'instance': self.trajectoriser,
+                'to_next_component': lambda _outputs, next_component, **kw: kw
+            }
         ]
 
         state = {
+            'net': self.learner,
             'optimizer': self.optimizer,
             'S': S,
             'Sdot': Sdot,
@@ -121,7 +127,8 @@ class Cegis:
             'V': None,
             'Vdot': None,
             'found': False,
-            'ces': None
+            'ces': None,
+            'trajectory': None
         }
 
         while not stop:
@@ -134,7 +141,7 @@ class Cegis:
 
                 state = {**state, **outputs}
 
-                print_section('Outputs', state['Vdot'])
+                # print_section('Outputs', state['Vdot'])
 
                 state = {**state, **(component['to_next_component'](outputs, next_component['instance'], **state))}
 
@@ -148,13 +155,10 @@ class Cegis:
 
             iters += 1
             if not state['found']:
-                ces = state['ces']
-                if len(ces) > 0:
-                    S, Sdot = self.add_ces_to_data(S, Sdot, ces)
-                    # the original ctx is in the last row of ces
-                    trajectory = self.trajectoriser.compute_trajectory(self.learner, ces[-1])
-                    state['S'], state['Sdot'] = \
-                        self.add_ces_to_data(state['S'], state['Sdot'], torch.stack(trajectory))
+                # S, Sdot = self.add_ces_to_data(S, Sdot, ces)
+                state['S'], state['Sdot'] = \
+                    self.add_ces_to_data(state['S'], state['Sdot'],
+                                         torch.cat((state['ces'], state['trajectory'])))
 
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
