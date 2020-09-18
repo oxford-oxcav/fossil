@@ -13,7 +13,7 @@ class Verifier(Component):
         self.iter = -1
         self.n = n_vars
         self.eq = equilibrium
-        self.counterexample_n = 50
+        self.counterexample_n = 20
         self.domain = domain
         self._last_cex = []
         self._n_cex_to_keep = self.counterexample_n * 1

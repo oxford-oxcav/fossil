@@ -37,7 +37,6 @@ def test_lnn(benchmark, n_vars):
 if __name__ == '__main__':
     torch.manual_seed(167)
     # test_lnn(benchmark=nonpoly0, n_vars=2)
-    test_lnn(benchmark=nonpoly1, n_vars=2)
+    test_lnn(benchmark=nonpoly1, n_vars=2)   # [LIN, SQUARE], [20], last layer all 1
     # test_lnn(benchmark=nonpoly2, n_vars=3)
     # test_lnn(benchmark=nonpoly3, n_vars=3)
-

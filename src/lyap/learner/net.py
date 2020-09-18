@@ -162,7 +162,7 @@ class NN(nn.Module, Learner):
                 x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
                 V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
                                                    f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
-                                                   eq, rounding=20, lf=fcts)
+                                                   eq, rounding=3, lf=fcts)
                 V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
                 V = sympy_converter(x_map, V_s)
                 Vdot = sympy_converter(x_map, Vdot_s)
@@ -200,7 +200,7 @@ class NN(nn.Module, Learner):
 
             slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1/slope)
-            loss = (leaky_relu(Vdot + margin)).mean() + (leaky_relu(-V + margin)).mean()
+            loss = (leaky_relu(Vdot + margin*circle)).mean() + (leaky_relu(-V + margin*circle)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
