@@ -3,8 +3,7 @@ import torch
 
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.component import Component
-from src.shared.activations import ActivationType, activation, activation_der
-from src.shared.learner import Learner
+from src.shared.activations import activation, activation_der
 from src.shared.utils import Timer, timer
 
 T = Timer()
@@ -16,7 +15,7 @@ class Trajectoriser(Component):
         self.f = f
 
     def get(self, **kw):
-        if not kw[CegisStateKeys.cex]:  # not elegant but works
+        if len(kw[CegisStateKeys.cex]) == 0:  # not elegant but works
             return {CegisStateKeys.trajectory: []}
         else:
             # the original ctx is in the last row of ces, i.e. ces[-1]

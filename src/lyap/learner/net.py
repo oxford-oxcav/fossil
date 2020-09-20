@@ -14,7 +14,6 @@ from src.lyap.utils import Timer, timer, get_symbolic_formula
 from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
-T_conversion = Timer()
 
 
 class NN(nn.Module, Learner):
@@ -146,36 +145,6 @@ class NN(nn.Module, Learner):
     def get(self, **kw):
         return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
 
-    @timer(T_conversion)
-    def to_next_component(self, out, component, **kw):
-        assert isinstance(component, Verifier)
-        if isinstance(component, Verifier):
-            # to disable rounded numbers, set rounding=-1
-            sp_handle = kw.get(CegisStateKeys.sp_handle, False)
-            eq = kw[CegisStateKeys.equilibrium]
-            fcts = kw[CegisStateKeys.factors]
-            x = kw[CegisStateKeys.x_v]
-            if sp_handle:
-                f_verifier = kw[CegisStateKeys.verifier_fun]
-                x_map = kw[CegisStateKeys.x_v_map]
-                x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
-                V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
-                                                   f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
-                                                   eq, rounding=3, lf=fcts)
-                V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
-                V = sympy_converter(x_map, V_s)
-                Vdot = sympy_converter(x_map, Vdot_s)
-            # verifier handles
-            else:
-                xdot = kw[CegisStateKeys.x_v_dot]
-                V, Vdot = get_symbolic_formula(out, x, xdot.T,
-                                               eq, rounding=3, lf=fcts)
-            if isinstance(component, Z3Verifier):
-                V, Vdot = z3.simplify(V), z3.simplify(Vdot)
-
-            return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
-        return {}
-
     # backprop algo
     @timer(T)
     def learn(self, optimizer, S, Sdot, factors):
@@ -245,7 +214,7 @@ class NN(nn.Module, Learner):
             return 1.0
 
     @staticmethod
-    def get_timers():
-        return T, T_conversion
+    def get_timer():
+        return T
 
 
