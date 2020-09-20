@@ -1,24 +1,24 @@
 # definition of various activation fcns
-from enum import Enum
+from enum import Enum, auto
 import torch
 
 
 class ActivationType(Enum):
-    IDENTITY = -1
-    RELU = 0
-    LINEAR = 1
-    SQUARE = 2
-    LIN_SQUARE = 3
-    RELU_SQUARE = 4
-    REQU = 5
+    IDENTITY = auto()
+    RELU = auto()
+    LINEAR = auto()
+    SQUARE = auto()
+    LIN_SQUARE = auto()
+    RELU_SQUARE = auto()
+    REQU = auto()
     # dReal only from here
-    TANH = 6
-    SIGMOID = 7
-    LIN_SQUARE_CUBIC = 8
-    LIN_SQUARE_CUBIC_QUARTIC = 9
-    LIN_SQUARE_CUBIC_QUARTIC_PENTA = 10
-    LIN_ETC_EXA = 11
-    LIN_OTT = 12
+    TANH = auto()
+    SIGMOID = auto()
+    LIN_SQUARE_CUBIC = auto()
+    LIN_SQUARE_CUBIC_QUARTIC = auto()
+    LIN_SQUARE_CUBIC_QUARTIC_PENTA = auto()
+    LIN_ETC_EXA = auto()
+    LIN_OTT = auto()
 
 
 # Activation function

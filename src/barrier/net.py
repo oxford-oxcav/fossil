@@ -7,6 +7,7 @@ import z3
 from src.barrier.verifier import Verifier
 from src.shared.activations import ActivationType, activation, activation_der
 from src.barrier.utils import Timer, timer, get_symbolic_formula
+from src.shared.cegis_values import CegisStateKeys, CegisConfig
 from src.shared.learner import Learner
 from src.shared.sympy_converter import sympy_converter
 
@@ -17,8 +18,7 @@ class NN(nn.Module, Learner):
     def __init__(self, input_size, *args, activate=ActivationType.SQUARE, bias=False, **kw):
         super(NN, self).__init__()
 
-        self.print_all = kw.get('print_all', False)
-        self.symmetric_belt = kw.get('symmetric_belt', False)
+        self.symmetric_belt = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
         self.input_size = input_size
         n_prev = input_size
         self.equilibrium = torch.zeros((1, self.input_size))
@@ -93,7 +93,7 @@ class NN(nn.Module, Learner):
         return B, Bdot, circle
 
     def get(self, **kw):
-        return self.learn(kw['optimizer'], kw['S'], kw['Sdot'])
+        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot])
 
     @timer(T)
     def learn(self, optimizer, S, Sdot):
@@ -146,7 +146,7 @@ class NN(nn.Module, Learner):
 
             # loss = loss + (100-percent_accuracy)
 
-            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10 or self.print_all:
+            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 print(t, "- loss:", loss.item(), '- accuracy init-unsafe:', percent_accuracy_init_unsafe,
                         "- accuracy belt:", percent_belt, '- points in belt:', len(belt_index))
 
@@ -176,10 +176,10 @@ class NN(nn.Module, Learner):
 
     def to_next_component(self, out, component, **kw):
         if isinstance(component, Verifier):
-            sp_handle = kw.get('sp_handle', False)
-            sp_simplify = kw.get('sp_simplify', False)
-            x, xdot = kw['x'], kw['xdot']
-            x_sympy, xdot_s = kw['x_sympy'], kw['xdot_s']
+            sp_handle = kw.get(CegisStateKeys.sp_handle, CegisConfig.SP_HANDLE.v)
+            sp_simplify = kw.get(CegisStateKeys.sp_simplify, CegisConfig.SP_SIMPLIFY.v)
+            x, xdot = kw[CegisStateKeys.x_v], kw[CegisStateKeys.x_v_dot]
+            x_sympy, xdot_s = kw[CegisStateKeys.x_sympy], kw[CegisStateKeys.x_dot_sympy]
             if not sp_handle:  # z3 does all the handling
                 B, Bdot = get_symbolic_formula(out, x, xdot)
                 if isinstance(B, z3.ArithRef):
@@ -192,10 +192,10 @@ class NN(nn.Module, Learner):
                 B_s = sp.simplify(B_s)
                 Bdot_s = sp.simplify(Bdot_s)
             if sp_handle:
-                x_map = kw['x_map']
+                x_map = kw[CegisStateKeys.x_v_map]
                 B = sympy_converter(x_map, B_s)
                 Bdot = sympy_converter(x_map, Bdot_s)
-            return {'B': B, 'Bdot': Bdot}
+            return {CegisStateKeys.B: B, CegisStateKeys.B_dot: Bdot}
         return out
 
     # todo: mv to utils

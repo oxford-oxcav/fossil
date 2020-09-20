@@ -1,3 +1,4 @@
+from src.shared.consts import LearningFactors
 from src.shared.utils import *
 
 
@@ -52,7 +53,7 @@ def compute_factors(equilibrium, x, lf):
     :param lf: linear factors
     :return:
     """
-    if lf == 'linear':
+    if lf == LearningFactors.LINEAR:
         E, factors, temp = 1, [], []
         for idx in range(equilibrium.shape[0]):
             E *= sp.simplify(sum((x.T - equilibrium[idx, :]).T)[0, 0])
@@ -60,7 +61,7 @@ def compute_factors(equilibrium, x, lf):
         for idx in range(len(x)):
             temp += [sum(factors)]
         derivative_e = np.vstack(temp).T
-    elif lf == 'quadratic':  # quadratic terms
+    elif lf == LearningFactors.QUADRATIC:  # quadratic terms
         E, temp = 1, []
         factors = np.full(shape=(equilibrium.shape[0], x.shape[0]), dtype=object, fill_value=0)
         for idx in range(equilibrium.shape[0]): # number of equilibrium points

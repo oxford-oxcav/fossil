@@ -2,6 +2,8 @@ import torch
 from src.lyap.utils import Timer, timer, z3_replacements
 import numpy as np
 import timeit
+
+from src.shared.cegis_values import CegisStateKeys
 from src.shared.component import Component
 
 T = Timer()
@@ -58,7 +60,7 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     def get(self, **kw):
-        return self.verify(kw['V'], kw['Vdot'])
+        return self.verify(kw[CegisStateKeys.V], kw[CegisStateKeys.V_dot])
 
     @property
     def timeout(self):
@@ -100,7 +102,7 @@ class Verifier(Component):
             print('Vdot(ctx) = ', value_in_vdot)
             C = self.randomise_counterex(original_point)
 
-        return {'found': found, 'ces': C}
+        return {CegisStateKeys.found: found, CegisStateKeys.cex: C}
 
     def domain_constraints(self, V, Vdot):
         """
