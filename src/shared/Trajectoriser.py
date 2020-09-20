@@ -1,5 +1,7 @@
 # pylint: disable=not-callable
 import torch
+
+from src.shared.cegis_values import CegisStateKeys
 from src.shared.component import Component
 from src.shared.activations import ActivationType, activation, activation_der
 from src.shared.learner import Learner
@@ -14,11 +16,11 @@ class Trajectoriser(Component):
         self.f = f
 
     def get(self, **kw):
-        if kw['ces'] == []:  # not elegant but works
-            return {'trajectory': []}
+        if not kw[CegisStateKeys.cex]:  # not elegant but works
+            return {CegisStateKeys.trajectory: []}
         else:
             # the original ctx is in the last row of ces, i.e. ces[-1]
-            return self.compute_trajectory(kw['net'], kw['ces'][-1])
+            return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1])
 
     # computes the gradient of V, Vdot in point
     # computes a 20-step trajectory (20 is arbitrary) starting from point
@@ -54,7 +56,7 @@ class Trajectoriser(Component):
             trajectory.append(point)
         # just checking if gradient is numerically unstable
         assert not torch.isnan(torch.stack(trajectory)).any()
-        return {'trajectory': torch.stack(trajectory)}
+        return {CegisStateKeys.trajectory: torch.stack(trajectory)}
 
     def compute_V_grad(self, net, point):
         """

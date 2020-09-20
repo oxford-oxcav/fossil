@@ -1,6 +1,7 @@
 import torch
 
 from src.barrier.utils import *
+from src.shared.cegis_values import CegisStateKeys
 from src.shared.component import Component
 
 T = Timer()
@@ -58,7 +59,7 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     def get(self, **kw):
-        return self.verify(kw['B'], kw['Bdot'])
+        return self.verify(kw[CegisStateKeys.B], kw[CegisStateKeys.B_dot])
 
     @timer(T)
     def verify(self, B, Bdot):
@@ -117,7 +118,7 @@ class Verifier(Component):
                 else:
                     print(res)
 
-        return {'found': found, 'ces': ces}
+        return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
     def normalize_number(self, n):
         return n
