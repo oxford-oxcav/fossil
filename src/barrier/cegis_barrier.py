@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import timeit
 
+from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
 from src.shared.consts import VerifierType, LearnerType
 from src.barrier.utils import get_symbolic_formula, print_section, compute_trajectory
 from src.barrier.net import NN
@@ -14,38 +15,39 @@ from src.barrier.drealverifier import DRealVerifier
 class Cegis:
     # todo: set params for NN and avoid useless definitions
     def __init__(self, n_vars, learner_type, verifier_type, active, system, n_hidden_neurons, **kw):
-        self.sp_simplify = kw.get('sp_simplify', True)
-        self.sp_handle = kw.get('sp_handle', True)
-        self.sb = kw.get('symmetric_belt', False)
+        self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
+        self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
+        self.sb = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
 
         self.n = n_vars
         self.learner_type = learner_type
+        self.verifier_type = verifier_type
         self.activ = active
         self.h = n_hidden_neurons
-        self.max_cegis_iter = kw.get('cegis_iters', 200)
-        self.max_cegis_time = kw.get('cegis_time', math.inf)
+        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
+        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
 
         # batch init
-        self.batch_size = 100
-        self.learning_rate = .1
+        self.batch_size = kw.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
+        self.learning_rate = kw.get(CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v)
+
+        self._assert_state()
 
         if verifier_type == VerifierType.Z3:
-            verifier = Z3Verifier
+            verifier_class = Z3Verifier
         elif verifier_type == VerifierType.DREAL:
-            verifier = DRealVerifier
-        else:
-            raise ValueError('No verifier of type {}'.format(verifier_type))
+            verifier_class = DRealVerifier
 
-        self.x = verifier.new_vars(self.n)
+        self.x = verifier_class.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
         self.f, self.f_whole_domain, self.f_initial_state, self.f_unsafe_state, self.S_d, self.S_i, self.S_u, vars_bounds \
-            = system(verifier.solver_fncts())
-        self.domain = self.f_whole_domain(verifier.solver_fncts(), self.x)
-        self.initial_s = self.f_initial_state(verifier.solver_fncts(), self.x)
-        self.unsafe = self.f_unsafe_state(verifier.solver_fncts(), self.x)
+            = system(verifier_class.solver_fncts())
+        self.domain = self.f_whole_domain(verifier_class.solver_fncts(), self.x)
+        self.initial_s = self.f_initial_state(verifier_class.solver_fncts(), self.x)
+        self.unsafe = self.f_unsafe_state(verifier_class.solver_fncts(), self.x)
 
-        self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
+        self.verifier = verifier_class(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
         self.x = np.matrix(self.x).T
@@ -54,8 +56,6 @@ class Cegis:
         if learner_type == LearnerType.NN:
             self.learner = NN(n_vars, *n_hidden_neurons, activate=self.activ, bias=True, symmetric_belt=self.sb)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
-        else:
-            raise ValueError('No learner of type {}'.format(learner_type))
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
@@ -85,37 +85,37 @@ class Cegis:
         start = timeit.default_timer()
 
         learner_to_next_component_inputs = {
-            'x_map': self.x_map,
-            'x': self.x,
-            'xdot': self.xdot,
-            'x_sympy': self.x_sympy,
-            'xdot_s': self.xdot_s,
-            'sp_simplify': self.sp_simplify,
-            'sp_handle': self.sp_handle,
+            CegisStateKeys.x_v_map: self.x_map,
+            CegisStateKeys.x_v: self.x,
+            CegisStateKeys.x_v_dot: self.xdot,
+            CegisStateKeys.x_sympy: self.x_sympy,
+            CegisStateKeys.x_dot_sympy: self.xdot_s,
+            CegisStateKeys.sp_simplify: self.sp_simplify,
+            CegisStateKeys.sp_handle: self.sp_handle,
         }
 
         components = [
             {
-                'name': 'learner',
-                'instance': self.learner,
-                'to_next_component': lambda _outputs, next_component, **kw:
+                CegisComponentsState.name: 'learner',
+                CegisComponentsState.instance: self.learner,
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw:
                     self.learner.to_next_component(self.learner, next_component, **{
                         **learner_to_next_component_inputs, **kw
                     }),
             },
             {
-                'name': 'verifier',
-                'instance': self.verifier,
-                'to_next_component': lambda _outputs, **kw: kw,
+                CegisComponentsState.name: 'verifier',
+                CegisComponentsState.instance: self.verifier,
+                CegisComponentsState.to_next_component: lambda _outputs, **kw: kw,
             },
         ]
 
         state = {
-            'optimizer': self.optimizer,
-            'S': S,
-            'Sdot': Sdot,
-            'B': None,
-            'Bdot': None,
+            CegisStateKeys.optimizer: self.optimizer,
+            CegisStateKeys.S: S,
+            CegisStateKeys.S_dot: Sdot,
+            CegisStateKeys.B: None,
+            CegisStateKeys.B_dot: None,
         }
 
         while not stop:
@@ -123,35 +123,37 @@ class Cegis:
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                print_section(component['name'], iters)
+                print_section(component[CegisComponentsState.name], iters)
                 outputs = self.learner.get(**state)
 
                 state = {**state, **outputs}
 
                 print_section('Outputs', state)
 
-                state = {**state, **(component['to_next_component'](outputs, next_component['instance'], **state))}
+                state = {**state,
+                         **(component[CegisComponentsState.to_next_component]
+                                (outputs, next_component[CegisComponentsState.instance], **state))}
 
-                if state['found']:
+                if state[CegisStateKeys.found]:
                     break
 
             if self.max_cegis_iter == iters or timeit.default_timer() - start > self.max_cegis_time:
                 print('Out of Cegis resources: iters=%d elapsed time=%ss' % (iters, timeit.default_timer() - start))
                 stop = True
 
-            if state['found']:
+            if state[CegisStateKeys.found]:
                 print('Certified!')
                 stop = True
             else:
                 iters += 1
-                S, Sdot = self.add_ces_to_data(S, Sdot, state['ces'])
+                S, Sdot = self.add_ces_to_data(S, Sdot, state[CegisStateKeys.cex])
 
                 # compute climbing towards Bdot
-                S, Sdot = self.trajectoriser(S, Sdot, state['ces'])
+                S, Sdot = self.trajectoriser(S, Sdot, state[CegisStateKeys.cex])
 
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
-        return self.learner, state['found'], iters
+        return self.learner, state[CegisStateKeys.found], iters
 
     def add_ces_to_data(self, S, Sdot, ces):
         """
@@ -177,4 +179,11 @@ class Cegis:
             S, Sdot = self.add_ces_to_data(S, Sdot, [torch.stack(trajectory), [], []])
 
         return S, Sdot
+
+    def _assert_state(self):
+        assert self.verifier_type in [VerifierType.Z3, VerifierType.DREAL]
+        assert self.learner_type in [LearnerType.NN]
+        assert self.batch_size > 0
+        assert self.learning_rate > 0
+        assert self.max_cegis_time > 0
 

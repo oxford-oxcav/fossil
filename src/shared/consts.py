@@ -1,12 +1,22 @@
-from enum import Enum
+from enum import Enum, auto
 
 
 class LearnerType(Enum):
-    NN = 0
-    Z3 = 1
-    SCIPY = 2
+    NN = auto()
+    Z3 = auto()
+    SCIPY = auto()
 
 
 class VerifierType(Enum):
-    Z3 = 0
-    DREAL = 1
+    Z3 = auto()
+    DREAL = auto()
+
+
+class TrajectoriserType(Enum):
+    NONE = auto()
+    DEFAULT = auto()
+
+
+class LearningFactors(Enum):
+    LINEAR = auto()
+    QUADRATIC = auto()

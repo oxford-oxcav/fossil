@@ -6,6 +6,8 @@ import z3
 
 from src.lyap.verifier.verifier import Verifier
 from src.lyap.verifier.z3verifier import Z3Verifier
+from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import LearningFactors
 from src.shared.learner import Learner
 from src.shared.activations import ActivationType, activation, activation_der
 from src.lyap.utils import Timer, timer, get_symbolic_formula
@@ -80,12 +82,6 @@ class NN(nn.Module, Learner):
         return numerical_v[:, 0], numerical_vdot, jacobian[:, 0, :]
 
     def numerical_net(self, S, Sdot, lf):
-        """
-        :param net: NN object
-        :param S: tensor
-        :param Sdot: tensor
-        :return: V, Vdot, circle: tensors
-        """
         assert (len(S) == len(Sdot))
 
         nn, grad_times_f, grad_nn = self.forward_tensors(S, Sdot)
@@ -109,7 +105,7 @@ class NN(nn.Module, Learner):
     def compute_factors(self, S, lf):
         E, factors = 1, []
         with torch.no_grad():
-            if lf == 'linear':  # linear factors
+            if lf == LearningFactors.LINEAR:  # linear factors
                 for idx in range(self.eq.shape[0]):
                     # S - self.eq == [ x-x_eq, y-y_eq ]
                     # (vector_x - eq_0) = ( x-x_eq + y-y_eq )
@@ -121,7 +117,7 @@ class NN(nn.Module, Learner):
                 for idx in range(self.input_size):
                     grad += [torch.sum(torch.stack(factors), dim=0)]
                 derivative_e = torch.stack(grad).T
-            elif lf == 'quadratic':  # quadratic factors
+            elif lf == LearningFactors.QUADRATIC:  # quadratic factors
                 # define a tensor to store all the components of the quadratic factors
                 # factors[:,:,0] stores [ x-x_eq0, y-y_eq0 ]
                 # factors[:,:,1] stores [ x-x_eq1, y-y_eq1 ]
@@ -146,19 +142,19 @@ class NN(nn.Module, Learner):
         return E, derivative_e
     
     def get(self, **kw):
-        return self.learn(kw['optimizer'], kw['S'], kw['Sdot'], kw['factors'])
+        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
 
     def to_next_component(self, out, component, **kw):
         assert isinstance(component, Verifier)
         if isinstance(component, Verifier):
             # to disable rounded numbers, set rounding=-1
-            sp_handle = kw.get('sp_handle', False)
-            eq = kw['eq']
-            fcts = kw['factors']
-            x = kw['x']
+            sp_handle = kw.get(CegisStateKeys.sp_handle, False)
+            eq = kw[CegisStateKeys.equilibrium]
+            fcts = kw[CegisStateKeys.factors]
+            x = kw[CegisStateKeys.x_v]
             if sp_handle:
-                f_verifier = kw['f_verifier']
-                x_map = kw['x_map']
+                f_verifier = kw[CegisStateKeys.verifier_fun]
+                x_map = kw[CegisStateKeys.x_v_map]
                 x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
                 V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
                                                    f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
@@ -168,13 +164,13 @@ class NN(nn.Module, Learner):
                 Vdot = sympy_converter(x_map, Vdot_s)
             # verifier handles
             else:
-                xdot = kw['xdot']
+                xdot = kw[CegisStateKeys.x_v_dot]
                 V, Vdot = get_symbolic_formula(out, x, xdot,
                                                eq, rounding=3, lf=fcts)
             if isinstance(component, Z3Verifier):
                 V, Vdot = z3.simplify(V), z3.simplify(Vdot)
 
-            return {'V': V, 'Vdot': Vdot}
+            return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
         return {}
 
     # backprop algo
