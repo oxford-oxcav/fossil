@@ -65,7 +65,7 @@ class Cegis:
 
         if learner_type == LearnerType.NN:
             self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations,
-                              equilibria=self.eq, llo=kw.get('llo', False))
+                              equilibria=self.eq, llo=kw.get('last_layer_ones', False))
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
             raise ValueError('No learner of type {}'.format(learner_type))

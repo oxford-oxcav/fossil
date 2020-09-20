@@ -18,7 +18,7 @@ def test_lnn(benchmark, n_vars):
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [200] * len(activations)
+    n_hidden_neurons = [2] * len(activations)
 
     learner_type = LearnerType.NN
     verifier_type = VerifierType.Z3
@@ -28,7 +28,7 @@ def test_lnn(benchmark, n_vars):
     start = timeit.default_timer()
     c = Cegis(n_vars, system, learner_type, activations, n_hidden_neurons,
               verifier_type, inner_radius, outer_radius,
-              factors=factors, sp_handle=False, llo=True)
+              factors=factors, sp_handle=False, last_layer_ones=True)
     c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
