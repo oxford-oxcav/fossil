@@ -12,15 +12,17 @@ from src.lyap.utils import Timer, timer, get_symbolic_formula
 from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
+T_conversion = Timer()
 
 
 class NN(nn.Module, Learner):
-    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0):
+    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False):
         super(NN, self).__init__()
 
         self.input_size = input_size
         n_prev = input_size
         self.eq = equilibria
+        self.llo = llo
         self.acts = activate
         self._is_there_bias = bias
         self.layers = []
@@ -34,15 +36,15 @@ class NN(nn.Module, Learner):
             n_prev = n_hid
             k = k + 1
 
-        # free output layer
+        # last layer
         layer = nn.Linear(n_prev, 1, bias=False)
         # last layer of ones
-        # layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
-        self.register_parameter("W" + str(k), layer.weight)
-        self.layers.append(layer)
-        # self.output_layer = layer.weight.clone().detach()
-        # or
-        # self.output_layer = torch.ones(1, n_prev)
+        if llo:
+            layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
+            self.layers.append(layer)
+        else:          # free output layer
+            self.register_parameter("W" + str(k), layer.weight)
+            self.layers.append(layer)
 
     @staticmethod
     def learner_fncts():
@@ -148,6 +150,7 @@ class NN(nn.Module, Learner):
     def get(self, **kw):
         return self.learn(kw['optimizer'], kw['S'], kw['Sdot'], kw['factors'])
 
+    @timer(T_conversion)
     def to_next_component(self, out, component, **kw):
         assert isinstance(component, Verifier)
         if isinstance(component, Verifier):
@@ -169,7 +172,7 @@ class NN(nn.Module, Learner):
             # verifier handles
             else:
                 xdot = kw['xdot']
-                V, Vdot = get_symbolic_formula(out, x, xdot,
+                V, Vdot = get_symbolic_formula(out, x, xdot.T,
                                                eq, rounding=3, lf=fcts)
             if isinstance(component, Z3Verifier):
                 V, Vdot = z3.simplify(V), z3.simplify(Vdot)
@@ -196,11 +199,16 @@ class NN(nn.Module, Learner):
             optimizer.zero_grad()
 
             V, Vdot, circle = self.numerical_net(S, Sdot, factors)
-            learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
 
             slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1/slope)
-            loss = (leaky_relu(Vdot + margin*circle)).mean() + (leaky_relu(-V + margin*circle)).mean()
+            leaky_relu = torch.nn.LeakyReLU(1 / slope)
+            # compute loss function. if last layer of ones (llo), can drop parts with V
+            if self.llo:
+                learn_accuracy =sum(Vdot <= -margin).item()
+                loss = (leaky_relu(Vdot + margin * circle)).mean()
+            else:
+                learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
+                loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
@@ -241,7 +249,7 @@ class NN(nn.Module, Learner):
             return 1.0
 
     @staticmethod
-    def get_timer():
-        return T
+    def get_timers():
+        return T, T_conversion
 
 

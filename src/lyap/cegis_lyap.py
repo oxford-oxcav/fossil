@@ -63,7 +63,8 @@ class Cegis:
         self.xdot = np.matrix(self.xdot).T
 
         if learner_type == LearnerType.NN:
-            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations, equilibria=self.eq)
+            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations,
+                              equilibria=self.eq, llo=kw.get('llo', False))
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
             raise ValueError('No learner of type {}'.format(learner_type))
@@ -160,8 +161,10 @@ class Cegis:
                     self.add_ces_to_data(state['S'], state['Sdot'],
                                          torch.cat((state['ces'], state['trajectory'])))
 
-        print('Learner times: {}'.format(self.learner.get_timer()))
+        print('Learner times: {}'.format(self.learner.get_timers()[0]))
+        print('Regulariser times: {}'.format(self.learner.get_timers()[1]))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
+        print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
         return self.learner, state['found'], iters
 
     def add_ces_to_data(self, S, Sdot, ces):

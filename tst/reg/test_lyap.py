@@ -18,7 +18,7 @@ def test_lnn(benchmark, n_vars):
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [20] * len(activations)
+    n_hidden_neurons = [200] * len(activations)
 
     learner_type = LearnerType.NN
     verifier_type = VerifierType.Z3
@@ -28,7 +28,7 @@ def test_lnn(benchmark, n_vars):
     start = timeit.default_timer()
     c = Cegis(n_vars, system, learner_type, activations, n_hidden_neurons,
               verifier_type, inner_radius, outer_radius,
-              factors=factors, sp_handle=True)
+              factors=factors, sp_handle=False, llo=True)
     c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
@@ -36,7 +36,7 @@ def test_lnn(benchmark, n_vars):
 
 if __name__ == '__main__':
     torch.manual_seed(167)
-    # test_lnn(benchmark=nonpoly0, n_vars=2)
-    test_lnn(benchmark=nonpoly1, n_vars=2)   # [LIN, SQUARE], [20], last layer all 1
+    test_lnn(benchmark=nonpoly0, n_vars=2)
+    # test_lnn(benchmark=nonpoly1, n_vars=2)   # [LIN, SQUARE], [20], last layer all 1
     # test_lnn(benchmark=nonpoly2, n_vars=3)
     # test_lnn(benchmark=nonpoly3, n_vars=3)

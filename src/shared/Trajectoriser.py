@@ -24,6 +24,7 @@ class Trajectoriser(Component):
     # computes a 20-step trajectory (20 is arbitrary) starting from point
     # towards increase: + gamma*grad
     # towards decrease: - gamma*grad
+    @timer(T)
     def compute_trajectory(self, net, point):
         """
         :param net: NN object

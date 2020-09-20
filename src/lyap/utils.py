@@ -11,7 +11,10 @@ def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
     # x_sympy = [sp.Symbol('x%d' % i) for i in range(x.shape[0])]
     # x = sp.Matrix(x_sympy)
     sympy_handle = True if isinstance(x, sp.Matrix) else False
-    z, jacobian = network_until_last_layer(net, x, rounding)
+    if sympy_handle:
+        z, jacobian = network_until_last_layer_sympy(net, x, rounding)
+    else:
+        z, jacobian = network_until_last_layer(net, x, rounding)
 
     if equilibrium is None:
         equilibrium = np.zeros((net.input_size, 1))
@@ -77,7 +80,7 @@ def compute_factors(equilibrium, x, lf):
     return E, derivative_e
 
 
-def network_until_last_layer(net, x, rounding):
+def network_until_last_layer_sympy(net, x, rounding):
     """
     :param net:
     :param x:
@@ -100,6 +103,42 @@ def network_until_last_layer(net, x, rounding):
                 b = sp.Matrix(np.round(layer.bias.data.numpy(), rounding)[:, None])
             else:
                 b = sp.zeros(layer.out_features, 1)
+        #
+        # w = sp.Matrix(sp.nsimplify(w, rational=True))
+        # b = sp.Matrix(sp.nsimplify(b, rational=True))
+
+        zhat = w @ z + b
+        z = activation_z3(net.acts[idx], zhat)
+        # Vdot
+        jacobian = w @ jacobian
+        jacobian = np.diagflat(activation_der_z3(net.acts[idx], zhat)) @ jacobian
+
+    return z, jacobian
+
+
+def network_until_last_layer(net, x, rounding):
+    """
+    :param net:
+    :param x:
+    :param equilibrium:
+    :return:
+    """
+    z = x
+    jacobian = np.eye(net.input_size, net.input_size)
+
+    for idx, layer in enumerate(net.layers[:-1]):
+        if rounding < 0:
+            w = layer.weight.data.numpy()
+            if layer.bias is not None:
+                b = layer.bias.data.numpy()[:, None]
+            else:
+                b = np.zeros((layer.out_features, 1))
+        elif rounding > 0:
+            w = np.round(layer.weight.data.numpy(), rounding)
+            if layer.bias is not None:
+                b = np.round(layer.bias.data.numpy(), rounding)[:, None]
+            else:
+                b = np.zeros((layer.out_features, 1))
         #
         # w = sp.Matrix(sp.nsimplify(w, rational=True))
         # b = sp.Matrix(sp.nsimplify(b, rational=True))
