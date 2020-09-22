@@ -33,6 +33,8 @@ class CegisConfig(_SelfNamedEnum):
     LEARNING_RATE           = .1
     FACTORS                 = None
     EQUILIBRIUM             = lambda n_vars: np.zeros((1, n_vars)),  # default in zero
+    LLO                     = False  # last layer of ones
+    ROUNDING                = 3
 
 
 class CegisStateKeys:

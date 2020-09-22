@@ -17,12 +17,13 @@ T = Timer()
 
 
 class NN(nn.Module, Learner):
-    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0):
+    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False):
         super(NN, self).__init__()
 
         self.input_size = input_size
         n_prev = input_size
         self.eq = equilibria
+        self.llo = llo
         self.acts = activate
         self._is_there_bias = bias
         self.layers = []
@@ -36,15 +37,15 @@ class NN(nn.Module, Learner):
             n_prev = n_hid
             k = k + 1
 
-        # free output layer
+        # last layer
         layer = nn.Linear(n_prev, 1, bias=False)
         # last layer of ones
-        # layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
-        self.register_parameter("W" + str(k), layer.weight)
-        self.layers.append(layer)
-        # self.output_layer = layer.weight.clone().detach()
-        # or
-        # self.output_layer = torch.ones(1, n_prev)
+        if llo:
+            layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
+            self.layers.append(layer)
+        else:          # free output layer
+            self.register_parameter("W" + str(k), layer.weight)
+            self.layers.append(layer)
 
     @staticmethod
     def learner_fncts():
@@ -144,35 +145,6 @@ class NN(nn.Module, Learner):
     def get(self, **kw):
         return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
 
-    def to_next_component(self, out, component, **kw):
-        assert isinstance(component, Verifier)
-        if isinstance(component, Verifier):
-            # to disable rounded numbers, set rounding=-1
-            sp_handle = kw.get(CegisStateKeys.sp_handle, False)
-            eq = kw[CegisStateKeys.equilibrium]
-            fcts = kw[CegisStateKeys.factors]
-            x = kw[CegisStateKeys.x_v]
-            if sp_handle:
-                f_verifier = kw[CegisStateKeys.verifier_fun]
-                x_map = kw[CegisStateKeys.x_v_map]
-                x_sp = [sp.Symbol('x%d' % i) for i in range(len(x))]
-                V_s, Vdot_s = get_symbolic_formula(out, sp.Matrix(x_sp),
-                                                   f_verifier(np.array(x_sp).reshape(len(x_sp), 1)),
-                                                   eq, rounding=3, lf=fcts)
-                V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
-                V = sympy_converter(x_map, V_s)
-                Vdot = sympy_converter(x_map, Vdot_s)
-            # verifier handles
-            else:
-                xdot = kw[CegisStateKeys.x_v_dot]
-                V, Vdot = get_symbolic_formula(out, x, xdot,
-                                               eq, rounding=3, lf=fcts)
-            if isinstance(component, Z3Verifier):
-                V, Vdot = z3.simplify(V), z3.simplify(Vdot)
-
-            return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
-        return {}
-
     # backprop algo
     @timer(T)
     def learn(self, optimizer, S, Sdot, factors):
@@ -192,11 +164,16 @@ class NN(nn.Module, Learner):
             optimizer.zero_grad()
 
             V, Vdot, circle = self.numerical_net(S, Sdot, factors)
-            learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
 
             slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1/slope)
-            loss = (leaky_relu(Vdot + margin*circle)).mean() + (leaky_relu(-V + margin*circle)).mean()
+            leaky_relu = torch.nn.LeakyReLU(1 / slope)
+            # compute loss function. if last layer of ones (llo), can drop parts with V
+            if self.llo:
+                learn_accuracy =sum(Vdot <= -margin).item()
+                loss = (leaky_relu(Vdot + margin * circle)).mean()
+            else:
+                learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
+                loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')

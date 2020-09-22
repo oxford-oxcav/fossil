@@ -11,10 +11,11 @@ from src.shared.consts import LearnerType, VerifierType
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.Trajectoriser import Trajectoriser
-from src.lyap.utils import get_symbolic_formula, print_section, compute_trajectory
+from src.shared.Regulariser import Regulariser
+from src.lyap.utils import print_section
 from src.lyap.learner.net import NN
 from functools import partial
-from src.shared.sympy_converter import sympy_converter
+
 try:
     import dreal as dr
 except Exception as e:
@@ -30,6 +31,8 @@ class Cegis:
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](n_vars))
+        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
+        self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
 
         self.n = n_vars
         self.learner_type = learner_type
@@ -64,7 +67,8 @@ class Cegis:
         self.xdot = np.matrix(self.xdot).T
 
         if learner_type == LearnerType.NN:
-            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations, equilibria=self.eq)
+            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations,
+                              equilibria=self.eq, llo=self.llo)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
             raise ValueError('No learner of type {}'.format(learner_type))
@@ -73,6 +77,7 @@ class Cegis:
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
         self.trajectoriser = Trajectoriser(self.f_learner)
+        self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
 
     # the cegis loop
     # todo: fix return, fix map(f, S)
@@ -104,10 +109,12 @@ class Cegis:
             {
                 CegisComponentsState.name: 'learner',
                 CegisComponentsState.instance: self.learner,
-                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw:
-                    self.learner.to_next_component(self.learner, next_component, **{
-                        **kw, **learner_to_next_component_inputs,
-                    }),
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
+            },
+            {
+                CegisComponentsState.name: 'regulariser',
+                CegisComponentsState.instance: self.regulariser,
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
             {
                 CegisComponentsState.name: 'verifier',
@@ -144,7 +151,10 @@ class Cegis:
 
                 state = {**state, **outputs}
 
-                state = {**state, **(component[CegisComponentsState.to_next_component](outputs, next_component[CegisComponentsState.instance], **state))}
+                state = {**state, **(
+                    component[CegisComponentsState.to_next_component](
+                        outputs, next_component[CegisComponentsState.instance], **state
+                    ))}
 
                 if state[CegisStateKeys.found]:
                     print('Found a Lyapunov function')
@@ -162,7 +172,10 @@ class Cegis:
                                          torch.cat((state[CegisStateKeys.cex], state[CegisStateKeys.trajectory])))
 
         print('Learner times: {}'.format(self.learner.get_timer()))
+        print('Regulariser times: {}'.format(self.regulariser.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
+        print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
+
         return self.learner, state[CegisStateKeys.found], iters
 
     def add_ces_to_data(self, S, Sdot, ces):
