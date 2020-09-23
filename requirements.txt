@@ -8,3 +8,4 @@ pylint
 dreal
 tabulate
 scipy
+aenum

@@ -1,26 +1,13 @@
 import math
-from enum import Enum, auto
+from aenum import Enum, NoAlias
 import numpy as np
 
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType
 
 
-class _SelfNamedEnum(Enum):
-    def _generate_next_value_(name, _, __, ___):
-        return name
-
-    @property
-    def k(self):
-        return self.name
-
-    @property
-    def v(self):
-        return self.value
-
-
 # prefer this over CegisConfig = Enum('CegisConfig', "...")
 # to aid with the ide
-class CegisConfig(_SelfNamedEnum):
+class CegisConfig(Enum, settings=NoAlias):
     SP_SIMPLIFY             = True
     SP_HANDLE               = True
     SYMMETRIC_BELT          = False
@@ -35,6 +22,14 @@ class CegisConfig(_SelfNamedEnum):
     EQUILIBRIUM             = lambda n_vars: np.zeros((1, n_vars)),  # default in zero
     LLO                     = False  # last layer of ones
     ROUNDING                = 3
+
+    @property
+    def k(self):
+        return self.name
+
+    @property
+    def v(self):
+        return self.value
 
 
 class CegisStateKeys:
