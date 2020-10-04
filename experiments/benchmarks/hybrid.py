@@ -1,30 +1,34 @@
-import traceback
-from functools import partial
-
-import torch
-import timeit
-
 from experiments.benchmarks.benchmarks_bc import twod_hybrid
-from src.barrier.cegis_barrier import Cegis
-from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType
+from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
+from src.barrier.cegis_barrier import Cegis
+from src.plots.plot_lyap import plot_lyce
+
+from functools import partial
+import numpy as np
+import traceback
+import timeit
+import torch
 
 
 def main():
-    MIN_TO_SEC = 60
+
     batch_size = 500
     system = partial(twod_hybrid, batch_size)
     activations = [ActivationType.LIN_SQUARE]
     hidden_neurons = [3] * len(activations)
+    opts = {CegisConfig.SP_SIMPLIFY.k: False, CegisConfig.SP_HANDLE.k: False,
+            CegisConfig.SYMMETRIC_BELT.k: False}
     try:
         start = timeit.default_timer()
         c = Cegis(2, LearnerType.NN, VerifierType.Z3, activations, system, hidden_neurons,
-                  sp_simplify=False, cegis_time=30 * MIN_TO_SEC, sp_handle=False, symmetric_belt=False)
-        _, found, _ = c.solve()
+                  **opts)
+        state, vars, f_learner, iters = c.solve()
         end = timeit.default_timer()
 
         print('Elapsed Time: {}'.format(end - start))
-        print("Found? {}".format(found))
+        print("Found? {}".format(state['found']))
     except Exception as _:
         print(traceback.format_exc())
 

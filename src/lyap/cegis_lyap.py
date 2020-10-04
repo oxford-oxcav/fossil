@@ -7,9 +7,9 @@ import logging
 
 from src.lyap.verifier.verifier import Verifier
 from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponentsState
+from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.consts import LearnerType, VerifierType
 from src.lyap.verifier.z3verifier import Z3Verifier
-from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.Trajectoriser import Trajectoriser
 from src.shared.Regulariser import Regulariser
 from src.lyap.utils import print_section
@@ -64,7 +64,7 @@ class Cegis:
 
         self.xdot = self.f(self.verifier.solver_fncts(), np.array(self.x).reshape(len(self.x), 1))
         self.x = np.matrix(self.x).T
-        self.xdot = np.matrix(self.xdot).T
+        self.xdot = np.matrix(self.xdot)
 
         if learner_type == LearnerType.NN:
             self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations,
@@ -93,17 +93,6 @@ class Cegis:
         # the CEGIS loop
         iters = 0
         stop = False
-
-        learner_to_next_component_inputs = {
-            CegisStateKeys.x_v_map: self.x_map,
-            CegisStateKeys.x_v: self.x,
-            CegisStateKeys.x_v_dot: self.xdot,
-            CegisStateKeys.sp_simplify: self.sp_simplify,
-            CegisStateKeys.sp_handle: self.sp_handle,
-            CegisStateKeys.factors: self.fcts,
-            CegisStateKeys.verifier_fun: self.f_verifier,
-            CegisStateKeys.equilibrium: self.eq,
-        }
 
         components = [
             {
@@ -136,7 +125,10 @@ class Cegis:
             CegisStateKeys.factors: self.fcts,
             CegisStateKeys.V: None,
             CegisStateKeys.V_dot: None,
+            CegisStateKeys.x_v_map: self.x_map,
+            CegisStateKeys.verifier_fun: self.f_verifier,
             CegisStateKeys.found: False,
+            CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
             CegisStateKeys.trajectory: None
         }
@@ -159,13 +151,16 @@ class Cegis:
                 if state[CegisStateKeys.found]:
                     print('Found a Lyapunov function')
                     stop = True
+                if state[CegisStateKeys.verification_timed_out]:
+                    print('Verification Timed Out')
+                    stop = True
 
             if self.max_cegis_iter == iters:
                 print('Out of Cegis loops')
                 stop = True
 
             iters += 1
-            if not state[CegisStateKeys.found]:
+            if not (state[CegisStateKeys.found] or state[CegisStateKeys.verification_timed_out]):
                 # S, Sdot = self.add_ces_to_data(S, Sdot, ces)
                 state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = \
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
@@ -176,7 +171,7 @@ class Cegis:
         print('Verifier times: {}'.format(self.verifier.get_timer()))
         print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
 
-        return self.learner, state[CegisStateKeys.found], iters
+        return state, self.x, self.f_learner, iters
 
     def add_ces_to_data(self, S, Sdot, ces):
         """

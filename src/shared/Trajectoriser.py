@@ -15,8 +15,13 @@ class Trajectoriser(Component):
         self.f = f
 
     def get(self, **kw):
-        if len(kw[CegisStateKeys.cex]) == 0:  # not elegant but works
+        if len(kw[CegisStateKeys.cex]) == 0 or kw[CegisStateKeys.cex] == [[], [], []]:  # not elegant but works
             return {CegisStateKeys.trajectory: []}
+        elif len(kw[CegisStateKeys.cex]) == 3:  # barrier case
+            if len(kw[CegisStateKeys.cex][0]) == 0:  # S_d is empty, no traj needed
+                return {CegisStateKeys.trajectory: []}
+            else:
+                return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][0][-1])
         else:
             # the original ctx is in the last row of ces, i.e. ces[-1]
             return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1])
@@ -126,6 +131,22 @@ class Trajectoriser(Component):
             y = activation(net.activation, z)
         y = torch.matmul(y, net.layers[-1].weight.T)
         return y
+
+    def add_ces_to_data(self, S, Sdot, ces):
+        """
+        :param S: torch tensor
+        :param Sdot: torch tensor
+        :param ces: list of ctx
+        :return:
+                S: torch tensor, added new ctx
+                Sdot torch tensor, added  f(new_ctx)
+        """
+        for idx in range(3):
+            if len(ces[idx]) != 0:
+                S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
+                Sdot[idx] = torch.cat([Sdot[idx], torch.stack(list(map(torch.tensor, map(self.f_learner, ces[idx]))))], dim=0)
+        return S, Sdot
+
 
     @staticmethod
     def get_timer():

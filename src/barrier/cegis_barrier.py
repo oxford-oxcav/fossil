@@ -6,10 +6,12 @@ import timeit
 
 from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
 from src.shared.consts import VerifierType, LearnerType
-from src.barrier.utils import get_symbolic_formula, print_section, compute_trajectory
+from src.barrier.utils import print_section, compute_trajectory
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
+from src.shared.Trajectoriser import Trajectoriser
+from src.shared.Regulariser import Regulariser
 
 
 class Cegis:
@@ -18,6 +20,9 @@ class Cegis:
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.sb = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
+        self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](n_vars))
+        self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
+        self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
 
         self.n = n_vars
         self.learner_type = learner_type
@@ -61,9 +66,15 @@ class Cegis:
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
         if self.sp_handle:
-            self.x_sympy = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
-            self.xdot_s = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp, }, self.x_sympy)
-            self.x_sympy, self.xdot_s = np.matrix(self.x_sympy).T, np.matrix(self.xdot_s).T
+            self.x = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
+            self.xdot = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, self.x)
+            self.x_map = {**self.x_map, **self.verifier.solver_fncts()}
+            self.x, self.xdot = np.matrix(self.x).T, np.matrix(self.xdot).T
+        else:
+            self.x_sympy, self.xdot_s = None, None
+
+        self.trajectoriser = Trajectoriser(self.f_learner)
+        self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
 
     def solve(self):
         """
@@ -84,38 +95,44 @@ class Cegis:
         stop = False
         start = timeit.default_timer()
 
-        learner_to_next_component_inputs = {
-            CegisStateKeys.x_v_map: self.x_map,
-            CegisStateKeys.x_v: self.x,
-            CegisStateKeys.x_v_dot: self.xdot,
-            CegisStateKeys.x_sympy: self.x_sympy,
-            CegisStateKeys.x_dot_sympy: self.xdot_s,
-            CegisStateKeys.sp_simplify: self.sp_simplify,
-            CegisStateKeys.sp_handle: self.sp_handle,
-        }
-
         components = [
             {
                 CegisComponentsState.name: 'learner',
                 CegisComponentsState.instance: self.learner,
-                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw:
-                    self.learner.to_next_component(self.learner, next_component, **{
-                        **learner_to_next_component_inputs, **kw
-                    }),
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
+            },
+            {
+                CegisComponentsState.name: 'regulariser',
+                CegisComponentsState.instance: self.regulariser,
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
             {
                 CegisComponentsState.name: 'verifier',
                 CegisComponentsState.instance: self.verifier,
-                CegisComponentsState.to_next_component: lambda _outputs, **kw: kw,
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
+            {
+                CegisComponentsState.name: 'trajectoriser',
+                CegisComponentsState.instance: self.trajectoriser,
+                CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw
+            }
         ]
 
         state = {
+            CegisStateKeys.net: self.learner,
             CegisStateKeys.optimizer: self.optimizer,
+            CegisStateKeys.sp_handle:self.sp_handle,
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
+            CegisStateKeys.factors: self.fcts, # default in trajectoriser
             CegisStateKeys.B: None,
             CegisStateKeys.B_dot: None,
+            CegisStateKeys.x_v_map: self.x_map,
+            CegisStateKeys.verifier_fun: self.f_verifier,
+            CegisStateKeys.found: False,
+            CegisStateKeys.verification_timed_out: False,
+            CegisStateKeys.cex: None,
+            CegisStateKeys.trajectory: None
         }
 
         while not stop:
@@ -124,36 +141,41 @@ class Cegis:
                 next_component = components[(component_idx + 1) % len(components)]
 
                 print_section(component[CegisComponentsState.name], iters)
-                outputs = self.learner.get(**state)
+                outputs = component[CegisComponentsState.instance].get(**state)
 
                 state = {**state, **outputs}
-
-                print_section('Outputs', state)
 
                 state = {**state,
                          **(component[CegisComponentsState.to_next_component]
                                 (outputs, next_component[CegisComponentsState.instance], **state))}
 
                 if state[CegisStateKeys.found]:
-                    break
+                    print('Certified!')
+                    stop = True
+                if state[CegisStateKeys.verification_timed_out]:
+                    print('Verification Timed Out')
+                    stop = True
 
             if self.max_cegis_iter == iters or timeit.default_timer() - start > self.max_cegis_time:
                 print('Out of Cegis resources: iters=%d elapsed time=%ss' % (iters, timeit.default_timer() - start))
                 stop = True
 
-            if state[CegisStateKeys.found]:
-                print('Certified!')
-                stop = True
-            else:
-                iters += 1
-                S, Sdot = self.add_ces_to_data(S, Sdot, state[CegisStateKeys.cex])
-
-                # compute climbing towards Bdot
-                S, Sdot = self.trajectoriser(S, Sdot, state[CegisStateKeys.cex])
+            iters += 1
+            if not (state[CegisStateKeys.found] or state[CegisStateKeys.verification_timed_out]):
+                # add trajectory to the first set of cex
+                if len(state[CegisStateKeys.cex][0]) > 0:
+                    state[CegisStateKeys.cex][0] = torch.cat([state[CegisStateKeys.cex][0],
+                                                             state[CegisStateKeys.trajectory]])
+                state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = \
+                    self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
+                                         state[CegisStateKeys.cex])
 
         print('Learner times: {}'.format(self.learner.get_timer()))
+        print('Regulariser times: {}'.format(self.regulariser.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
-        return self.learner, state[CegisStateKeys.found], iters
+        print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
+
+        return state, self.x, self.f_learner, iters
 
     def add_ces_to_data(self, S, Sdot, ces):
         """
@@ -166,11 +188,15 @@ class Cegis:
         """
         for idx in range(3):
             if len(ces[idx]) != 0:
-                S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
-                Sdot[idx] = torch.cat([Sdot[idx], torch.stack(list(map(torch.tensor, map(self.f_learner, ces[idx]))))], dim=0)
+                S[idx] = torch.cat([S[idx], ces[idx]], dim=0).detach()
+                Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                # S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
+                # Sdot[idx] = torch.cat([Sdot[idx],
+                #                       torch.stack(list(map(torch.tensor,
+                #                                   map(self.f_learner, ces[idx]))))], dim=0)
         return S, Sdot
 
-    def trajectoriser(self, S, Sdot, ces):
+    def trajectoriser_method(self, S, Sdot, ces):
         ce = ces[0]
         if len(ce) > 0:
             point = ce[-1]

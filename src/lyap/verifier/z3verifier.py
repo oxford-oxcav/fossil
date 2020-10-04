@@ -1,6 +1,7 @@
 from z3 import *
 
 from src.lyap.verifier.verifier import Verifier
+from src.lyap.utils import z3_replacements
 
 
 class Z3Verifier(Verifier):
@@ -20,6 +21,10 @@ class Z3Verifier(Verifier):
 
     def is_unsat(self, res) -> bool:
         return res == unsat
+
+    @staticmethod
+    def replace_point(expr, ver_vars, point):
+        return z3_replacements(expr, ver_vars, point)
 
     def _solver_solve(self, solver, fml):
         solver.add(fml)

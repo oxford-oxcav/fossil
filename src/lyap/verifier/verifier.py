@@ -35,6 +35,11 @@ class Verifier(Component):
         """Example: return {'And': z3.And}"""
         raise NotImplementedError('')
 
+    @staticmethod
+    def replace_point():
+        """Example: return V(ctx)"""
+        raise NotImplementedError('')
+
     def new_solver(self):
         """Example: return z3.Solver()"""
         raise NotImplementedError('')
@@ -81,7 +86,9 @@ class Verifier(Component):
                 found_lyap: True if V is valid
                 C: a list of ctx
         """
-        found = False
+        found, timed_out = False, False
+        C = []
+
         s = self.new_solver()
         fmls = self.domain_constraints(V, Vdot)
 
@@ -89,20 +96,20 @@ class Verifier(Component):
         res, timedout = self.solve_with_timeout(s, fmls)
         if timedout:
             print(":/ timed out")
-            return False, []
-        C = []
-        if self.is_unsat(res):
+            timed_out = True
+        elif self.is_unsat(res):
             print('No counterexamples found!')
             found = True
         else:
             original_point = self.compute_model(s, res)
-            value_in_ctx, value_in_vdot = z3_replacements(V, self.xs, original_point.numpy().T), \
-                                          z3_replacements(Vdot, self.xs, original_point.numpy().T)
+            value_in_ctx, value_in_vdot = self.replace_point(V, self.xs, original_point.numpy().T), \
+                                          self.replace_point(Vdot, self.xs, original_point.numpy().T)
             print('V(ctx) = ', value_in_ctx)
             print('Vdot(ctx) = ', value_in_vdot)
             C = self.randomise_counterex(original_point)
 
-        return {CegisStateKeys.found: found, CegisStateKeys.cex: C}
+        return {CegisStateKeys.found: found, CegisStateKeys.verification_timed_out: timed_out,
+                CegisStateKeys.cex: C}
 
     def domain_constraints(self, V, Vdot):
         """

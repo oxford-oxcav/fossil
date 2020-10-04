@@ -4,7 +4,7 @@ except:
     print("No dreal")
 
 from src.lyap.verifier.verifier import Verifier
-
+from src.lyap.utils import dreal_replacements
 
 class DRealVerifier(Verifier):
     @staticmethod
@@ -29,6 +29,10 @@ class DRealVerifier(Verifier):
         # bounds_not_ok = isinstance(res, Box) and any(not self.in_bounds(int(str(x)[1:]), interval.mid()) for x, interval in res.items())
         return res is None # or bounds_not_ok
 
+    @staticmethod
+    def replace_point(expr, ver_vars, point):
+        return dreal_replacements(expr, ver_vars, point)
+
     def _solver_solve(self, solver, fml):
         return CheckSatisfiability(fml, 0.00001)
 
@@ -39,5 +43,5 @@ class DRealVerifier(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, equilibrium, inner_radius, outer_radius, dreal_vars):
-        super().__init__(n_vars, equilibrium, inner_radius, outer_radius, dreal_vars)
+    def __init__(self, n_vars, equilibrium, domain, dreal_vars):
+        super().__init__(n_vars, equilibrium, domain, dreal_vars)

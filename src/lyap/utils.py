@@ -1,5 +1,6 @@
 from src.shared.consts import LearningFactors
 from src.shared.utils import *
+import dreal as dr
 
 
 def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
@@ -216,6 +217,21 @@ def z3_replacements(expr, z3_vars, ctx):
     replaced = z3.substitute(expr, replacements)
 
     return z3.simplify(replaced)
+
+
+def dreal_replacements(expr, dr_vars, ctx):
+    """
+    :param expr: dreal expr
+    :param dr_vars: dreal vars, matrix
+    :param ctx: matrix of numerical values
+    :return: value of V, Vdot in ctx
+    """
+    try:
+        replacements = {dr_vars[i, 0]: ctx[i, 0] for i in range(len(dr_vars))}
+    except TypeError:
+        replacements = {dr_vars[i]: ctx[i, 0] for i in range(len(dr_vars))}
+
+    return expr.Substitute(replacements)
 
 
 def forward_V(net, x):

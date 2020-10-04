@@ -26,20 +26,16 @@ class Regulariser(Component):
         sp_handle = kw.get(CegisStateKeys.sp_handle, False)
         fcts = kw[CegisStateKeys.factors]
 
+        V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
+
         if sp_handle:
-            f_verifier = kw[CegisStateKeys.verifier_fun]
+            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
             x_map = kw[CegisStateKeys.x_v_map]
-            x_sp = [sp.Symbol('x%d' % i) for i in range(len(self.x))]
-            V_s, Vdot_s = self.get_symbolic_formula(sp.Matrix(x_sp), f_verifier(np.array(x_sp).T), lf=fcts)
-            V_s, Vdot_s = sp.simplify(V_s), sp.simplify(Vdot_s)
-            V = sympy_converter(x_map, V_s)
-            Vdot = sympy_converter(x_map, Vdot_s)
-        # verifier handles
-        else:
-            V, Vdot = self.get_symbolic_formula(self.x, self.xdot.T, lf=fcts)
+            V = sympy_converter(x_map, V)
+            Vdot = sympy_converter(x_map, Vdot)
         # todo: do we want to pass z3.simplify(V) from here or simplification inside verifier?
         # if isinstance(component, Z3Verifier):
-        #     V, Vdot = z3.simplify(V), z3.simplify(Vdot)
+        # V, Vdot = z3.simplify(V), z3.simplify(Vdot)
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 
@@ -50,22 +46,16 @@ class Regulariser(Component):
         :param xdot:
         :return:
         """
-        # x_sympy = [sp.Symbol('x%d' % i) for i in range(x.shape[0])]
-        # x = sp.Matrix(x_sympy)
-        sympy_handle = True if isinstance(self.x, sp.Matrix) else False
-        if sympy_handle:
-            z, jacobian = self.network_until_last_layer_sympy(x)
+
+        z, jacobian = self.network_until_last_layer(x)
+
+        if self.round < 0:
+            last_layer = self.net.layers[-1].weight.data.numpy()
         else:
-            z, jacobian = self.network_until_last_layer(x)
+            last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
 
-        if self.eq is None:
-            equilibrium = np.zeros((self.net.input_size, 1))
-
-        # projected_last_layer = weights_projection(net, equilibrium, rounding, z)
-        projected_last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
-        z = projected_last_layer @ z
-        # this now contains the gradient \nabla V
-        jacobian = projected_last_layer @ jacobian
+        z = last_layer @ z
+        jacobian = last_layer @ jacobian  # jacobian now contains the grad V
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)
@@ -85,36 +75,6 @@ class Regulariser(Component):
             Vdot = Vdot[0, 0]
 
         return V, Vdot
-
-    def network_until_last_layer_sympy(self, x):
-        """
-        :param x:
-        :return:
-        """
-        z = x
-        jacobian = np.eye(self.net.input_size, self.net.input_size)
-
-        for idx, layer in enumerate(self.net.layers[:-1]):
-            if self.round < 0:
-                w = sp.Matrix(layer.weight.data.numpy())
-                if layer.bias is not None:
-                    b = sp.Matrix(layer.bias.data.numpy()[:, None])
-                else:
-                    b = sp.zeros(layer.out_features, 1)
-            elif self.round > 0:
-                w = sp.Matrix(np.round(layer.weight.data.numpy(), self.round))
-                if layer.bias is not None:
-                    b = sp.Matrix(np.round(layer.bias.data.numpy(), self.round)[:, None])
-                else:
-                    b = sp.zeros(layer.out_features, 1)
-
-            zhat = w @ z + b
-            z = activation_z3(self.net.acts[idx], zhat)
-            # Vdot
-            jacobian = w @ jacobian
-            jacobian = np.diagflat(activation_der_z3(self.net.acts[idx], zhat)) @ jacobian
-
-        return z, jacobian
 
     def network_until_last_layer(self, x):
         """
@@ -152,15 +112,7 @@ class Regulariser(Component):
         :param lf: linear factors
         :return:
         """
-        if lf == LearningFactors.LINEAR:
-            E, factors, temp = 1, [], []
-            for idx in range(self.eq.shape[0]):
-                E *= sp.simplify(sum((x.T - self.eq[idx, :]).T)[0, 0])
-                factors.append(sp.simplify(sum((x.T - self.eq[idx, :]).T)[0, 0]))
-            for idx in range(len(x)):
-                temp += [sum(factors)]
-            derivative_e = np.vstack(temp).T
-        elif lf == LearningFactors.QUADRATIC:  # quadratic terms
+        if lf == LearningFactors.QUADRATIC:  # quadratic terms
             E, temp = 1, []
             factors = np.full(shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0)
             for idx in range(self.eq.shape[0]):  # number of equilibrium points
