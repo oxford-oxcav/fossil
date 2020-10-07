@@ -14,7 +14,7 @@ class Verifier(Component):
         self.n = n_vars
         self.domain = whole_domain
         self.initial_s = initial_state
-        self.counterexample_n = 10
+        self.counterexample_n = 20
         self.unsafe_s = unsafe_state
         self._last_cex = []
         self._n_cex_to_keep = self.counterexample_n * 1
@@ -59,7 +59,8 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     def get(self, **kw):
-        return self.verify(kw[CegisStateKeys.B], kw[CegisStateKeys.B_dot])
+        # regulariser default returns V and Vdot
+        return self.verify(kw[CegisStateKeys.V], kw[CegisStateKeys.V_dot])
 
     @timer(T)
     def verify(self, B, Bdot):
@@ -215,7 +216,7 @@ class Verifier(Component):
         # dimensionality issue
         shape = (1, max(point.shape[0], point.shape[1]))
         point = point.reshape(shape)
-        for i in range(20):
+        for i in range(self.counterexample_n):
             random_point = point + 5*1e-4 * torch.randn(shape)
             # if self.inner < torch.norm(random_point) < self.outer:
             C.append(random_point)

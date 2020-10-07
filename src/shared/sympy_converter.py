@@ -49,7 +49,7 @@ def sympy_converter(syms: {}, exp: sp.Expr, to_number=lambda x: float(x), expand
         else:
             rv = x ** e
     elif isinstance(exp, sp.Function):
-        for f in [sp.tanh, sp.sin, sp.cos]:
+        for f in [sp.tanh, sp.sin, sp.cos, sp.exp]:
             if isinstance(exp, f):
                 a = sympy_converter(syms, exp.args[0], to_number, expand_pow=expand_pow)
                 rv = syms.get(f.__name__)(a)

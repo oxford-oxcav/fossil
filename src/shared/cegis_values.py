@@ -11,7 +11,7 @@ class CegisConfig(Enum, settings=NoAlias):
     SP_SIMPLIFY             = True
     SP_HANDLE               = True
     SYMMETRIC_BELT          = False
-    CEGIS_MAX_ITERS         = 200
+    CEGIS_MAX_ITERS         = 10
     CEGIS_MAX_TIME_S        = math.inf  # in sec
     LEARNER                 = LearnerType.NN
     VERIFIER                = VerifierType.Z3
@@ -52,6 +52,7 @@ class CegisStateKeys:
     trajectory = 'trajectory'
     factors = 'factors'
     found = 'found'
+    verification_timed_out = 'verification_timed_out'
     verifier_fun = 'verifier_fun'
     equilibrium = 'equilibrium'
 

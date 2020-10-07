@@ -133,11 +133,11 @@ def benchmark_1(batch_size, functions, inner=0.0, outer=10.0):
         ]
 
     def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+        x, y, z = v
+        return _And(x ** 2 + y ** 2 + z ** 2 > inner, x ** 2 + y ** 2 + z ** 2 <= outer ** 2)
 
     def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+        return sphere_init_data((0, 0, 0), outer ** 2, batch_size)
 
     return f, XD, SD()
 
