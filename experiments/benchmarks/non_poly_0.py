@@ -3,6 +3,7 @@ import timeit
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from functools import partial
 
@@ -21,13 +22,20 @@ def test_lnn():
     activations = [ActivationType.SQUARE]
     n_hidden_neurons = [2] * len(activations)
 
-    learner_type = LearnerType.NN
-    verifier_type = VerifierType.Z3
-
     start = timeit.default_timer()
-    c = Cegis(n_vars, system, learner_type, activations, n_hidden_neurons,
-              verifier_type, inner_radius, outer_radius,
-              SP_HANDLE=False, LLO=False)
+    opts = {
+        CegisConfig.N_VARS.k: n_vars,
+        CegisConfig.LEARNER.k: LearnerType.NN,
+        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.ACTIVATION.k: activations,
+        CegisConfig.SYSTEM.k: system,
+        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
+        CegisConfig.SP_HANDLE.k: False,
+        CegisConfig.INNER_RADIUS.k: inner_radius,
+        CegisConfig.OUTER_RADIUS.k: outer_radius,
+        CegisConfig.LLO.k: True,
+    }
+    c = Cegis(**opts)
     c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))

@@ -22,6 +22,12 @@ class CegisConfig(Enum, settings=NoAlias):
     EQUILIBRIUM             = lambda n_vars: np.zeros((1, n_vars)),  # default in zero
     LLO                     = False  # last layer of ones
     ROUNDING                = 3
+    N_VARS                  = 0
+    N_HIDDEN_NEURONS        = 0
+    SYSTEM                  = []
+    ACTIVATION              = 0
+    INNER_RADIUS            = 0
+    OUTER_RADIUS            = 0
 
     @property
     def k(self):

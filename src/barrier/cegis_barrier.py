@@ -16,21 +16,23 @@ from src.shared.Regulariser import Regulariser
 
 class Cegis:
     # todo: set params for NN and avoid useless definitions
-    def __init__(self, n_vars, learner_type, verifier_type, active, system, n_hidden_neurons, **kw):
+    def __init__(self, **kw):
+        self.n = kw[CegisConfig.N_VARS.k]
+        self.learner_type = kw[CegisConfig.LEARNER.k]
+        self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.activ = kw[CegisConfig.ACTIVE.k]
+        self.system = kw[CegisConfig.SYSTEM.k]
+        self.n_hidden_neurons = kw[CegisConfig.N_VARS.k]
+        self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
+        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
+        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
+
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.sb = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
-        self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](n_vars))
+        self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
-
-        self.n = n_vars
-        self.learner_type = learner_type
-        self.verifier_type = verifier_type
-        self.activ = active
-        self.h = n_hidden_neurons
-        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
-        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
 
         # batch init
         self.batch_size = kw.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
@@ -38,16 +40,16 @@ class Cegis:
 
         self._assert_state()
 
-        if verifier_type == VerifierType.Z3:
+        if self.verifier_type == VerifierType.Z3:
             verifier_class = Z3Verifier
-        elif verifier_type == VerifierType.DREAL:
+        elif self.verifier_type == VerifierType.DREAL:
             verifier_class = DRealVerifier
 
         self.x = verifier_class.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
         self.f, self.f_whole_domain, self.f_initial_state, self.f_unsafe_state, self.S_d, self.S_i, self.S_u, vars_bounds \
-            = system(verifier_class.solver_fncts())
+            = self.system(verifier_class.solver_fncts())
         self.domain = self.f_whole_domain(verifier_class.solver_fncts(), self.x)
         self.initial_s = self.f_initial_state(verifier_class.solver_fncts(), self.x)
         self.unsafe = self.f_unsafe_state(verifier_class.solver_fncts(), self.x)
@@ -58,8 +60,8 @@ class Cegis:
         self.x = np.matrix(self.x).T
         self.xdot = np.matrix(self.xdot).T
 
-        if learner_type == LearnerType.NN:
-            self.learner = NN(n_vars, *n_hidden_neurons, activate=self.activ, bias=True, symmetric_belt=self.sb)
+        if self.learner_type == LearnerType.NN:
+            self.learner = NN(self.n, *self.n_hidden_neurons, activate=self.activ, bias=True, symmetric_belt=self.sb)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
@@ -75,6 +77,8 @@ class Cegis:
 
         self.trajectoriser = Trajectoriser(self.f_learner)
         self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+
+        self._result = None
 
     def solve(self):
         """
@@ -175,7 +179,12 @@ class Cegis:
         print('Verifier times: {}'.format(self.verifier.get_timer()))
         print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
 
-        return state, self.x, self.f_learner, iters
+        self._result = state, self.x, self.f_learner, iters
+        return self._result
+
+    @property
+    def result(self):
+        return self._result
 
     def add_ces_to_data(self, S, Sdot, ces):
         """
