@@ -7,6 +7,7 @@ import timeit
 from experiments.benchmarks.benchmarks_bc import obstacle_avoidance
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from src.shared.cegis_values import CegisConfig
 
@@ -17,11 +18,19 @@ def main():
     system = partial(obstacle_avoidance, batch_size)
     activations = [ActivationType.LIN_SQUARE]
     hidden_neurons = [10]
-    opts={CegisConfig.SP_SIMPLIFY.k: False, CegisConfig.SP_HANDLE.k: False}
     try:
         start = timeit.default_timer()
-        c = Cegis(3, LearnerType.NN, VerifierType.DREAL, activations, system, hidden_neurons,
-                  **opts)
+        opts = {
+            CegisConfig.N_VARS.k: 3,
+            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.VERIFIER.k: VerifierType.DREAL,
+            CegisConfig.ACTIVATION.k: activations,
+            CegisConfig.SYSTEM.k: system,
+            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+            CegisConfig.SP_SIMPLIFY.k: False,
+            CegisConfig.SP_HANDLE.k: False,
+        }
+        c = Cegis(**opts)
         state, _, __, ___ = c.solve()
         end = timeit.default_timer()
 

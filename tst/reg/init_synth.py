@@ -3,6 +3,7 @@ import timeit
 from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from functools import partial
 
@@ -57,8 +58,17 @@ def barrier_synthesis(benchmark, n_vars):
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
-        c = Cegis_for_bc(n_vars, LearnerType.NN, VerifierType.Z3, activations, system, hidden_neurons,
-                  sp_simplify=True, cegis_time=30 * MIN_TO_SEC)
+        opts = {
+            CegisConfig.N_VARS.k: n_vars,
+            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.VERIFIER.k: VerifierType.Z3,
+            CegisConfig.ACTIVATION.k: activations,
+            CegisConfig.SYSTEM.k: system,
+            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+            CegisConfig.SP_SIMPLIFY.k: True,
+            CegisConfig.CEGIS_MAX_TIME_S.k: 30 * MIN_TO_SEC,
+        }
+        c = Cegis_for_bc(**opts)
         _, found, _ = c.solve()
         end = timeit.default_timer()
 

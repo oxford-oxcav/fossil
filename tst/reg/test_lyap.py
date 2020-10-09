@@ -3,6 +3,7 @@ import timeit
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from src.shared.cegis_values import CegisConfig
 from src.plots.plot_lyap import plot_lyce

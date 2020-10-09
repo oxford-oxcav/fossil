@@ -24,38 +24,39 @@ except Exception as e:
 
 class Cegis:
     # todo: set params for NN and avoid useless definitions
-    def __init__(self, n_vars, system, learner_type, activations, n_hidden_neurons,
-                 verifier_type, inner_radius, outer_radius,
-                 **kw):
+    def __init__(self, **kw):
+        self.n = kw[CegisConfig.N_VARS.k]
+        self.learner_type = kw[CegisConfig.LEARNER.k]
+        self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.inner = kw[CegisConfig.INNER_RADIUS.k]
+        self.outer = kw[CegisConfig.OUTER_RADIUS.k]
+        self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
+        self.activations = kw[CegisConfig.ACTIVATION.k]
+        self.system = kw[CegisConfig.SYSTEM.k]
+
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
-        self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](n_vars))
+        self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
-
-        self.n = n_vars
-        self.learner_type = learner_type
-        self.inner = inner_radius
-        self.outer = outer_radius
-        self.h = n_hidden_neurons
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
 
         # batch init
         self.learning_rate = kw.get(CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v)
 
-        if verifier_type == VerifierType.Z3:
+        if self.verifier_type == VerifierType.Z3:
             verifier = Z3Verifier
-        elif verifier_type == VerifierType.DREAL:
+        elif self.verifier_type == VerifierType.DREAL:
             verifier = DRealVerifier
         else:
-            raise ValueError('No verifier of type {}'.format(verifier_type))
+            raise ValueError('No verifier of type {}'.format(self.verifier_type))
 
         self.x = verifier.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
         self.f, self.f_whole_domain, self.S_d = \
-            system(functions=verifier.solver_fncts(), inner=inner_radius, outer=outer_radius)
+            self.system(functions=verifier.solver_fncts(), inner=self.inner, outer=self.outer)
         # self.S_d = self.S_d.requires_grad_(True)
 
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
@@ -66,18 +67,20 @@ class Cegis:
         self.x = np.matrix(self.x).T
         self.xdot = np.matrix(self.xdot)
 
-        if learner_type == LearnerType.NN:
-            self.learner = NN(n_vars, *n_hidden_neurons, bias=False, activate=activations,
+        if self.learner_type == LearnerType.NN:
+            self.learner = NN(self.n, *self.n_hidden_neurons, bias=False, activate=self.activations,
                               equilibria=self.eq, llo=self.llo)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
-            raise ValueError('No learner of type {}'.format(learner_type))
+            raise ValueError('No learner of type {}'.format(self.learner_type))
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
         self.trajectoriser = Trajectoriser(self.f_learner)
         self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+
+        self._result = None
 
     # the cegis loop
     # todo: fix return, fix map(f, S)
@@ -171,7 +174,12 @@ class Cegis:
         print('Verifier times: {}'.format(self.verifier.get_timer()))
         print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
 
-        return state, self.x, self.f_learner, iters
+        self._result = state, self.x, self.f_learner, iters
+        return self._result
+
+    @property
+    def result(self):
+        return self._result
 
     def add_ces_to_data(self, S, Sdot, ces):
         """

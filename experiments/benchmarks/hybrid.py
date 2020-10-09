@@ -1,4 +1,7 @@
 from experiments.benchmarks.benchmarks_bc import twod_hybrid
+from src.barrier.cegis_barrier import Cegis
+from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
@@ -18,12 +21,20 @@ def main():
     system = partial(twod_hybrid, batch_size)
     activations = [ActivationType.LIN_SQUARE]
     hidden_neurons = [3] * len(activations)
-    opts = {CegisConfig.SP_SIMPLIFY.k: False, CegisConfig.SP_HANDLE.k: False,
-            CegisConfig.SYMMETRIC_BELT.k: False}
     try:
         start = timeit.default_timer()
-        c = Cegis(2, LearnerType.NN, VerifierType.Z3, activations, system, hidden_neurons,
-                  **opts)
+        opts = {
+            CegisConfig.N_VARS.k: 2,
+            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.VERIFIER.k: VerifierType.Z3,
+            CegisConfig.ACTIVATION.k: activations,
+            CegisConfig.SYSTEM.k: system,
+            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+            CegisConfig.SP_SIMPLIFY.k: False,
+            CegisConfig.SP_HANDLE.k: False,
+            CegisConfig.SYMMETRIC_BELT.k: False,
+        }
+        c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()
         end = timeit.default_timer()
 

@@ -1,4 +1,7 @@
 from experiments.benchmarks.benchmarks_bc import darboux
+from src.barrier.cegis_barrier import Cegis
+from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
@@ -17,11 +20,18 @@ def main():
     system = partial(darboux, batch_size)
     activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [10] * len(activations)
-    opts = {CegisConfig.SP_SIMPLIFY.k: True}
     try:
         start = timeit.default_timer()
-        c = Cegis(2, LearnerType.NN, VerifierType.DREAL, activations, system, hidden_neurons,
-                  **opts)
+        opts = {
+            CegisConfig.N_VARS.k: 2,
+            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.VERIFIER.k: VerifierType.DREAL,
+            CegisConfig.ACTIVATION.k: activations,
+            CegisConfig.SYSTEM.k: system,
+            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+            CegisConfig.SP_SIMPLIFY.k: True,
+        }
+        c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()
         end = timeit.default_timer()
 
