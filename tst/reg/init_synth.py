@@ -54,7 +54,7 @@ def barrier_synthesis(benchmark, n_vars):
     MIN_TO_SEC = 60
     batch_size = 500
     system = partial(benchmark, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
+    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
