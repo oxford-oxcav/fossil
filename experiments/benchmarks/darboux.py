@@ -18,7 +18,7 @@ def main():
 
     batch_size = 500
     system = partial(darboux, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
+    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [10] * len(activations)
     try:
         start = timeit.default_timer()

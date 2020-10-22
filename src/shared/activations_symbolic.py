@@ -29,15 +29,17 @@ def activation_z3(select, p):
         return hyper_tan_dr(p)
     elif select == ActivationType.SIGMOID:
         return sigm_dr(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC:
+    elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_z3(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC:
+    elif select == ActivationType.LIN_TO_QUARTIC:
         return lqcq_z3(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC_PENTA:
+    elif select == ActivationType.LIN_TO_QUINTIC:
         return lqcqp_z3(p)
-    elif select == ActivationType.LIN_ETC_EXA:
+    elif select == ActivationType.LIN_TO_SEXTIC:
         return l_e_z3(p)
-    elif select == ActivationType.LIN_OTT:
+    elif select == ActivationType.LIN_TO_SEPTIC:
+        return l_s_z3(p)
+    elif select == ActivationType.LIN_TO_OCTIC:
         return l_o_z3(p)
 
 
@@ -60,15 +62,17 @@ def activation_der_z3(select, p):
         return hyper_tan_der_dr(p)
     elif select == ActivationType.SIGMOID:
         return sigm_der_dr(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC:
+    elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_der_z3(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC:
+    elif select == ActivationType.LIN_TO_QUARTIC:
         return lqcq_der_z3(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC_PENTA:
+    elif select == ActivationType.LIN_TO_QUINTIC:
         return lqcqp_der_z3(p)
-    elif select == ActivationType.LIN_ETC_EXA:
+    elif select == ActivationType.LIN_TO_SEXTIC:
         return l_e_der_z3(p)
-    elif select == ActivationType.LIN_OTT:
+    elif select == ActivationType.LIN_TO_SEPTIC:
+        return l_s_der_z3(p)
+    elif select == ActivationType.LIN_TO_OCTIC:
         return l_o_der_z3(p)
 
 
@@ -146,6 +150,13 @@ def l_e_z3(x):
     return np.vstack([x1, np.power(x2, 2), np.power(x3, 3), np.power(x4, 4),
                       np.power(x5, 5), np.power(x6,6 )])
 
+def l_s_z3(x):
+    # # linear - quadratic - cubic - quartic -penta activation
+    h = int(x.shape[0] / 7)
+    x1, x2, x3, x4, x5, x6, x7= x[:h], x[h:2 * h], x[2 * h:3 * h], x[3 * h:4*h], \
+                                     x[4*h:5*h], x[5*h:6*h], x[6*h:]
+    return np.vstack([x1, np.power(x2, 2), np.power(x3, 3), np.power(x4, 4),
+                      np.power(x5, 5), np.power(x6, 6), np.power(x7, 7)])
 
 def l_o_z3(x):
     # # linear - quadratic - cubic - quartic -penta activation
@@ -222,6 +233,14 @@ def l_e_der_z3(x):
     x1, x2, x3, x4, x5, x6 = x[:h], x[h:2 * h], x[2 * h:3 * h], x[3*h:4*h], x[4*h:5*h], x[5*h:]
     return np.vstack([np.ones((h, 1)), 2*x2, 3*np.power(x3, 2), 4*np.power(x4, 3),
                       5*np.power(x5, 4), 6*np.power(x6, 5)])
+
+def l_s_der_z3(x):
+    # # linear - quadratic - cubic - quartic - penta activation
+    h = int(x.shape[0] / 7)
+    x1, x2, x3, x4, x5, x6, x7 = x[:h], x[h:2 * h], x[2 * h:3 * h], x[3*h:4*h], \
+                                     x[4*h:5*h], x[5*h:6*h], x[6*h:]
+    return np.vstack([np.ones((h, 1)), 2*x2, 3*np.power(x3, 2), 4*np.power(x4, 3),
+                      5*np.power(x5, 4), 6*np.power(x6, 5), 7*np.power(x7, 6)])
 
 
 def l_o_der_z3(x):
