@@ -2,26 +2,32 @@ import unittest
 from unittest import mock
 from functools import partial
 import numpy as np
+import sympy as sp
 from src.lyap.learner.net import NN
-from src.shared.Trajectoriser import Trajectoriser
+from src.shared.Regulariser import Regulariser
 from src.shared.activations import ActivationType
+from src.lyap.verifier.z3verifier import Z3Verifier
 from experiments.benchmarks.benchmarks_lyap import benchmark_3
 import torch
 
 
-class TrajectoriserTest(unittest.TestCase):
+class RegulariserTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(benchmark_3, batch_size=500)
         self.f, _, self.S_d = system(functions={'And': 0})
         self.f_learner = partial(self.f, {'And': 0})
+        self.f_verifier = partial(self.f, {'And': 0})
         self.hidden = [3]
         self.activate = [ActivationType.SQUARE]
+        self.x = [sp.Symbol('x'), sp.Symbol('y')]
+        self.xdot = self.f(Z3Verifier.solver_fncts(), self.x)
 
     # given a point, the trajectoriser returns a list of points - trajectory -
     # that lead towards the max of Vdot
-    def test_fromCex_returnTrajectoryTowardsHighestValueOfVdot(self):
+    def test_fromNet_returnSimplifiedVAndVdot(self):
         # give a value to a hypothetical cex
+        torch.set_default_dtype(torch.float64)
         point = torch.tensor([1., 2.])
         point.requires_grad = True
 
@@ -35,25 +41,30 @@ class TrajectoriserTest(unittest.TestCase):
                 torch.nn.Linear(3, 1, bias=False)
             ]
             learner.layers[0].weight = torch.nn.Parameter(torch.tensor(
-                [[1.0, 2.0],
-                 [2.0, 1.0],
-                 [5.0, 4.0]
+                [[1.234, 0.0],
+                 [0.0, 1.234],
+                 [0.0, 0.0]
             ]))
             learner.layers[1].weight = torch.nn.Parameter(
-                torch.tensor([-1.0, 1.0, -2.0]).reshape(1, 3)
+                torch.tensor([1.0, 1.0, 1.0]).reshape(1, 3)
             )
 
-            # create a 'real' trajectoriser
-            traj = Trajectoriser(self.f_learner)
-            trajectory = traj.compute_trajectory(learner, point)['trajectory']
+            # create a 'real' regulariser and compute V, Vdot
+            regolo = Regulariser(learner, np.matrix(self.x).T, self.xdot, None, 1)
+            res = regolo.get(**{'factors': None})
+            V, Vdot = res['V'], res['V_dot']
 
-            # evaluate the points in Vdot(trajectory)
-            v_dots = []
-            for idx in range(len(trajectory)):
-                v_dots.append(traj.forward_Vdot(learner, trajectory[idx].detach()).item())
+            # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are
+            # V = (1.2*x)**2 + (1.2*y)**2 = 1.44 * x**2 + 1.44 * y**2
+            # Vdot = 2 * 1.44 * x * (- x**3 + y) + 2 * 1.44 * y * (- x - y)
+            desired_V = 1.44 * self.x[0]**2 + 1.44 * self.x[1]**2
+            desired_Vdot = 2 * 1.44 * self.x[0] * self.xdot[0] \
+                           + 2 * 1.44 * self.x[1] * self.xdot[1]
+
+            self.assertEqual(V, desired_V)
+            self.assertEqual(Vdot, desired_Vdot)
 
             # check that Vdot(trajectory) is an increasing sequence
-            self.assertTrue(all(v_dots[i] <= v_dots[i+1] for i in range(len(v_dots)-1)))
 
 
 if __name__ == '__main__':

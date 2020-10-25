@@ -41,6 +41,11 @@ def main():
     except Exception as _:
         print(traceback.format_exc())
 
+    # plotting -- only for 2-d systems
+    if len(vars) == 2 and state['found']:
+        plot_lyce(np.array(vars), state['V'],
+                  state['V_dot'], f)
+
 
 if __name__ == '__main__':
     torch.manual_seed(167)

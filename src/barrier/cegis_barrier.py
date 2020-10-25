@@ -20,9 +20,8 @@ class Cegis:
         self.n = kw[CegisConfig.N_VARS.k]
         self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.activ = kw[CegisConfig.ACTIVE.k]
+        self.activ = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
-        self.n_hidden_neurons = kw[CegisConfig.N_VARS.k]
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
         self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
@@ -61,7 +60,7 @@ class Cegis:
         self.xdot = np.matrix(self.xdot).T
 
         if self.learner_type == LearnerType.NN:
-            self.learner = NN(self.n, *self.n_hidden_neurons, activate=self.activ, bias=True, symmetric_belt=self.sb)
+            self.learner = NN(self.n, *self.h, activate=self.activ, bias=True, symmetric_belt=self.sb)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
@@ -139,12 +138,18 @@ class Cegis:
             CegisStateKeys.trajectory: None
         }
 
+        # reset timers
+        self.learner.get_timer().reset()
+        self.regulariser.get_timer().reset()
+        self.verifier.get_timer().reset()
+        self.trajectoriser.get_timer().reset()
+
         while not stop:
             for component_idx in range(len(components)):
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                print_section(component[CegisComponentsState.name], iters)
+                # print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
                 state = {**state, **outputs}
@@ -174,6 +179,11 @@ class Cegis:
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
                                          state[CegisStateKeys.cex])
 
+        state[CegisStateKeys.components_times] = [
+            self.learner.get_timer().sum, self.regulariser.get_timer().sum,
+            self.verifier.get_timer().sum, self.trajectoriser.get_timer().sum
+        ]
+
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Regulariser times: {}'.format(self.regulariser.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
@@ -198,7 +208,10 @@ class Cegis:
         for idx in range(3):
             if len(ces[idx]) != 0:
                 S[idx] = torch.cat([S[idx], ces[idx]], dim=0).detach()
-                Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                # Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                Sdot[idx] = list(map(torch.tensor, map(self.f_learner, S[idx])))
+                Sdot[idx] = torch.stack(Sdot[idx])
+
                 # S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
                 # Sdot[idx] = torch.cat([Sdot[idx],
                 #                       torch.stack(list(map(torch.tensor,

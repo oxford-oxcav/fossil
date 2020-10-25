@@ -5,13 +5,13 @@ from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
-from src.plots.plot_lyap import plot_lyce
 from functools import partial
 
 
 def test_lnn():
+
     batch_size = 500
-    benchmark = nonpoly0
+    benchmark = benchmark_5
     n_vars = 2
     system = partial(benchmark, batch_size)
 
@@ -21,13 +21,12 @@ def test_lnn():
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
 
-    start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
@@ -36,15 +35,12 @@ def test_lnn():
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
+
+    start = timeit.default_timer()
     c = Cegis(**opts)
-    state, vars, f_learner, iters = c.solve()
+    c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
-
-    # plotting -- only for 2-d systems
-    if len(vars) == 2 and state['found']:
-        plot_lyce(np.array(vars), state['V'],
-                  state['V_dot'], f_learner)
 
 
 if __name__ == '__main__':

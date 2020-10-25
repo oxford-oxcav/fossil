@@ -320,8 +320,143 @@ def twod_hybrid(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
+# 10-d version of pj_original
+def four_poly(batch_size, functions):
+    _And = functions['And']
+    _Or = functions['Or']
+
+    def f(_, v):
+        x0, x1, x2, x3 = v
+        # x^4 + 3980 x^3 + 4180 x^2 + 2400 x + 576
+        # is stable with complex roots
+        return [x1, x2,
+                x3,
+                - 3980*x3 - 4180*x2 - 2400*x1 - 576*x0
+                ]
+
+    def XD(_, v):
+        x0, x1, x2, x3 = v
+        return _And( x0 ** 2 + x1 ** 2 + x2 ** 2 + x3 ** 2 <= 4)
+
+    def XI(_, v):
+        x0, x1, x2, x3 = v
+        return (x0 - 1.0) ** 2 + (x1 - 1.0) ** 2 + \
+               (x2 - 1.0) ** 2 + (x3 - 1.0) ** 2 <= 0.25
+
+    def XU(_, v):
+        x0, x1, x2, x3 = v
+        return (x0 + 2) ** 2 + (x1 + 2) ** 2 + \
+               (x2 + 2) ** 2 + (x3 + 2) ** 2 <= 0.16
+
+    def SD():
+        return n_dim_sphere_init_data([0, 0, 0, 0], 4, batch_size)
+
+    epsilon = 0
+
+    def SI():
+        return n_dim_sphere_init_data([1.0, 1.0, 1.0, 1.0], 0.25, batch_size)
+
+    def SU():
+        return n_dim_sphere_init_data([-2., -2., -2., -2.], 0.16, batch_size)
+
+    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(4)
+
+
+# 10-d version of pj_original
+def six_poly(batch_size, functions):
+    _And = functions['And']
+    _Or = functions['Or']
+
+    def f(_, v):
+        x0, x1, x2, x3, x4, x5 = v
+        # x^6 + 800 x^5 + 2273 x^4 + 3980 x^3 + 4180 x^2 + 2400 x + 576
+        # is stable with complex roots
+        return [x1, x2,
+                x3, x4,
+                x5,
+                - 800*x5 - 2273*x4 - 3980*x3 - 4180*x2 - 2400*x1 - 576*x0
+                ]
+
+    def XD(_, v):
+        x0, x1, x2, x3, x4, x5 = v
+        return _And( x0 ** 2 + x1 ** 2 + x2 ** 2 + x3 ** 2 + x4 ** 2 + x5 ** 2 <= 4)
+
+    def XI(_, v):
+        x0, x1, x2, x3, x4, x5 = v
+        return (x0 - 1.0) ** 2 + (x1 - 1.0) ** 2 + \
+               (x2 - 1.0) ** 2 + (x3 - 1.0) ** 2 + \
+               (x4 - 1.0) ** 2 + (x5 - 1.0) ** 2 <= 0.25
+
+    def XU(_, v):
+        x0, x1, x2, x3, x4, x5 = v
+        return (x0 + 2) ** 2 + (x1 + 2) ** 2 + \
+               (x2 + 2) ** 2 + (x3 + 2) ** 2 + \
+               (x4 + 2) ** 2 + (x5 + 2) ** 2 <= 0.16
+
+    def SD():
+        return n_dim_sphere_init_data([0, 0, 0, 0, 0, 0], 4, batch_size)
+
+    epsilon = 0
+
+    def SI():
+        return n_dim_sphere_init_data([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 0.25, batch_size)
+
+    def SU():
+        return n_dim_sphere_init_data([-2., -2., -2., -2., -2., -2.], 0.16, batch_size)
+
+    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(6)
+
+
+# 10-d version of pj_original
+def eight_poly(batch_size, functions):
+    _And = functions['And']
+    _Or = functions['Or']
+
+    def f(_, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = v
+        # x^8 + 20 x^7 + 170 x^6 + 800 x^5 + 2273 x^4 + 3980 x^3 + 4180 x^2 + 2400 x + 576
+        # is stable with roots in -1, -2, -3, -4
+        return [x1, x2,
+                x3, x4,
+                x5, x6,
+                x7,
+                -20*x7 - 170*x6 - 800*x5 - 2273*x4 - 3980*x3 - 4180*x2 - 2400*x1 - 576*x0
+                ]
+
+    def XD(_, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = v
+        return _And( x0 ** 2 + x1 ** 2 + x2 ** 2 + x3 ** 2 + x4 ** 2 + x5 ** 2 + x6 ** 2 + x7 ** 2 <= 4)
+
+    def XI(_, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = v
+        return (x0 - 1.0) ** 2 + (x1 - 1.0) ** 2 + \
+               (x2 - 1.0) ** 2 + (x3 - 1.0) ** 2 + \
+               (x4 - 1.0) ** 2 + (x5 - 1.0) ** 2 + \
+               (x6 - 1.0) ** 2 + (x7 - 1.0) ** 2 <= 0.25
+
+    def XU(_, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = v
+        return (x0 + 2) ** 2 + (x1 + 2) ** 2 + \
+               (x2 + 2) ** 2 + (x3 + 2) ** 2 + \
+               (x4 + 2) ** 2 + (x5 + 2) ** 2 + \
+               (x6 + 2) ** 2 + (x7 + 2) ** 2 <= 0.16
+
+    def SD():
+        return n_dim_sphere_init_data([0, 0, 0, 0, 0, 0, 0, 0], 4, batch_size)
+
+    epsilon = 0
+
+    def SI():
+        return n_dim_sphere_init_data([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 0.25, batch_size)
+
+    def SU():
+        return n_dim_sphere_init_data([-2., -2., -2., -2., -2., -2., -2., -2.], 0.16, batch_size)
+
+    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(8)
+
+
 if __name__ == '__main__':
-    f, XD, XI, XU, SD, SI, SU, bonds = prajna07_modified(500, {'And': z3.And, 'Or': None})
+    f, XD, XI, XU, SD, SI, SU, bonds = eight_poly(500, {'And': z3.And, 'Or': None})
     plt.scatter(SI[:, 0], SI[:, 1], color='g', marker='x')
     plt.scatter(SU[:, 0], SU[:, 1], color='r', marker='x')
     plt.scatter(SD[:, 0], SD[:, 1], color='b')

@@ -61,6 +61,7 @@ class CegisStateKeys:
     verification_timed_out = 'verification_timed_out'
     verifier_fun = 'verifier_fun'
     equilibrium = 'equilibrium'
+    components_times = 'components_times'
 
 
 class CegisComponentsState:

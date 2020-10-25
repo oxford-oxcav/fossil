@@ -111,7 +111,7 @@ def n_dim_sphere_init_data(centre, radius, batch_size):
     u = torch.randn(batch_size, dim)  # an array of d normally distributed random variables
     norm = torch.sum(u ** 2, dim=1) ** (0.5)
     r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
-    x = torch.div(r*u, norm[:, None])
+    x = torch.div(r*u, norm[:, None]) + torch.tensor(centre)
 
     return x
 

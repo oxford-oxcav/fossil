@@ -24,6 +24,7 @@ class NN(nn.Module, Learner):
         n_prev = input_size
         self.eq = equilibria
         self.llo = llo
+        self._diagonalise = False
         self.acts = activate
         self._is_there_bias = bias
         self.layers = []
@@ -31,7 +32,7 @@ class NN(nn.Module, Learner):
         for n_hid in args:
             layer = nn.Linear(n_prev, n_hid, bias=bias)
             self.register_parameter("W" + str(k), layer.weight)
-            if (bias):
+            if bias:
                 self.register_parameter("b" + str(k), layer.bias)
             self.layers.append(layer)
             n_prev = n_hid
@@ -143,7 +144,8 @@ class NN(nn.Module, Learner):
         return E, derivative_e
     
     def get(self, **kw):
-        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
+        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S],
+                          kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
 
     # backprop algo
     @timer(T)
@@ -169,7 +171,7 @@ class NN(nn.Module, Learner):
             leaky_relu = torch.nn.LeakyReLU(1 / slope)
             # compute loss function. if last layer of ones (llo), can drop parts with V
             if self.llo:
-                learn_accuracy =sum(Vdot <= -margin).item()
+                learn_accuracy = sum(Vdot <= -margin).item()
                 loss = (leaky_relu(Vdot + margin * circle)).mean()
             else:
                 learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
@@ -181,12 +183,21 @@ class NN(nn.Module, Learner):
             loss.backward()
             optimizer.step()
 
+            if self._diagonalise:
+                self.diagonalisation()
+
             if learn_accuracy == batch_size:
                 break
 
             # if self._is_there_bias:
             #     self.weights_projection()
         return {}
+
+    def diagonalisation(self):
+        # makes the weight matrices diagonal. works iff intermediate layers are square matrices
+        with torch.no_grad():
+            for layer in self.layers[:-1]:
+                layer.weight.data = torch.diag(torch.diag(layer.weight))
 
     def weights_projection(self):
         # bias_vector = self.layers[0].bias

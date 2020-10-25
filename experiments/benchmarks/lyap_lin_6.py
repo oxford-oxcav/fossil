@@ -1,33 +1,32 @@
-import torch
-import timeit
-from src.lyap.cegis_lyap import Cegis
-from experiments.benchmarks.benchmarks_lyap import *
+from experiments.benchmarks.benchmarks_lyap import six_poly
+from src.shared.consts import VerifierType, LearnerType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, LearnerType
-from src.plots.plot_lyap import plot_lyce
+from src.lyap.cegis_lyap import Cegis
 from functools import partial
+import timeit
+import torch
 
 
 def test_lnn():
-    batch_size = 500
-    benchmark = nonpoly0
-    n_vars = 2
+
+    batch_size = 1000
+    benchmark = six_poly
+    n_vars = 6
     system = partial(benchmark, batch_size)
 
     # define domain constraints
     outer_radius = 10
-    inner_radius = 0.01
+    inner_radius = 0.0
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    activations = [ActivationType.LINEAR, ActivationType.LINEAR, ActivationType.SQUARE]
+    n_hidden_neurons = [20] * len(activations)
 
-    start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
@@ -35,16 +34,14 @@ def test_lnn():
         CegisConfig.INNER_RADIUS.k: inner_radius,
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
+        CegisConfig.ROUNDING.k: -1,
     }
+
+    start = timeit.default_timer()
     c = Cegis(**opts)
-    state, vars, f_learner, iters = c.solve()
+    c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
-
-    # plotting -- only for 2-d systems
-    if len(vars) == 2 and state['found']:
-        plot_lyce(np.array(vars), state['V'],
-                  state['V_dot'], f_learner)
 
 
 if __name__ == '__main__':
