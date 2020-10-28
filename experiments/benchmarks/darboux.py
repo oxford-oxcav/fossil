@@ -2,10 +2,9 @@
 from experiments.benchmarks.benchmarks_bc import darboux
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
 from src.barrier.cegis_barrier import Cegis
 from src.plots.plot_lyap import plot_lyce
 from functools import partial
@@ -38,12 +37,12 @@ def main():
     end = timeit.default_timer()
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2 and state['found']:
+    if len(vars) == 2 and state[CegisStateKeys.found]:
         plot_lyce(np.array(vars), state['V'],
                       state['V_dot'], f_learner)
 
     print('Elapsed Time: {}'.format(end - start))
-    print("Found? {}".format(state['found']))
+    print("Found? {}".format(state[CegisStateKeys.found]))
 
 
 if __name__ == '__main__':

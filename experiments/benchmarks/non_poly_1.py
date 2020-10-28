@@ -2,7 +2,7 @@
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.plots.plot_lyap import plot_lyce
 from src.lyap.cegis_lyap import Cegis
 from functools import partial

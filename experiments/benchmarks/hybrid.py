@@ -2,10 +2,9 @@
 from experiments.benchmarks.benchmarks_bc import twod_hybrid
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.barrier.cegis_barrier import Cegis
 from src.plots.plot_lyap import plot_lyce
 
@@ -41,7 +40,7 @@ def main():
     end = timeit.default_timer()
 
     print('Elapsed Time: {}'.format(end - start))
-    print("Found? {}".format(state['found']))
+    print("Found? {}".format(state[CegisStateKeys.found]))
 
 
 if __name__ == '__main__':

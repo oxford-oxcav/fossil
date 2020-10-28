@@ -6,7 +6,7 @@ from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from functools import partial
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 
 
 def test_lnn():

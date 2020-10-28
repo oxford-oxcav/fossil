@@ -6,6 +6,7 @@ import sympy as sp
 from src.lyap.learner.net import NN
 from src.shared.Regulariser import Regulariser
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisStateKeys
 from src.lyap.verifier.z3verifier import Z3Verifier
 from experiments.benchmarks.benchmarks_lyap import benchmark_3
 import torch
@@ -52,7 +53,7 @@ class RegulariserTest(unittest.TestCase):
             # create a 'real' regulariser and compute V, Vdot
             regolo = Regulariser(learner, np.matrix(self.x).T, self.xdot, None, 1)
             res = regolo.get(**{'factors': None})
-            V, Vdot = res['V'], res['V_dot']
+            V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
             # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are
             # V = (1.2*x)**2 + (1.2*y)**2 = 1.44 * x**2 + 1.44 * y**2
