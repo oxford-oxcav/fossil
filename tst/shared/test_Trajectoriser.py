@@ -6,6 +6,7 @@ from src.lyap.learner.net import NN
 from src.shared.Trajectoriser import Trajectoriser
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import benchmark_3
+from src.shared.cegis_values import CegisStateKeys
 import torch
 
 
@@ -23,7 +24,6 @@ class TrajectoriserTest(unittest.TestCase):
     def test_fromCex_returnTrajectoryTowardsHighestValueOfVdot(self):
         # give a value to a hypothetical cex
         point = torch.tensor([1., 2.])
-        point.requires_grad = True
 
         # def neural learner
         with mock.patch.object(NN, 'learn') as learner:
@@ -45,8 +45,14 @@ class TrajectoriserTest(unittest.TestCase):
 
             # create a 'real' trajectoriser
             traj = Trajectoriser(self.f_learner)
-            trajectory = traj.compute_trajectory(learner, point)['trajectory']
-
+            state = {
+                CegisStateKeys.net: learner,
+                CegisStateKeys.cex: [point],
+                CegisStateKeys.trajectory: None,
+            }
+            output = traj.get(**state)
+            state = {**state, **output}
+            trajectory = state[CegisStateKeys.trajectory]
             # evaluate the points in Vdot(trajectory)
             v_dots = []
             for idx in range(len(trajectory)):

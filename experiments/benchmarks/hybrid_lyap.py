@@ -1,7 +1,8 @@
+# pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_lyap import twod_hybrid
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
 from src.lyap.cegis_lyap import Cegis
@@ -26,6 +27,8 @@ def main():
             CegisConfig.N_VARS.k: 2,
             CegisConfig.LEARNER.k: LearnerType.NN,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
             CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,

@@ -1,10 +1,11 @@
+# pylint: disable=not-callable
 import torch
 import timeit
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.plots.plot_lyap import plot_lyce
 from functools import partial
 
@@ -28,6 +29,8 @@ def test_lnn():
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
         CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+        CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,

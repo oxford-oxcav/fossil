@@ -20,30 +20,23 @@ def main(h):
     system = partial(darboux, batch_size)
     activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [h] * len(activations)
-    try:
-        start = timeit.default_timer()
-        opts = {
-            CegisConfig.N_VARS.k: 2,
-            CegisConfig.LEARNER.k: LearnerType.NN,
-            CegisConfig.VERIFIER.k: VerifierType.DREAL,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-            CegisConfig.SP_SIMPLIFY.k: True,
-        }
-        c = Cegis(**opts)
-        state, vars, f_learner, iters = c.solve()
-        end = timeit.default_timer()
 
-        # plotting -- only for 2-d systems
-        # if len(vars) == 2 and state['found']:
-        #     plot_lyce(np.array(vars), state['V'],
-        #               state['V_dot'], f_learner)
+    start = timeit.default_timer()
+    opts = {
+        CegisConfig.N_VARS.k: 2,
+        CegisConfig.LEARNER.k: LearnerType.NN,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
+        CegisConfig.ACTIVATION.k: activations,
+        CegisConfig.SYSTEM.k: system,
+        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+        CegisConfig.SP_SIMPLIFY.k: True,
+    }
+    c = Cegis(**opts)
+    state, vars, f_learner, iters = c.solve()
+    end = timeit.default_timer()
 
-        print('Elapsed Time: {}'.format(end - start))
-        print("Found? {}".format(state['found']))
-    except Exception as _:
-        print(traceback.format_exc())
+    print('Elapsed Time: {}'.format(end - start))
+    print("Found? {}".format(state['found']))
 
     return end-start, state['found'], state['components_times'], iters
 
@@ -65,8 +58,5 @@ if __name__ == '__main__':
 
         name_save = 'darboux' + '_hdn_' + str(hidden) + '_1st_run.csv'
         res.to_csv(name_save)
-    # print_section('Result', 'Analysis')
-
-    # result_analysis(res, number_of_runs)
 
 

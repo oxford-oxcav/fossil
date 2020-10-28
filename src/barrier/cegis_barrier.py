@@ -5,7 +5,7 @@ import numpy as np
 import timeit
 
 from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.barrier.utils import print_section, compute_trajectory
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
@@ -18,20 +18,24 @@ class Cegis:
     # todo: set params for NN and avoid useless definitions
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
+        # components types
         self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.trajectoriser_type = kw[CegisConfig.TRAJECTORISER.k]
+        self.regulariser_type = kw[CegisConfig.REGULARISER.k]
+        # benchmark options
         self.activ = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
-        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
-        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
-
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.sb = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        # other opts
+        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
+        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
 
         # batch init
         self.batch_size = kw.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
@@ -74,8 +78,14 @@ class Cegis:
         else:
             self.x_sympy, self.xdot_s = None, None
 
-        self.trajectoriser = Trajectoriser(self.f_learner)
-        self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        if self.trajectoriser_type == TrajectoriserType.DEFAULT:
+            self.trajectoriser = Trajectoriser(self.f_learner)
+        else:
+            TypeError('Not Implemented Trajectoriser')
+        if self.regulariser_type == RegulariserType.DEFAULT:
+            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        else:
+            TypeError('Not Implemented Regulariser')
 
         self._result = None
 
@@ -149,7 +159,7 @@ class Cegis:
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                # print_section(component[CegisComponentsState.name], iters)
+                print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
                 state = {**state, **outputs}

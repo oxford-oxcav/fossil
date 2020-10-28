@@ -2,7 +2,7 @@ import math
 from aenum import Enum, NoAlias
 import numpy as np
 
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 
 
 # prefer this over CegisConfig = Enum('CegisConfig', "...")
@@ -16,6 +16,7 @@ class CegisConfig(Enum, settings=NoAlias):
     LEARNER                 = LearnerType.NN
     VERIFIER                = VerifierType.Z3
     TRAJECTORISER           = TrajectoriserType.DEFAULT
+    REGULARISER             = RegulariserType.DEFAULT
     BATCH_SIZE              = 100
     LEARNING_RATE           = .1
     FACTORS                 = None

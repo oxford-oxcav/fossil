@@ -17,6 +17,11 @@ class TrajectoriserType(Enum):
     DEFAULT = auto()
 
 
+class RegulariserType(Enum):
+    NONE = auto()
+    DEFAULT = auto()
+
+
 class LearningFactors(Enum):
     LINEAR = auto()
     QUADRATIC = auto()

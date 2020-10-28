@@ -8,7 +8,7 @@ import logging
 from src.lyap.verifier.verifier import Verifier
 from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponentsState
 from src.lyap.verifier.drealverifier import DRealVerifier
-from src.shared.consts import LearnerType, VerifierType
+from src.shared.consts import LearnerType, VerifierType, TrajectoriserType, RegulariserType
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.shared.Trajectoriser import Trajectoriser
 from src.shared.Regulariser import Regulariser
@@ -26,20 +26,24 @@ class Cegis:
     # todo: set params for NN and avoid useless definitions
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
+        # components type
         self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.trajectoriser_type = kw[CegisConfig.TRAJECTORISER.k]
+        self.regulariser_type = kw[CegisConfig.REGULARISER.k]
+        # benchmark opts
         self.inner = kw[CegisConfig.INNER_RADIUS.k]
         self.outer = kw[CegisConfig.OUTER_RADIUS.k]
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.activations = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
-
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
+        # other opts
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
 
         # batch init
@@ -85,8 +89,14 @@ class Cegis:
         else:
             self.x_sympy, self.xdot_s = None, None
 
-        self.trajectoriser = Trajectoriser(self.f_learner)
-        self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        if self.trajectoriser_type == TrajectoriserType.DEFAULT:
+            self.trajectoriser = Trajectoriser(self.f_learner)
+        else:
+            TypeError('Not Implemented Trajectoriser')
+        if self.regulariser_type == RegulariserType.DEFAULT:
+            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        else:
+            TypeError('Not Implemented Regulariser')
 
         self._result = None
 
