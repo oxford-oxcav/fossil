@@ -14,11 +14,12 @@ class ActivationType(Enum):
     # dReal only from here
     TANH = auto()
     SIGMOID = auto()
-    LIN_SQUARE_CUBIC = auto()
-    LIN_SQUARE_CUBIC_QUARTIC = auto()
-    LIN_SQUARE_CUBIC_QUARTIC_PENTA = auto()
-    LIN_ETC_EXA = auto()
-    LIN_OTT = auto()
+    LIN_TO_CUBIC = auto()
+    LIN_TO_QUARTIC = auto()
+    LIN_TO_QUINTIC = auto()
+    LIN_TO_SEXTIC = auto()
+    LIN_TO_SEPTIC = auto()
+    LIN_TO_OCTIC = auto()
 
 
 # Activation function
@@ -46,15 +47,17 @@ def activation(select: ActivationType, p):
         return hyper_tan(p)
     elif select == ActivationType.SIGMOID:
         return sigm(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC:
+    elif select == ActivationType.LIN_TO_CUBIC:
         return lqc(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC:
+    elif select == ActivationType.LIN_TO_QUARTIC:
         return lqcq(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC_PENTA:
+    elif select == ActivationType.LIN_TO_QUINTIC:
         return lqcqp(p)
-    elif select == ActivationType.LIN_ETC_EXA:
+    elif select == ActivationType.LIN_TO_SEXTIC:
         return l_e(p)
-    elif select == ActivationType.LIN_OTT:
+    elif select == ActivationType.LIN_TO_SEPTIC:
+        return l_s(p)
+    elif select == ActivationType.LIN_TO_OCTIC:
         return l_o(p)
 
 
@@ -82,15 +85,17 @@ def activation_der(select: ActivationType, p):
         return hyper_tan_der(p)
     elif select == ActivationType.SIGMOID:
         return sigm_der(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC:
+    elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_der(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC:
+    elif select == ActivationType.LIN_TO_QUARTIC:
         return lqcq_der(p)
-    elif select == ActivationType.LIN_SQUARE_CUBIC_QUARTIC_PENTA:
+    elif select == ActivationType.LIN_TO_QUINTIC:
         return lqcqp_der(p)
-    elif select == ActivationType.LIN_ETC_EXA:
+    elif select == ActivationType.LIN_TO_SEXTIC:
         return l_e_der(p)
-    elif select == ActivationType.LIN_OTT:
+    elif select == ActivationType.LIN_TO_SEPTIC:
+        return l_s_der(p)
+    elif select == ActivationType.LIN_TO_OCTIC:
         return l_o_der(p)
 
 
@@ -151,6 +156,13 @@ def l_e(x):
     return torch.cat([x1, torch.pow(x2, 2), torch.pow(x3, 3), torch.pow(x4, 4), \
                       torch.pow(x5, 5), torch.pow(x6, 6)], dim=1)
 
+def l_s(x):
+    # # linear - quadratic - cubic - quartic - penta activation
+    h = int(x.shape[1]/7)
+    x1, x2, x3, x4, x5, x6, x7 = x[:, :h], x[:, h:2*h], x[:, 2*h:3*h], x[:, 3*h:4*h], \
+                                     x[:, 4*h:5*h], x[:, 5*h:6*h], x[:, 6*h:]
+    return torch.cat([x1, torch.pow(x2, 2), torch.pow(x3, 3), torch.pow(x4, 4), \
+                      torch.pow(x5, 5), torch.pow(x6, 6), torch.pow(x7, 7)], dim=1)
 
 def l_o(x):
     # # linear - quadratic - cubic - quartic - penta activation
@@ -236,6 +248,14 @@ def l_e_der(x):
     x1, x2, x3, x4, x5, x6 = x[:, :h], x[:, h:2*h], x[:, 2*h:3*h], x[:, 3*h:4*h], x[:, 4*h:5*h], x[:, 5*h:]
     return torch.cat((torch.ones(x1.shape), 2*x2, 3*torch.pow(x3, 2), \
                           4*torch.pow(x4,3), 5*torch.pow(x5, 4), 6*torch.pow(x6, 5)), dim=1)
+
+def l_s_der(x):
+    # # linear - quadratic - cubic - quartic -penta derivative
+    h = int(x.shape[1] /7)
+    x1, x2, x3, x4, x5, x6, x7 = x[:, :h], x[:, h:2*h], x[:, 2*h:3*h], x[:, 3*h:4*h], \
+                             x[:, 4*h:5*h], x[:, 5*h:6*h], x[:, 6*h:]
+    return torch.cat((torch.ones(x1.shape), 2*x2, 3*torch.pow(x3, 2), 4*torch.pow(x4,3), \
+                      5*torch.pow(x5, 4), 6*torch.pow(x6, 5), 7*torch.pow(x7, 6),), dim=1)
 
 
 def l_o_der(x):

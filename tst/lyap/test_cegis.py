@@ -10,6 +10,8 @@ from functools import partial
 from z3 import *
 from src.shared.Regulariser import Regulariser
 from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import TrajectoriserType, RegulariserType
+
 
 def zero_in_zero(learner):
     v_zero, vdot_zero, grad_v = learner.forward_tensors(
@@ -35,7 +37,7 @@ class test_cegis(unittest.TestCase):
         self.assertTrue(negative_definite_lee_derivative(model, S_d, Sdot),
                         "model lee derivative is not negative definite")
 
-    def assertLyapunov(self, system, outer_radius, c):
+    def assertLyapunovOverPositiveOrthant(self, system, outer_radius, c):
         n_vars = c.n
         f, domain, _ = system(functions=c.verifier.solver_fncts(),
                               inner=0, outer=outer_radius)
@@ -45,10 +47,17 @@ class test_cegis(unittest.TestCase):
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         And = c.verifier.solver_fncts()['And']
-
+        
         s = Solver()
-        s.add(And(Vdot > 0, *[c.x[i].item() <= 0 for i in range(0, n_vars)]))
-        self.assertEqual(s.check(), z3.unsat)
+        s.add(Vdot > 0)
+        s.add(sum([c.x[i].item()**2 for i in range(0, n_vars)]) <= outer_radius**2)
+        s.add(And(*[c.x[i].item() >= 0 for i in range(0, n_vars)]))
+        res = s.check()
+        if (res == z3.sat):
+            model = "{}".format(s.model())
+        else:
+            model = ""
+        self.assertEqual(s.check(), z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model))
 
         Sdot = c.f_learner(c.S_d.T)
         S, Sdot = c.S_d, torch.stack(Sdot).T
@@ -81,6 +90,8 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         }
 
         start = timeit.default_timer()
@@ -88,7 +99,7 @@ class test_cegis(unittest.TestCase):
         c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunov(system, outer_radius, c)
+        self.assertLyapunovOverPositiveOrthant(system, outer_radius, c)
         
     def test_non_poly_0(self):
         torch.manual_seed(167)
@@ -117,12 +128,14 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         }
         c = Cegis(**opts)
         c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunov(system, outer_radius, c)
+        self.assertLyapunovOverPositiveOrthant(system, outer_radius, c)
 
     def test_non_poly_1(self):
         torch.manual_seed(167)
@@ -150,13 +163,15 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         }
         start = timeit.default_timer()
         c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunov(system, outer_radius, c)
+        self.assertLyapunovOverPositiveOrthant(system, outer_radius, c)
 
     def test_non_poly_2(self):
         torch.manual_seed(167)
@@ -186,14 +201,16 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         }
         c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunov(system, outer_radius, c)
+        self.assertLyapunovOverPositiveOrthant(system, outer_radius, c)
 
-    def test_non_poly_2(self):
+    def test_non_poly_3(self):
         torch.manual_seed(167)
 
         batch_size = 500
@@ -216,17 +233,19 @@ class test_cegis(unittest.TestCase):
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
             CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-            CegisConfig.SP_HANDLE.k: False,
+            CegisConfig.SP_HANDLE.k: False, 
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
+            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
+            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         }
         start = timeit.default_timer()
         c = Cegis(**opts)
         c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunov(system, outer_radius, c)
+        self.assertLyapunovOverPositiveOrthant(system, outer_radius, c)
         
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main() 

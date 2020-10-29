@@ -15,13 +15,14 @@ class SimplifierTest(unittest.TestCase):
         # inputs
         x, y, z = self.z3_vars
         f = x * y + 2 * z
+        domain = x*x + y*y + z*z <= 1
         return_value = 'result'
         t = 1
 
         with mock.patch.object(Verifier, '_solver_solve') as s:
             # setup
             s.return_value = return_value
-            v = Verifier(3, 0, 0, 1, self.z3_vars)
+            v = Verifier(3, 0, domain, self.z3_vars)
             v.timeout = t
 
             # call tested function

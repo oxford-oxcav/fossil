@@ -1,6 +1,5 @@
 from src.shared.consts import LearningFactors
 from src.shared.utils import *
-import dreal as dr
 
 
 def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):

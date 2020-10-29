@@ -33,9 +33,8 @@ class Regulariser(Component):
             x_map = kw[CegisStateKeys.x_v_map]
             V = sympy_converter(x_map, V)
             Vdot = sympy_converter(x_map, Vdot)
-        # todo: do we want to pass z3.simplify(V) from here or simplification inside verifier?
-        # if isinstance(component, Z3Verifier):
-        # V, Vdot = z3.simplify(V), z3.simplify(Vdot)
+
+        print('Candidate: {}'.format(V))
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 

@@ -8,10 +8,12 @@ import torch
 from src.shared.Regulariser import Regulariser 
 from unittest import mock
 from z3 import *
+from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import RegulariserType
 
 class TestZ3Verifier(unittest.TestCase):
 
-    def test_benchmark3_with_good_Lyapunov_function(self):
+    def test_benchmark3_with_good_Lyapunov_function(self): 
         system = partial(benchmark_3, batch_size=100)
         n_vars = 2
 
@@ -37,11 +39,11 @@ class TestZ3Verifier(unittest.TestCase):
         xdot = f(Z3Verifier.solver_fncts(), x)
         regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
         res = regulariser.get(**{'factors': None})
-        V, Vdot = res['V'], res['V_dot']
+        V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         print(V)
         res = verifier.verify(V, Vdot)
-        self.assertEqual(res['found'], res['cex'] == [])
-        self.assertTrue(res['found'])
+        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
+        self.assertTrue(res[CegisStateKeys.found])
 
     def test_benchmark3_with_bad_Lyapunov_function(self):
         system = partial(benchmark_3, batch_size=100)
@@ -70,10 +72,10 @@ class TestZ3Verifier(unittest.TestCase):
         xdot = f(Z3Verifier.solver_fncts(), x)
         regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
         res = regulariser.get(**{'factors': None})
-        V, Vdot = res['V'], res['V_dot']
+        V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         res = verifier.verify(V, Vdot)
-        self.assertEqual(res['found'], res['cex'] == [])
-        self.assertFalse(res['found'])
+        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
+        self.assertFalse(res[CegisStateKeys.found])
 
     def test_benchmark3_with_another_bad_Lyapunov_function(self):
         system = partial(benchmark_3, batch_size=100)
@@ -99,10 +101,10 @@ class TestZ3Verifier(unittest.TestCase):
         xdot = f(Z3Verifier.solver_fncts(), x)
         regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
         res = regulariser.get(**{'factors': None})
-        V, Vdot = res['V'], res['V_dot']
+        V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         res = verifier.verify(V, Vdot)
-        self.assertEqual(res['found'], res['cex'] == [])
-        self.assertFalse(res['found'])
+        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
+        self.assertFalse(res[CegisStateKeys.found])
         
 if __name__ == '__main__':
     unittest.main()

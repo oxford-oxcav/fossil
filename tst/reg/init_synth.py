@@ -3,7 +3,7 @@ import timeit
 from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType
 from functools import partial
 
@@ -54,7 +54,7 @@ def barrier_synthesis(benchmark, n_vars):
     MIN_TO_SEC = 60
     batch_size = 500
     system = partial(benchmark, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
+    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
