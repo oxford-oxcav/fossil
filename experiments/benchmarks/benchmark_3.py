@@ -7,6 +7,8 @@ from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from functools import partial
+from src.plots.plot_lyap import plot_lyce
+from src.lyap.utils import check_sympy_expression
 
 
 def test_lnn():
@@ -41,9 +43,14 @@ def test_lnn():
 
     start = timeit.default_timer()
     c = Cegis(**opts)
-    c.solve()
+    state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
+
+    # plotting -- only for 2-d systems
+    if len(vars) == 2 and state[CegisStateKeys.found]:
+        V, Vdot = check_sympy_expression(state, system)
+        plot_lyce(np.array(vars), V, Vdot, f_learner)
 
 
 if __name__ == '__main__':

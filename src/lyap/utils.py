@@ -1,5 +1,17 @@
+from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import LearningFactors
 from src.shared.utils import *
+
+
+def check_sympy_expression(state, system):
+    V, Vdot = state[CegisStateKeys.V], state[CegisStateKeys.V_dot]
+    if z3.is_expr(V):
+        f, _, __ = system(functions={'And': None})
+        x = [sp.Symbol('x%d' % i, real=True) for i in range(2)]
+        xdot = f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, x)
+        V, Vdot = get_symbolic_formula(state[CegisStateKeys.net], sp.Matrix(x), sp.Matrix(xdot))
+
+    return V, Vdot
 
 
 def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):

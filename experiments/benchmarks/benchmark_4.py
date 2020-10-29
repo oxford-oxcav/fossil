@@ -1,4 +1,3 @@
-# pylint: disable=not-callable
 import torch
 import timeit
 from src.lyap.cegis_lyap import Cegis
@@ -27,7 +26,7 @@ def test_lnn():
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
         CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
@@ -42,13 +41,12 @@ def test_lnn():
     c = Cegis(**opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
+    print('Elapsed Time: {}'.format(stop - start))
 
     # plotting -- only for 2-d systems
     if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(np.array(vars), state['V'],
-                      state['V_dot'], f_learner)
-
-    print('Elapsed Time: {}'.format(stop-start))
+        plot_lyce(np.array(vars), state[CegisStateKeys.V],
+                      state[CegisStateKeys.V_dot], f_learner)
 
 
 if __name__ == '__main__':

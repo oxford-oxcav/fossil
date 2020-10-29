@@ -28,7 +28,7 @@ def test_lnn():
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
         CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
@@ -46,8 +46,8 @@ def test_lnn():
 
     # plotting -- only for 2-d systems
     if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(np.array(vars), state['V'],
-                  state['V_dot'], f_learner)
+        plot_lyce(np.array(vars), state[CegisStateKeys.V],
+                  state[CegisStateKeys.V_dot], f_learner)
 
 
 if __name__ == '__main__':

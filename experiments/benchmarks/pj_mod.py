@@ -11,7 +11,7 @@ from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.plots.plot_lyap import plot_lyce
+from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
@@ -44,9 +44,8 @@ def main():
     print("Found? {}".format(state[CegisStateKeys.found]))
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(np.array(vars), state['V'],
-                  state['V_dot'], f)
+    if state[CegisStateKeys.found]:
+        plot_pjmod_bench(np.array(vars), state[CegisStateKeys.V])
 
 
 if __name__ == '__main__':
