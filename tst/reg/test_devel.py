@@ -5,7 +5,7 @@ from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType
-from src.shared.cegis_values import CegisConfig
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.plots.plot_lyap import plot_lyce
 from functools import partial
 
@@ -35,13 +35,13 @@ def test_lnn(benchmark, n_vars):
     stop = timeit.default_timer()
 
     # plotting -- only for 2-d systems
-    # if len(vars) == 2 and state['found']:
+    # if len(vars) == 2 and state[CegisStateKeys.found]:
     #     plot_lyce(np.array(vars), state['V'],
     #                   state['V_dot'], f_learner)
 
     print('Elapsed Time: {}'.format(stop-start))
 
-    return stop-start, state['found'], state['computational_times']
+    return stop-start, state[CegisStateKeys.found], state['computational_times']
 
 
 if __name__ == '__main__':

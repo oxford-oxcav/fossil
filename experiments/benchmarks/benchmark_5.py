@@ -1,17 +1,19 @@
 # pylint: disable=not-callable
+import torch
 import timeit
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from functools import partial
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 
 
 def test_lnn():
+
     batch_size = 500
-    benchmark = nonpoly3
-    n_vars = 3
+    benchmark = benchmark_5
+    n_vars = 2
     system = partial(benchmark, batch_size)
 
     # define domain constraints
@@ -20,12 +22,12 @@ def test_lnn():
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [3] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
 
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
         CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
@@ -36,6 +38,7 @@ def test_lnn():
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
+
     start = timeit.default_timer()
     c = Cegis(**opts)
     c.solve()

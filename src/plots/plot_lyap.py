@@ -17,7 +17,7 @@ def plot_lyce(x, V, Vdot, f):
     ax.set_xlabel('$x$')
     ax.set_ylabel('$y$')
     ax.set_zlabel('V')
-    plt.title('Lyapunov fcn')
+    plt.title('Certificate')
 
     lambda_vdot = sp.lambdify(x, Vdot, modules=['numpy'])
     plot_vdot = lambda_vdot([x0], [x1])
@@ -26,7 +26,7 @@ def plot_lyce(x, V, Vdot, f):
     ax.set_xlabel('$x$')
     ax.set_ylabel('$y$')
     ax.set_zlabel('Vdot')
-    plt.title('Lyapunov derivative')
+    plt.title('Certificate derivative')
 
     ################################
     # PLOT 2D -- CONTOUR

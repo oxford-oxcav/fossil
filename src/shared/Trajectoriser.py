@@ -51,7 +51,7 @@ class Trajectoriser(Component):
             # set break conditions
             if num_vdot_value_old > num_vdot_value or \
                     abs(num_vdot_value_old - num_vdot_value) < 1e-5 or \
-                    num_vdot_value > 1e6 or (gradient > 1e6).any():
+                    num_vdot_value > 1e6 or (abs(gradient) > 1e2).any():
                 break
             else:
                 num_vdot_value_old = num_vdot_value

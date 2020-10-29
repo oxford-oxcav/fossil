@@ -5,7 +5,7 @@ import numpy as np
 import timeit
 
 from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.barrier.utils import print_section, compute_trajectory
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
@@ -18,21 +18,24 @@ class Cegis:
     # todo: set params for NN and avoid useless definitions
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
+        # components types
         self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.activ = kw[CegisConfig.ACTIVE.k]
+        self.trajectoriser_type = kw[CegisConfig.TRAJECTORISER.k]
+        self.regulariser_type = kw[CegisConfig.REGULARISER.k]
+        # benchmark options
+        self.activ = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
-        self.n_hidden_neurons = kw[CegisConfig.N_VARS.k]
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
-        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
-        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
-
         self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
         self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.sb = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        # other opts
+        self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
+        self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
 
         # batch init
         self.batch_size = kw.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
@@ -61,7 +64,7 @@ class Cegis:
         self.xdot = np.matrix(self.xdot).T
 
         if self.learner_type == LearnerType.NN:
-            self.learner = NN(self.n, *self.n_hidden_neurons, activate=self.activ, bias=True, symmetric_belt=self.sb)
+            self.learner = NN(self.n, *self.h, activate=self.activ, bias=True, symmetric_belt=self.sb)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
@@ -75,8 +78,14 @@ class Cegis:
         else:
             self.x_sympy, self.xdot_s = None, None
 
-        self.trajectoriser = Trajectoriser(self.f_learner)
-        self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        if self.trajectoriser_type == TrajectoriserType.DEFAULT:
+            self.trajectoriser = Trajectoriser(self.f_learner)
+        else:
+            TypeError('Not Implemented Trajectoriser')
+        if self.regulariser_type == RegulariserType.DEFAULT:
+            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+        else:
+            TypeError('Not Implemented Regulariser')
 
         self._result = None
 
@@ -139,6 +148,12 @@ class Cegis:
             CegisStateKeys.trajectory: None
         }
 
+        # reset timers
+        self.learner.get_timer().reset()
+        self.regulariser.get_timer().reset()
+        self.verifier.get_timer().reset()
+        self.trajectoriser.get_timer().reset()
+
         while not stop:
             for component_idx in range(len(components)):
                 component = components[component_idx]
@@ -174,6 +189,11 @@ class Cegis:
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
                                          state[CegisStateKeys.cex])
 
+        state[CegisStateKeys.components_times] = [
+            self.learner.get_timer().sum, self.regulariser.get_timer().sum,
+            self.verifier.get_timer().sum, self.trajectoriser.get_timer().sum
+        ]
+
         print('Learner times: {}'.format(self.learner.get_timer()))
         print('Regulariser times: {}'.format(self.regulariser.get_timer()))
         print('Verifier times: {}'.format(self.verifier.get_timer()))
@@ -198,7 +218,10 @@ class Cegis:
         for idx in range(3):
             if len(ces[idx]) != 0:
                 S[idx] = torch.cat([S[idx], ces[idx]], dim=0).detach()
-                Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                # Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                Sdot[idx] = list(map(torch.tensor, map(self.f_learner, S[idx])))
+                Sdot[idx] = torch.stack(Sdot[idx])
+
                 # S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
                 # Sdot[idx] = torch.cat([Sdot[idx],
                 #                       torch.stack(list(map(torch.tensor,
