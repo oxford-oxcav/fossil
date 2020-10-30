@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sp
 import timeit
+import signal
 from z3 import *
 import torch
 import functools
@@ -271,3 +272,25 @@ class Timer:
         return "total={}s,min={}s,max={}s,avg={}s".format(
                 self._sum, self.min, self.max, self.avg
         )
+
+
+class Timeout:
+# from https://stackoverflow.com/a/22348885
+# Requires UNIX
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
+class FailedSynthesis(Exception):
+    """Exception raised in Primer if CEGIS fails to synthesise"""
+    pass

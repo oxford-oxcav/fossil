@@ -11,6 +11,7 @@ import torch
 
 class TestLearning(unittest.TestCase):
     def setUp(self) -> None:
+        torch.manual_seed(90)
         self.n_vars = 2
         system = partial(benchmark_3, batch_size=500)
         self.f, _, self.S_d = system(functions={'And': None})
@@ -47,6 +48,13 @@ class TestLearning(unittest.TestCase):
 
         # self.assertTrue(negative_lee_derivative(lnn, dynamic))
         self.assertTrue(all(vdot <= 0.0))
+
+    def test_find_closest_unsat(self):
+        
+        learner = NN(self.n_vars, *self.hidden,
+                     bias=False, activate=self.activate, equilibria=None)
+        learner.find_closest_unsat(self.S_d, self.Sdot, None)
+        self.assertEqual(learner.closest_unsat, torch.tensor(0.008437633514404297))
 
 
 if __name__ == '__main__':

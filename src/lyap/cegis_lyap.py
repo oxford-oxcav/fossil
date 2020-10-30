@@ -191,6 +191,7 @@ class Cegis:
 
             iters += 1
             if not (state[CegisStateKeys.found] or state[CegisStateKeys.verification_timed_out]):
+                self.learner.find_closest_unsat(state[CegisStateKeys.S], state[CegisStateKeys.S_dot], self.fcts)
                 # S, Sdot = self.add_ces_to_data(S, Sdot, ces)
                 state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = \
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],

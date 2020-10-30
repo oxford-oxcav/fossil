@@ -28,6 +28,7 @@ class NN(nn.Module, Learner):
         self.acts = activate
         self._is_there_bias = bias
         self.layers = []
+        self.closest_unsat = None
         k = 1
         for n_hid in args:
             layer = nn.Linear(n_prev, n_hid, bias=bias)
@@ -217,6 +218,19 @@ class NN(nn.Module, Learner):
             # print('Zero in zero? V(0) = {}'.format(v0.data.item()))
 
     # todo: mv to utils
+
+    def find_closest_unsat(self, S, Sdot, factors):
+        min_dist = float('inf')
+        V, Vdot, _ = self.numerical_net(S, Sdot, factors)
+        for iii in range(S.shape[0]):
+            v = V[iii]
+            vdot = Vdot[iii]
+            if V[iii].item() < 0 and Vdot[iii].item() > 0:
+                dist = S[iii].norm()
+                if dist < min_dist:
+                    min_dist = dist
+        self.closest_unsat = min_dist
+
     @staticmethod
     def order_of_magnitude(number):
         if number.item() != 0:

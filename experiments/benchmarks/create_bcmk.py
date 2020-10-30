@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
-from benchmarks.domain_fcns import *
-from experiments.ReactiveModule import Atom
+from experiments.benchmarks.domain_fcns import *
+from experiments.reactive_modules.ReactiveModule import Atom
 
 
 def create_benchmark_for_lyap(dynamics, batch_size, functions, inner=0.0, outer=10.0):

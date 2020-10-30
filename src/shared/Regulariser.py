@@ -24,7 +24,7 @@ class Regulariser(Component):
     def get(self, **kw):
         # to disable rounded numbers, set rounding=-1
         sp_handle = kw.get(CegisStateKeys.sp_handle, False)
-        fcts = kw[CegisStateKeys.factors]
+        fcts = kw.get(CegisStateKeys.factors)
 
         V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
 

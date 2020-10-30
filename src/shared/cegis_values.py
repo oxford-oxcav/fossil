@@ -3,6 +3,7 @@ from aenum import Enum, NoAlias
 import numpy as np
 
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
+from src.shared.activations import ActivationType
 
 
 # prefer this over CegisConfig = Enum('CegisConfig', "...")
@@ -38,6 +39,41 @@ class CegisConfig(Enum, settings=NoAlias):
     def v(self):
         return self.value
 
+class PrimerBarrierConfig(Enum, settings=NoAlias):
+    ACTIVATIONS             = [ActivationType.LIN_SQUARE]
+    NEURONS                 = [10]
+    DIMENSION               = None
+    SEEDBOMB                = False
+    BATCH_SIZE              = 500
+    CEGIS_PARAMETERS        = {}  
+
+    @property
+    def k(self):
+        return self.name
+
+    @property
+    def v(self):
+        return self.value
+
+
+class PrimerLyapConfig(Enum, settings=NoAlias):
+    ACTIVATIONS             = [ActivationType.SQUARE]
+    NEURONS                 = [10]
+    INTERACTIVE_DOMAIN      = False
+    POSITIVE_DOMAIN         = True
+    SEEDBOMB                = False
+    INNER_RADIUS            = 0
+    R                       = 10
+    BATCH_SIZE              = 500
+    CEGIS_PARAMETERS        = {}
+
+    @property
+    def k(self):
+        return self.name
+
+    @property
+    def v(self):
+        return self.value
 
 class CegisStateKeys:
     x_v = 'x_v'
