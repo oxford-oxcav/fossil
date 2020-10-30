@@ -196,6 +196,8 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
     return new_data
 
 def inf_bounds_n(n):
+    inf = 1e300
+    inf_bounds = [-inf, inf]
     return [inf_bounds] * n
 
 if __name__ == '__main__':

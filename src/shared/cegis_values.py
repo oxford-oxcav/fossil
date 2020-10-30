@@ -18,54 +18,25 @@ class CegisConfig(Enum, settings=NoAlias):
     VERIFIER                = VerifierType.Z3
     TRAJECTORISER           = TrajectoriserType.DEFAULT
     REGULARISER             = RegulariserType.DEFAULT
-    BATCH_SIZE              = 100
+    BATCH_SIZE              = 500
     LEARNING_RATE           = .1
     FACTORS                 = None
     EQUILIBRIUM             = lambda n_vars: np.zeros((1, n_vars)),  # default in zero
     LLO                     = False  # last layer of ones
     ROUNDING                = 3
     N_VARS                  = 0
-    N_HIDDEN_NEURONS        = 0
+    N_HIDDEN_NEURONS        = [10]
     SYSTEM                  = []
-    ACTIVATION              = 0
+    ACTIVATION              = [ActivationType.SQUARE]
     INNER_RADIUS            = 0
-    OUTER_RADIUS            = 0
-
-    @property
-    def k(self):
-        return self.name
-
-    @property
-    def v(self):
-        return self.value
-
-class PrimerBarrierConfig(Enum, settings=NoAlias):
-    ACTIVATIONS             = [ActivationType.LIN_SQUARE]
-    NEURONS                 = [10]
-    DIMENSION               = None
-    SEEDBOMB                = False
-    BATCH_SIZE              = 500
-    CEGIS_PARAMETERS        = {}  
-
-    @property
-    def k(self):
-        return self.name
-
-    @property
-    def v(self):
-        return self.value
-
-
-class PrimerLyapConfig(Enum, settings=NoAlias):
-    ACTIVATIONS             = [ActivationType.SQUARE]
-    NEURONS                 = [10]
+    OUTER_RADIUS            = 10
     INTERACTIVE_DOMAIN      = False
-    POSITIVE_DOMAIN         = True
-    SEEDBOMB                = False
-    INNER_RADIUS            = 0
-    R                       = 10
-    BATCH_SIZE              = 500
+    POSITIVE_DOMAIN         = False
+    SEED_AND_SPEED          = False
     CEGIS_PARAMETERS        = {}
+    XD                      = 0
+    XI                      = 0
+    XU                      = 0
 
     @property
     def k(self):

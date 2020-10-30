@@ -225,7 +225,7 @@ class NN(nn.Module, Learner):
         for iii in range(S.shape[0]):
             v = V[iii]
             vdot = Vdot[iii]
-            if V[iii].item() < 0 and Vdot[iii].item() > 0:
+            if V[iii].item() < 0 or Vdot[iii].item() > 0:
                 dist = S[iii].norm()
                 if dist < min_dist:
                     min_dist = dist
