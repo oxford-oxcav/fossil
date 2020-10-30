@@ -39,7 +39,7 @@ class NN(nn.Module, Learner):
         layer = nn.Linear(n_prev, 1, bias=False)
         self.register_parameter("W" + str(k), layer.weight)
         self.layers.append(layer)
-        self.output_layer = torch.tensor(layer.weight)
+        self.output_layer = layer.weight.clone().detach()
         # or
         # self.output_layer = torch.ones(1, n_prev)
 
@@ -132,9 +132,9 @@ class NN(nn.Module, Learner):
             # set two belts
             percent_belt = 0
             if self.symmetric_belt:
-                belt_index = (torch.abs(B_d) <= 0.5).nonzero()
+                belt_index = torch.nonzero(torch.abs(B_d) <= 0.5)
             else:
-                belt_index = (B_d >= -margin).nonzero()
+                belt_index = torch.nonzero(B_d >= -margin)
 
             if belt_index.nelement() != 0:
                 dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
