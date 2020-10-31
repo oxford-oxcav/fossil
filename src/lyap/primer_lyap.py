@@ -1,6 +1,4 @@
 import sympy as sp
-import numpy as np
-import copy
 import torch
 import z3
 from functools import partial
@@ -12,7 +10,6 @@ from src.shared.sympy_converter import sympy_converter
 from src.lyap.cegis_lyap import Cegis as Cegis_lyap
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
-
 from src.shared.utils import Timeout, FailedSynthesis
 from src.shared.cegis_values import CegisStateKeys, CegisConfig
 
@@ -45,9 +42,10 @@ class PrimerLyap(Primer):
         """
         if not callable(self.dynamics):
             self.get_shift()
+            
         if self.seed_and_speed_handle:
             state, f_learner = self.seed_and_speed()
-        if self.interactive_domain:
+        elif self.interactive_domain:
             state, f_learner = self.interactive_cegis()
         else:
             state, f_learner = self.run_cegis()
@@ -92,7 +90,6 @@ class PrimerLyap(Primer):
         elif len(self.dynamics.stable_equilibria) == 1:
             print("Single Equilibrium point found: \n {}".format(self.dynamics.stable_equilibria))
             eqbm = self.dynamics.stable_equilibria[0]
-            #self.shift_symbolic = np.array([z3.RealVal(x) for x in eqbm])
             self.sym_shift = eqbm
             self.shift = torch.tensor([float(x) for x in eqbm]).T
             self.sympy_shift = eqbm

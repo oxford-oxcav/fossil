@@ -7,7 +7,6 @@ from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, PrimerMode, LearningFactors
 from src.shared.cegis_values import CegisConfig
 from experiments.benchmarks.domain_fcns import Rectangle, Sphere
-from src.shared.system import NonlinearSystem
 
 exp, sin, cos = sp.exp, sp.sin, sp.cos
 
@@ -24,10 +23,6 @@ def print_f(function):
         print(f)
     else:
         print(function)
-
-def plot_f(function):
-    raise NotImplementedError
-    
 
 def initialise_states(N):
     """

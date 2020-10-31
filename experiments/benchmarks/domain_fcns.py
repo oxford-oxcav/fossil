@@ -255,4 +255,4 @@ class Sphere:
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return round_init_data(self.centre, self.radius, batch_size)
+        return round_init_data(self.centre, self.radius**2, batch_size)

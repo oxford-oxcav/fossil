@@ -1,6 +1,3 @@
-import sympy as sp
-import numpy as np
-import copy
 import torch
 from functools import partial
 
@@ -93,12 +90,6 @@ class PrimerBarrier(Primer):
         _And = functions["And"]
         _Or  = functions["Or"]
         bounds = inf_bounds_n(self.dimension)
-        
-        def recursive_AND(exp):
-            if len(exp) == 1:
-                return _And(exp[0])
-            else:
-                return _And(exp[0],recursive_AND(exp[1:]))
 
         def f(_,v):
             return self.dynamics.evaluate_f(v)
@@ -116,9 +107,9 @@ class PrimerBarrier(Primer):
             return self.sxd.generate_data(self.batch_size)
         
         def SI():
-            return self.sxd.generate_data(self.batch_size)
+            return self.sxi.generate_data(self.batch_size)
 
         def SU():
-            return self.sxd.generate_data(self.batch_size)
+            return self.sxu.generate_data(self.batch_size)
 
         return f, XD, XI, XU, SD(), SI(), SU(), bounds
