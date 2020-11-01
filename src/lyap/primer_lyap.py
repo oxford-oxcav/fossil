@@ -1,22 +1,19 @@
 import sympy as sp
-import torch
 import z3
 from functools import partial
 
-from src.shared.Primer import Primer
+from src.shared.components.Primer import Primer
 from src.shared.system import NonlinearSystem
 from experiments.benchmarks.domain_fcns import * 
 from src.shared.sympy_converter import sympy_converter
 from src.lyap.cegis_lyap import Cegis as Cegis_lyap
-from src.shared.activations import ActivationType
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
-from src.shared.utils import Timeout, FailedSynthesis
+from src.shared.utils import FailedSynthesis
 from src.shared.cegis_values import CegisStateKeys, CegisConfig
 
 class PrimerLyap(Primer):
     
     def __init__(self, f, **kw):
-        self.cegis_parameters   = kw.get(CegisConfig.CEGIS_PARAMETERS.k, CegisConfig.CEGIS_PARAMETERS.v)
+        self.cegis_parameters = kw.get(CegisConfig.CEGIS_PARAMETERS.k, CegisConfig.CEGIS_PARAMETERS.v)
         if not callable(f):
             self.dynamics = NonlinearSystem(f, True)
             self.dimension = self.dynamics.dimension
@@ -26,13 +23,13 @@ class PrimerLyap(Primer):
             if self.dimension == 0:
                 raise TypeError('Cegis Parameter N_VARS must be passed if f is in the form of a python function.')
 
-        self.shift     = torch.zeros((self.dimension, 1))
+        self.shift = torch.zeros((self.dimension, 1))
         self.sym_shift = [sp.core.numbers.Zero() for iii in range(self.dimension)]
-        self.outer_radius       = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
-        self.inner_radius       = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
-        self.batch_size         = self.cegis_parameters.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
+        self.outer_radius = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
+        self.inner_radius = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
+        self.batch_size = self.cegis_parameters.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
         self.interactive_domain = self.cegis_parameters.get(CegisConfig.INTERACTIVE_DOMAIN.k, CegisConfig.INTERACTIVE_DOMAIN.v)
-        self.positive_domain    = self.cegis_parameters.get(CegisConfig.POSITIVE_DOMAIN.k, CegisConfig.POSITIVE_DOMAIN.v)
+        self.positive_domain = self.cegis_parameters.get(CegisConfig.POSITIVE_DOMAIN.k, CegisConfig.POSITIVE_DOMAIN.v)
         self.seed_and_speed_handle = self.cegis_parameters.get(CegisConfig.SEED_AND_SPEED.k, CegisConfig.SEED_AND_SPEED.v)
 
     def get(self): 
@@ -65,7 +62,8 @@ class PrimerLyap(Primer):
             else:
                 x = torch.tensor(x).reshape(-1, self.dimension)
             phi = x - self.shift
-            xdot = torch.stack(f_learner(phi.T)).T
+            xdot = list(map(torch.tensor, map(f_learner, phi)))
+            xdot = torch.stack(xdot)
             V, Vdot, _ = learner.numerical_net(phi, xdot, state[CegisStateKeys.factors])
             return V, Vdot
 

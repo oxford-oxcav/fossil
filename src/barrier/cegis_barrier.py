@@ -10,8 +10,8 @@ from src.barrier.utils import print_section, compute_trajectory
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
-from src.shared.Trajectoriser import Trajectoriser
-from src.shared.Regulariser import Regulariser
+from src.shared.components.Trajectoriser import Trajectoriser
+from src.shared.components.Regulariser import Regulariser
 
 
 class Cegis:
@@ -57,7 +57,7 @@ class Cegis:
         self.initial_s = self.f_initial_state(verifier_class.solver_fncts(), self.x)
         self.unsafe = self.f_unsafe_state(verifier_class.solver_fncts(), self.x)
 
-        self.verifier = verifier_class(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
+        self.verifier = verifier_class(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x, **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
         self.x = np.matrix(self.x).T

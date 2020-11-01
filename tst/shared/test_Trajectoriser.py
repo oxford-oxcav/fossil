@@ -1,9 +1,8 @@
 import unittest
 from unittest import mock
 from functools import partial
-import numpy as np
 from src.lyap.learner.net import NN
-from src.shared.Trajectoriser import Trajectoriser
+from src.shared.components.Trajectoriser import Trajectoriser
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import benchmark_3
 from src.shared.cegis_values import CegisStateKeys

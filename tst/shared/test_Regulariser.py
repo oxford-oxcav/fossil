@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 import sympy as sp
 from src.lyap.learner.net import NN
-from src.shared.Regulariser import Regulariser
+from src.shared.components.Regulariser import Regulariser
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisStateKeys
 from src.lyap.verifier.z3verifier import Z3Verifier

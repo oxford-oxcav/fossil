@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 import torch
 
-from src.shared.Primer import Primer
+from src.shared.components.Primer import Primer
 from src.shared.system import LinearSystem, NonlinearSystem
 
 

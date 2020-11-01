@@ -1,3 +1,5 @@
+from src.shared.verifier_values import VerifierConfig
+
 try:
     from dreal import *
 except:
@@ -34,8 +36,12 @@ class DRealVerifier(Verifier):
         return dreal_replacements(expr, ver_vars, point)
 
     def _solver_solve(self, solver, fml):
-        return CheckSatisfiability(fml, 0.00001)
-
+        res = CheckSatisfiability(fml, 0.00001)
+        if not self.is_sat(res):
+            new_bound = self.optional_configs.get(VerifierConfig.DREAL_SECOND_CHANCE_BOUND.k, VerifierConfig.DREAL_SECOND_CHANCE_BOUND.v)
+            fml = And(fml, *(x < new_bound for x in self.xs))
+            res = CheckSatisfiability(fml, 0.00001)
+        return res
     def _solver_model(self, solver, res):
         assert self.is_sat(res)
         return res
@@ -43,5 +49,5 @@ class DRealVerifier(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, equilibrium, domain, dreal_vars):
-        super().__init__(n_vars, equilibrium, domain, dreal_vars)
+    def __init__(self, n_vars, equilibrium, domain, dreal_vars, **kw):
+        super().__init__(n_vars, equilibrium, domain, dreal_vars, **kw)

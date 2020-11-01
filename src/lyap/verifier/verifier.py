@@ -10,7 +10,7 @@ T = Timer()
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, equilibrium, domain, solver_vars):
+    def __init__(self, n_vars, equilibrium, domain, solver_vars, **kw):
         super().__init__()
         self.iter = -1
         self.n = n_vars
@@ -22,6 +22,7 @@ class Verifier(Component):
         self.xs = solver_vars
         self._solver_timeout = 60
         self._vars_bounds = 1e300
+        self.optional_configs = kw
 
         assert self.counterexample_n > 0
 

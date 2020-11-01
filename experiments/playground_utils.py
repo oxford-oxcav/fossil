@@ -1,8 +1,7 @@
 import sympy as sp
-import torch
 from z3 import ArithRef, simplify
 
-from src.shared.Primer import Primer
+from src.shared.components.Primer import Primer
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, PrimerMode, LearningFactors
 from src.shared.cegis_values import CegisConfig
@@ -33,6 +32,6 @@ def initialise_states(N):
     v = sp.symbols(states, real=True)
     return v
 
-def synthesise(f, mode, **kwargs):
-    p = Primer.create_Primer(f, mode, **kwargs)
+def synthesise(f, mode, **kw):
+    p = Primer.create_Primer(f, mode, **kw)
     return p.get()

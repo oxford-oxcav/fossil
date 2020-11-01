@@ -39,5 +39,5 @@ class Z3Verifier(Verifier):
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
-    def __init__(self, n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, z3_vars):
-        super().__init__(n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, z3_vars)
+    def __init__(self, n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, z3_vars, **kw):
+        super().__init__(n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, z3_vars, **kw)

@@ -1,17 +1,14 @@
 import torch
 import numpy as np
 import sympy as sp
-import timeit
-from z3 import *
 import logging
 
-from src.lyap.verifier.verifier import Verifier
 from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponentsState
 from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.consts import LearnerType, VerifierType, TrajectoriserType, RegulariserType
 from src.lyap.verifier.z3verifier import Z3Verifier
-from src.shared.Trajectoriser import Trajectoriser
-from src.shared.Regulariser import Regulariser
+from src.shared.components.Trajectoriser import Trajectoriser
+from src.shared.components.Regulariser import Regulariser
 from src.lyap.utils import print_section
 from src.lyap.learner.net import NN
 from functools import partial
