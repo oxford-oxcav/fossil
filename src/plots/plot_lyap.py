@@ -1,8 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from src.plots.plot_fcns import plotting_3d, vector_field
+from src.shared.sympy_converter import sympy_converter
 from matplotlib.patches import Rectangle
 import sympy as sp
+import z3 as z3
+from src.lyap.utils import get_symbolic_formula
 
 
 def plot_lyce(x, V, Vdot, f):
@@ -10,7 +13,7 @@ def plot_lyce(x, V, Vdot, f):
     X = np.linspace(-plot_limit, plot_limit, 100)
     Y = np.linspace(-plot_limit, plot_limit, 100)
     x0, x1 = np.meshgrid(X, Y)
-    lambda_v = sp.lambdify(x, V, modules=['numpy'])
+    lambda_v = sp.lambdify(x, str(V), modules=['numpy'])
     plot_v = lambda_v([x0], [x1])
 
     ax = plotting_3d(x0, x1, plot_v)
@@ -19,7 +22,7 @@ def plot_lyce(x, V, Vdot, f):
     ax.set_zlabel('V')
     plt.title('Certificate')
 
-    lambda_vdot = sp.lambdify(x, Vdot, modules=['numpy'])
+    lambda_vdot = sp.lambdify(x, str(Vdot), modules=['numpy'])
     plot_vdot = lambda_vdot([x0], [x1])
 
     ax = plotting_3d(x0, x1, plot_vdot)

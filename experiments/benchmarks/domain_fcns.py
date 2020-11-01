@@ -32,7 +32,23 @@ def round_init_data(centre, r, batch_size):
     elif dim == 3:
         return sphere_init_data(centre, r, batch_size)
     else:
-        raise ValueError('Hyper-sphere Not (Yet) Implemented')
+        return n_dim_sphere_init_data(centre, r, batch_size)
+
+def slice_nd_init_data(centre, r, batch_size):
+    """
+    :param centre:
+    :param r:
+    :param batch_size:
+    :return:
+    """
+    dim = len(centre)
+    if dim == 2:
+        return slice_init_data(centre, r, batch_size)
+    elif dim == 3:
+        return slice_3d_init_data(centre, r, batch_size)
+    else:
+        raise ValueError('Positive orthant not supported for more than 3 dimensions.')
+
 
 
 # generates data for x>0, y>0
@@ -105,6 +121,7 @@ def sphere_init_data(centre, r, batch_size):
 # generates points in a n-dim sphere: X**2 <= radius**2
 # adapted from http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
 # method 20: Muller generalised
+
 def n_dim_sphere_init_data(centre, radius, batch_size):
 
     dim = len(centre)
@@ -178,9 +195,62 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
 
     return new_data
 
+def inf_bounds_n(n):
+    return [inf_bounds] * n
 
 if __name__ == '__main__':
     X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
     # print(X)
     print(f'max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}')
     print(f'min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}')
+
+
+class Rectangle:
+
+    # TODO: I want to extend this to unbounded cuboids, but not sure how to.
+    def __init__(self, lb, ub):
+        self.name = 'square'
+        self.lower_bounds = lb
+        self.upper_bounds = ub
+        self.dimension = len(lb)
+    
+    def generate_domain(self, x, _And):
+        """
+        param x: data point x
+        param _And: And function for verifier
+        returns: formula for domain
+        """
+        lower = _And(*[self.lower_bounds[i] <= x[i] for i in range(self.dimension)])
+        upper = _And(*[x[i] <= self.upper_bounds[i] for i in range(self.dimension)])
+        return _And(lower, upper) 
+        
+    def generate_data(self, batch_size):
+        """
+        param x: data point x
+        returns: data points generated in relevant domain according to shape
+        """
+        return square_init_data([self.lower_bounds, self.upper_bounds], batch_size)
+
+
+
+class Sphere:
+    def __init__(self, centre, radius):
+        self.name = 'sphere'
+        self.centre = centre
+        self.radius = radius
+        self.dimension = len(centre)
+    
+    def generate_domain(self, x, _And):
+        """
+        param x: data point x
+        param _And: And function for verifier
+        returns: formula for domain
+        """
+        return _And(sum([(x[i] - self.centre[i])**2 for i in range(self.dimension)]) <= self.radius ** 2)
+        
+    def generate_data(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        return round_init_data(self.centre, self.radius, batch_size)

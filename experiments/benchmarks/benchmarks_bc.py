@@ -150,7 +150,7 @@ def darboux(batch_size, functions):
         limits = [[-2, -2], [0, 2]]
         while len(points) < batch_size:
             dom = square_init_data(limits, batch_size)
-            idx = (dom[:, 0] + dom[:, 1]**2 <= 0).nonzero()
+            idx = torch.nonzero(dom[:, 0] + dom[:, 1]**2 <= 0)
             points += dom[idx][:, 0, :]
         return torch.stack(points[:batch_size])
 

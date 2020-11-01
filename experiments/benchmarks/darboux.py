@@ -6,7 +6,7 @@ from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.activations import ActivationType
 from src.barrier.cegis_barrier import Cegis
-from src.plots.plot_lyap import plot_lyce
+from src.plots.plot_barriers import plot_darboux_bench
 from functools import partial
 import numpy as np
 import traceback
@@ -18,7 +18,7 @@ def main():
 
     batch_size = 500
     system = partial(darboux, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_SQUARE_CUBIC, ActivationType.LINEAR]
+    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
     hidden_neurons = [10] * len(activations)
     start = timeit.default_timer()
     opts = {
@@ -35,14 +35,12 @@ def main():
     c = Cegis(**opts)
     state, vars, f_learner, iters = c.solve()
     end = timeit.default_timer()
-
-    # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(np.array(vars), state['V'],
-                      state['V_dot'], f_learner)
-
     print('Elapsed Time: {}'.format(end - start))
     print("Found? {}".format(state[CegisStateKeys.found]))
+
+    # plotting -- only for 2-d systems
+    if state[CegisStateKeys.found]:
+        plot_darboux_bench(np.array(vars), state[CegisStateKeys.V])
 
 
 if __name__ == '__main__':
