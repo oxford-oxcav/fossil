@@ -23,8 +23,8 @@ class RegulariserType(Enum):
 
 
 class LearningFactors(Enum):
-    LINEAR = auto()
     QUADRATIC = auto()
+
 
 class PrimerMode(Enum):
     BARRIER = auto()

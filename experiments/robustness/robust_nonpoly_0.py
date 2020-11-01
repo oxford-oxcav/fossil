@@ -1,27 +1,26 @@
 import torch
 import timeit
+import pandas as pd
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.plots.plot_lyap import plot_lyce
 from functools import partial
 
 
-def test_lnn():
+def test_robustness(benchmark, n_vars, domain, hidden):
     batch_size = 500
-    benchmark = benchmark_4
-    n_vars = 2
+
     system = partial(benchmark, batch_size)
 
     # define domain constraints
-    outer_radius = 10
+    outer_radius = domain
     inner_radius = 0.01
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [hidden] * len(activations)
 
     opts = {
         CegisConfig.N_VARS.k: n_vars,
@@ -37,18 +36,32 @@ def test_lnn():
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
+
     start = timeit.default_timer()
     c = Cegis(**opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
-    print('Elapsed Time: {}'.format(stop - start))
 
-    # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(np.array(vars), state[CegisStateKeys.V],
-                      state[CegisStateKeys.V_dot], f_learner)
+    return stop-start, state[CegisStateKeys.found], state['components_times'], iters
 
 
 if __name__ == '__main__':
-    torch.manual_seed(167)
-    test_lnn()
+    number_of_runs = 100
+
+    for domain in [10, 20, 50, 100, 200, 500]:
+        for hidden in [2, 10, 50, 100]:
+            res = pd.DataFrame(columns=['found', 'iters', 'elapsed_time',
+                                        'lrn_time', 'reg_time', 'ver_time', 'trj_time'])
+
+            for idx in range(number_of_runs):
+                el_time, found, comp_times, iters = test_robustness(benchmark=nonpoly0, n_vars=2,
+                                                             domain=domain, hidden=hidden)
+                res = res.append({'found': found, 'iters': iters,
+                                  'elapsed_time': el_time,
+                                  'lrn_time': comp_times[0], 'reg_time': comp_times[1],
+                                  'ver_time': comp_times[2], 'trj_time': comp_times[3]},
+                                 ignore_index=True)
+
+            name_save = 'robustness_lyap_domain_'+str(domain)+'_hdn_'+str(hidden)+'.csv'
+            res.to_csv(name_save)
+

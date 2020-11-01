@@ -12,7 +12,7 @@ from functools import partial
 def test_lnn():
 
     batch_size = 500
-    benchmark = benchmark_1
+    benchmark = poly_1
     n_vars = 3
     system = partial(benchmark, batch_size)
 
