@@ -1,41 +1,52 @@
 import sympy as sp
-import numpy as np
-import copy
 import torch
 import z3
+from functools import partial
 
 from src.shared.Primer import Primer
 from src.shared.system import NonlinearSystem
 from experiments.benchmarks.domain_fcns import * 
+from src.shared.sympy_converter import sympy_converter
 from src.lyap.cegis_lyap import Cegis as Cegis_lyap
 from src.shared.activations import ActivationType
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.utils import Timeout, FailedSynthesis
-from src.shared.cegis_values import PrimerLyapConfig, CegisStateKeys, CegisConfig
+from src.shared.cegis_values import CegisStateKeys, CegisConfig
 
 class PrimerLyap(Primer):
     
     def __init__(self, f, **kw):
-        self.dynamics = NonlinearSystem(f, True)
-        self.shift = torch.zeros((1, self.dynamics.dimension))
-        self.batch_size         = kw.get(PrimerLyapConfig.BATCH_SIZE.k, PrimerLyapConfig.BATCH_SIZE.v)
-        self.outer_radius       = kw.get(PrimerLyapConfig.R.k, PrimerLyapConfig.R.v)
-        self.inner_radius       = kw.get(PrimerLyapConfig.INNER_RADIUS.k, PrimerLyapConfig.INNER_RADIUS.v)
-        self.interactive_domain = kw.get(PrimerLyapConfig.INTERACTIVE_DOMAIN.k, PrimerLyapConfig.INTERACTIVE_DOMAIN.v)
-        self.positive_domain    = kw.get(PrimerLyapConfig.POSITIVE_DOMAIN.k, PrimerLyapConfig.POSITIVE_DOMAIN.v)
-        self.seedbomb_handle    = kw.get(PrimerLyapConfig.SEEDBOMB.k, PrimerLyapConfig.SEEDBOMB.v)
-        self.cegis_parameters   = kw.get(PrimerLyapConfig.CEGIS_PARAMETERS.k, PrimerLyapConfig.CEGIS_PARAMETERS.v)
+        self.cegis_parameters   = kw.get(CegisConfig.CEGIS_PARAMETERS.k, CegisConfig.CEGIS_PARAMETERS.v)
+        if not callable(f):
+            self.dynamics = NonlinearSystem(f, True)
+            self.dimension = self.dynamics.dimension
+        else:
+            self.dynamics = f
+            self.dimension = self.cegis_parameters.get(CegisConfig.N_VARS.k, CegisConfig.N_VARS.v)
+            if self.dimension == 0:
+                raise TypeError('Cegis Parameter N_VARS must be passed if f is in the form of a python function.')
+
+        self.shift     = torch.zeros((self.dimension, 1))
+        self.sym_shift = [sp.core.numbers.Zero() for iii in range(self.dimension)]
+        self.outer_radius       = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
+        self.inner_radius       = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
+        self.batch_size         = self.cegis_parameters.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
+        self.interactive_domain = self.cegis_parameters.get(CegisConfig.INTERACTIVE_DOMAIN.k, CegisConfig.INTERACTIVE_DOMAIN.v)
+        self.positive_domain    = self.cegis_parameters.get(CegisConfig.POSITIVE_DOMAIN.k, CegisConfig.POSITIVE_DOMAIN.v)
+        self.seed_and_speed_handle = self.cegis_parameters.get(CegisConfig.SEED_AND_SPEED.k, CegisConfig.SEED_AND_SPEED.v)
 
     def get(self): 
         """
         :return V_n: numerical form of Lyap function
         :return V_v: symbolic form of Lyap function
         """
-        self.get_shift()
-        if self.seedbomb_handle:
-            state = self.seedbomb()
-        if self.interactive_domain:
-            state = self.interactive_cegis()
+        if not callable(self.dynamics):
+            self.get_shift()
+            
+        if self.seed_and_speed_handle:
+            state, f_learner = self.seed_and_speed()
+        elif self.interactive_domain:
+            state, f_learner = self.interactive_cegis()
         else:
             state, f_learner = self.run_cegis()
         
@@ -50,14 +61,15 @@ class PrimerLyap(Primer):
             :return V, Vdot: torch tensors
             """
             if isinstance(x, torch.Tensor):
-                x = x.reshape(-1, self.dynamics.dimension)
+                x = x.reshape(-1, self.dimension)
             else:
-                x = torch.tensor(x).reshape(-1, self.dynamics.dimension)
+                x = torch.tensor(x).reshape(-1, self.dimension)
             phi = x - self.shift
             xdot = torch.stack(f_learner(phi.T)).T
             V, Vdot, _ = learner.numerical_net(phi, xdot, state[CegisStateKeys.factors])
             return V, Vdot
 
+       
         V_v = self.shift_symbolic_formula(state[CegisStateKeys.V], state[CegisStateKeys.x_v_map])
 
         return V_n, V_v
@@ -72,12 +84,13 @@ class PrimerLyap(Primer):
             index = self.get_user_choice() -1 
             eqbm = self.dynamics.stable_equilibria[index]
             print("Chosen Equilibrium  Point:\n {} ".format(eqbm))
+            self.sym_shift = eqbm
             self.shift = torch.tensor([float(x) for x in eqbm]).T
 
         elif len(self.dynamics.stable_equilibria) == 1:
             print("Single Equilibrium point found: \n {}".format(self.dynamics.stable_equilibria))
             eqbm = self.dynamics.stable_equilibria[0]
-            #self.shift_symbolic = np.array([z3.RealVal(x) for x in eqbm])
+            self.sym_shift = eqbm
             self.shift = torch.tensor([float(x) for x in eqbm]).T
             self.sympy_shift = eqbm
 
@@ -87,6 +100,7 @@ class PrimerLyap(Primer):
             if choice.lower() == "y":
                 eqbm = self.get_user_eqbm()
                 if eqbm is not None:
+                    self.sym_shift = eqbm
                     self.shift = torch.tensor([float(x) for x in eqbm]).T
 
     def change_domain(self, learner):
@@ -98,7 +112,7 @@ class PrimerLyap(Primer):
         print("Recommended domain: hypersphere of radius {}".format(learner.closest_unsat))
         print("y/N?: ")
         if input() == "y":
-            self.outer_radius = learner.closest_unsat
+            self.outer_radius = learner.closest_unsat.item()
         else:
             self.interactive_domain = False
     
@@ -144,7 +158,7 @@ class PrimerLyap(Primer):
         :param eqbm: sympified input of equilibiurm point in form [x_0*, x_1*, ..., x_n*]
         :return bool: True if equilibrium is valid (f(x*) = 0) else False
         """
-        zero = [sp.core.numbers.Zero() for iii in range(self.dynamics.dimension)]
+        zero = [sp.core.numbers.Zero() for iii in range(self.dimension)]
         xdot = self.dynamics.f_substitute(eqbm)
 
         return xdot == zero
@@ -169,17 +183,30 @@ class PrimerLyap(Primer):
         :return state: dict, CEGIS state dictionary
         :return f_learner: function that evaluates xdot of system
         """
-        activations = self.cegis_parameters.get(PrimerLyapConfig.ACTIVATIONS.k, PrimerLyapConfig.ACTIVATIONS.v)
-        n_hidden_neurons = self.cegis_parameters.get(PrimerLyapConfig.NEURONS.k, PrimerLyapConfig.NEURONS.v)
 
-        learner_type = LearnerType.NN
-        verifier_type = self.cegis_parameters.get(CegisConfig.VERIFIER.k, CegisConfig.VERIFIER.v)
-        self.check_verifier(verifier_type)
-        params = {CegisConfig.N_VARS.k:self.dynamics.dimension, CegisConfig.SYSTEM.k: self.system,
-        CegisConfig.ACTIVATION.k: activations, CegisConfig.N_HIDDEN_NEURONS.k:n_hidden_neurons, 
-        CegisConfig.INNER_RADIUS.k:self.inner_radius, CegisConfig.OUTER_RADIUS.k:self.outer_radius,
-        CegisConfig.VERIFIER.k:verifier_type, CegisConfig.LEARNER.k:learner_type}
+        if callable(self.dynamics):
+            system = partial(self.dynamics, self.batch_size)
+        else:
+            system = self.system
+        
+        activations = self.cegis_parameters.get(CegisConfig.ACTIVATION.k, CegisConfig.ACTIVATION.v)
+        neurons = self.cegis_parameters.get(CegisConfig.N_HIDDEN_NEURONS.k, CegisConfig.N_HIDDEN_NEURONS.v)
+        verifier = self.cegis_parameters.get(CegisConfig.VERIFIER.k, CegisConfig.VERIFIER.v)
+        self.check_verifier(verifier)
+
+        params = {CegisConfig.N_VARS.k:self.dimension,
+                  CegisConfig.SYSTEM.k: system,
+                  CegisConfig.ACTIVATION.k: activations,
+                  CegisConfig.N_HIDDEN_NEURONS.k: neurons,
+                  CegisConfig.INNER_RADIUS.k:self.inner_radius, 
+                  CegisConfig.OUTER_RADIUS.k:self.outer_radius,
+                  CegisConfig.VERIFIER.k: verifier,
+                  CegisConfig.LEARNER.k: CegisConfig.LEARNER.v, 
+                  CegisConfig.TRAJECTORISER.k: CegisConfig.TRAJECTORISER.v,
+                  CegisConfig.REGULARISER.k: CegisConfig.REGULARISER.v}
+
         self.cegis_parameters.update(params)
+        
         c = Cegis_lyap(**self.cegis_parameters)
         state, x, f_learner, iters = c.solve()
 
@@ -190,12 +217,13 @@ class PrimerLyap(Primer):
         :param choice: n-d data point as iterable
         :return f(point): (shifted) dynamical system evaluated at point 
         """
-        if point.dtype=="O":
-            # I think this shift needs to be done symbolically but not sure how to convert sympy number
-            # to either z3 or dreal rational depending on verifier
-            point = point + np.array(self.shift.reshape(point.shape))
+        if isinstance(point, list):
+            if isinstance(point[0], z3.ArithRef):
+                point = [point[iii] - sympy_converter({}, self.sym_shift[iii]) for iii in range(len(point))]
+            else:
+                point = [point[iii] - self.sym_shift[iii] for iii in range(len(point))]
         else:
-            point = point + self.shift.unsqueeze(1)
+            point = point + self.shift
         return self.dynamics.evaluate_f(point)
 
     def system(self, functions, inner=0.0, outer=10.0):
@@ -206,7 +234,7 @@ class PrimerLyap(Primer):
         
         def XD(_, v):
             if self.positive_domain:
-                return _And(_And([v_i > 0 for v_i in v]),
+                return _And(_And(*[v_i > 0 for v_i in v]),
                     sum([v_i ** 2 for v_i in v]) <= self.outer_radius**2,
                     self.inner_radius < sum([v_i ** 2 for v_i in v]))
             else:
@@ -214,7 +242,7 @@ class PrimerLyap(Primer):
         
         def SD():
             #Did not realise these were limited to 3D. TODO:
-            origin = tuple([0 for iii in range(self.dynamics.dimension)])
+            origin = tuple([0 for iii in range(self.dimension)])
             if self.positive_domain:
                 return slice_nd_init_data(origin, self.outer_radius**2, batch_size)
             else:
@@ -229,16 +257,21 @@ class PrimerLyap(Primer):
         :param x_v_map: verifier variables from CEGIS 
         :return V: symbolic Lyapunov function shifted back according to equilibrium point
         """
-        shift = np.array(self.shift)
+        shift = self.sym_shift
+        #TODO: Uncomment once the shift works fine.
+        #if shift == [sp.core.numbers.Zero() for iii in range(self.dimension)]:
+        #    return = V
+        #else:
         if isinstance(V, sp.Expr):
-            s = {self.dynamics.x[i]: (self.dynamics.x[i] - shift[i]) for i in range(self.dynamics.dimension)}
+            s = {self.dynamics.x[i]: (self.dynamics.x[i] - shift[i]) for i in range(self.dimension)}
             V = V.subs(s)
             return V
         if isinstance(V, z3.ArithRef):
-            s = [(x,(x-shift[i])) for i, x in enumerate(x_v_map.values())]
+            s = [(x,(x-sympy_converter({}, shift[i]))) for i, x in enumerate(x_v_map.values()) if isinstance(x, z3.ArithRef)]
             V = z3.substitute(V, s)
             return V
         else:
-            s = {x:(x-shift[i]) for i, x in enumerate(x_v_map.values())}
+            s = {x:(x-shift[i]) for i, x in enumerate(x_v_map.values()) if not callable(x)}
             V = V.Substitute(s)
             return V
+            

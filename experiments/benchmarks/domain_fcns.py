@@ -196,6 +196,8 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
     return new_data
 
 def inf_bounds_n(n):
+    inf = 1e300
+    inf_bounds = [-inf, inf]
     return [inf_bounds] * n
 
 if __name__ == '__main__':
@@ -253,4 +255,4 @@ class Sphere:
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return round_init_data(self.centre, self.radius, batch_size)
+        return round_init_data(self.centre, self.radius**2, batch_size)

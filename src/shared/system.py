@@ -55,7 +55,7 @@ class NonlinearSystem():
             self.sympy_lambda = self.get_sympy_lambda()
         if lyap:
             if not self.poly:
-                raise ValueError("Non-polynomial dynamics not supported for Lyapunov analysis.")
+               raise ValueError("Non-polynomial dynamics not supported for Lyapunov analysis.")
             self.equilibria = self.find_equilibria()
             self.jacobian = self.get_Jacobian()
             self.stable_equilibria  = []
@@ -88,7 +88,7 @@ class NonlinearSystem():
         :param point: n-d data point as iterable
         :return f(point): dynamical system evaluated at point 
         """
-        if dreal:
+        if dreal and not self.poly:
             if isinstance(point[0], dreal.Variable):
                 return self.dreal_lambda(*point)
             elif isinstance(point[0], sp.Expr):
@@ -189,5 +189,5 @@ class NonlinearSystem():
         """
         :return bool: False if system has any non-polynomial parts (eg exp, sin)
         """
-        return not any([expression.has(sp.exp, sp.sin, sp.cos) for expression in self.f])
+        return all([expression.is_polynomial() for expression in self.f])
     

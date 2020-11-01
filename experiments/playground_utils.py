@@ -4,15 +4,15 @@ from z3 import ArithRef, simplify
 
 from src.shared.Primer import Primer
 from src.shared.activations import ActivationType
-from src.shared.consts import VerifierType
+from src.shared.consts import VerifierType, PrimerMode, LearningFactors
+from src.shared.cegis_values import CegisConfig
 from experiments.benchmarks.domain_fcns import Rectangle, Sphere
 
-from src.shared.system import NonlinearSystem
 exp, sin, cos = sp.exp, sp.sin, sp.cos
 
 def print_f(function):
     """
-    Attempts to print symbolic function:
+    Attempts to simplify and print symbolic function:
     :param function: symbolic function of type sympy.exp, z3.ArithRef or dreal
     """
     if isinstance(function, sp.exp):
@@ -24,10 +24,6 @@ def print_f(function):
     else:
         print(function)
 
-def plot_f(function):
-    raise NotImplementedError
-    
-
 def initialise_states(N):
     """
     :param N: int, number of states to initialise
@@ -38,5 +34,5 @@ def initialise_states(N):
     return v
 
 def synthesise(f, mode, **kwargs):
-    p = Primer.create_Primer(f, mode=mode, **kwargs)
+    p = Primer.create_Primer(f, mode, **kwargs)
     return p.get()
