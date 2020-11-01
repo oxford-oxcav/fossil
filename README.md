@@ -36,3 +36,11 @@ We provide a Docker configuration for your convenience. Begin by installing Dock
 
 You are now inside the container. `/project` contains all these files and Ubuntu has all the requirements pre-installed.
 
+In order to run the Jupyter Notebooks from the docker container, first on the host machine run:
+
+```
+# docker run -it -p 8888:8888 fossil bash -c 'jupyter notebook project/experiments --ip 0.0.0.0 --no-browser --allow-root'
+```
+
+On the host machine, navigate to ```localhost:8888/tree```. 
+You will be prompted to enter a token displayed in the container terminal. Once entered, the notebook will start. Select ```FOSSIL-benchmarks.ipynb``` to run the benchmarks within a Jupyter environment.

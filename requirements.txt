@@ -9,4 +9,4 @@ dreal
 tabulate
 scipy
 aenum
-ipython
+jupyter
