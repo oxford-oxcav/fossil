@@ -1,5 +1,5 @@
 # pylint: disable=not-callable
-from experiments.benchmarks.benchmarks_bc import six_poly
+from experiments.benchmarks.benchmarks_bc import hi_ord_4
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
@@ -13,11 +13,12 @@ import torch
 def main():
 
     batch_size = 1000
-    system = partial(six_poly, batch_size)
+    system = partial(hi_ord_4, batch_size)
     activations = [ActivationType.LINEAR]
-    hidden_neurons = [10]
+    hidden_neurons = [20]
+
     opts = {
-        CegisConfig.N_VARS.k: 6,
+        CegisConfig.N_VARS.k: 4,
         CegisConfig.LEARNER.k: LearnerType.NN,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
@@ -33,7 +34,7 @@ def main():
 
     start = timeit.default_timer()
     c = Cegis(**opts)
-    state, _, __, ___ = c.solve()
+    state, vars, f_learner, iters = c.solve()
     end = timeit.default_timer()
 
     print('Elapsed Time: {}'.format(end - start))

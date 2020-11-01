@@ -3,13 +3,11 @@ import math
 import matplotlib.pyplot as plt
 from experiments.benchmarks.domain_fcns import *
 
-
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
 # by Zhao H. et al
 # HSCC 2020
 from z3 import z3
-
 
 inf = 1e300
 inf_bounds = [-inf, inf]
@@ -53,7 +51,7 @@ def prajna07_simple(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
-def prajna07_modified(batch_size, functions):
+def barr_4(batch_size, functions):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -113,7 +111,7 @@ def prajna07_modified(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
-def darboux(batch_size, functions):
+def barr_1(batch_size, functions):
     _And = functions['And']
 
     def f(_, v):
@@ -157,7 +155,7 @@ def darboux(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
-def elementary(batch_size, functions):
+def barr_2(batch_size, functions):
     _And = functions['And']
 
     def f(functions, v):
@@ -191,7 +189,7 @@ def elementary(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
-def obstacle_avoidance(batch_size, functions):
+def barr_3(batch_size, functions):
     _And = functions['And']
     velo = 1
 
@@ -238,47 +236,6 @@ def obstacle_avoidance(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), bounds
 
 
-def prajna07_hybrid(batch_size, functions):
-    # A = [ [0,1,0], [0,0,1] [-0.2,-0.3,-1] ]
-    # B = [0, 0, 0.1]
-    # C = [1, 0, 0]  --> output is x0
-    # input : if y >= 0: u=10, else: u=-10
-    # X: x0**2 + x1**2 + x2**2 <= 16
-    # Xi (x0+2)**2 + x1**2 + x2**2 <= 0.01
-    # Xi (x0-2)**2 + x1**2 + x2**2 <= 0.01
-
-    def f(functions, v):
-        _If = functions['If']
-        x0, x1, x2 = v
-        _then = -0.2 * x0 - 0.3 * x1 - x2 + 1
-        _else = -0.2 * x0 - 0.3 * x1 - x2 - 1
-        _cond = x0 >= 0
-        return [x1, x2, _If(_cond, _then, _else)]
-
-    def XD(v):
-        x0, x1, x2 = v
-        return x0**2 + x1**2 + x2**2 <= 16
-
-    def XI(v):
-        x0, x1, x2 = v
-        return (x0+2)**2 + x1**2 + x2**2 <= 0.01
-
-    def XU(v):
-        x0, x1, x2 = v
-        return (x0-2)**2 + x1**2 + x2**2 <= 0.01
-
-    def SD():
-        return sphere_init_data((0., 0., 0.), 16, batch_size)
-
-    def SI():
-        return sphere_init_data((-2., 0., 0.), 0.01, batch_size)
-
-    def SU():
-        return sphere_init_data((2., 0., 0.), 0.01, batch_size)
-
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(3)
-
-
 def twod_hybrid(batch_size, functions):
     # A = [ [0,1,0], [0,0,1] [-0.2,-0.3,-1] ]
     # B = [0, 0, 0.1]
@@ -320,8 +277,8 @@ def twod_hybrid(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
-# 10-d version of pj_original
-def four_poly(batch_size, functions):
+# 4-d ODE benchmark
+def hi_ord_4(batch_size, functions):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -362,8 +319,8 @@ def four_poly(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(4)
 
 
-# 10-d version of pj_original
-def six_poly(batch_size, functions):
+# 6-d ODE benchmark
+def hi_ord_6(batch_size, functions):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -407,8 +364,8 @@ def six_poly(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(6)
 
 
-# 10-d version of pj_original
-def eight_poly(batch_size, functions):
+# 8-d ODE benchmark
+def hi_ord_8(batch_size, functions):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -456,7 +413,7 @@ def eight_poly(batch_size, functions):
 
 
 if __name__ == '__main__':
-    f, XD, XI, XU, SD, SI, SU, bonds = eight_poly(500, {'And': z3.And, 'Or': None})
+    f, XD, XI, XU, SD, SI, SU, bonds = hi_ord_8(500, {'And': z3.And, 'Or': None})
     plt.scatter(SI[:, 0], SI[:, 1], color='g', marker='x')
     plt.scatter(SU[:, 0], SU[:, 1], color='r', marker='x')
     plt.scatter(SD[:, 0], SD[:, 1], color='b')

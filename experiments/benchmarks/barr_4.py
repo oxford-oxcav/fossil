@@ -3,22 +3,24 @@ import traceback
 from functools import partial
 
 import torch
+import numpy as np
 import timeit
 
-from experiments.benchmarks.benchmarks_bc import elementary
+from experiments.benchmarks.benchmarks_bc import barr_4
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.plots.plot_barriers import plot_exponential_bench
-import numpy as np
+from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
-    batch_size = 500
-    system = partial(elementary, batch_size)
-    activations = [ActivationType.LIN_SQUARE]
-    hidden_neurons = [10]
+    batch_size = 1000
+    system = partial(barr_4, batch_size)
+    activations = [
+                    ActivationType.TANH,
+                   ]
+    hidden_neurons = [20]*len(activations)
     opts = {
         CegisConfig.N_VARS.k: 2,
         CegisConfig.LEARNER.k: LearnerType.NN,
@@ -28,7 +30,7 @@ def main():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: True,
+        CegisConfig.SP_SIMPLIFY.k: False,
         CegisConfig.SP_HANDLE.k: False,
         CegisConfig.SYMMETRIC_BELT.k: False,
     }
@@ -43,7 +45,7 @@ def main():
 
     # plotting -- only for 2-d systems
     if state[CegisStateKeys.found]:
-        plot_exponential_bench(np.array(vars), state[CegisStateKeys.V])
+        plot_pjmod_bench(np.array(vars), state[CegisStateKeys.V])
 
 
 if __name__ == '__main__':

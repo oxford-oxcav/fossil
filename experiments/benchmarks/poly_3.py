@@ -1,19 +1,17 @@
-# pylint: disable=not-callable
 import torch
 import timeit
 from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
-from functools import partial
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.plots.plot_lyap import plot_lyce
+from functools import partial
 
 
 def test_lnn():
-
     batch_size = 500
-    benchmark = benchmark_5
+    benchmark = poly_3
     n_vars = 2
     system = partial(benchmark, batch_size)
 
@@ -39,17 +37,16 @@ def test_lnn():
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
-
     start = timeit.default_timer()
     c = Cegis(**opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
-    print('Elapsed Time: {}'.format(stop-start))
+    print('Elapsed Time: {}'.format(stop - start))
 
     # plotting -- only for 2-d systems
     if len(vars) == 2 and state[CegisStateKeys.found]:
         plot_lyce(np.array(vars), state[CegisStateKeys.V],
-                  state[CegisStateKeys.V_dot], f_learner)
+                      state[CegisStateKeys.V_dot], f_learner)
 
 
 if __name__ == '__main__':

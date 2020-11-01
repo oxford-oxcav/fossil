@@ -14,7 +14,7 @@ from src.lyap.utils import check_sympy_expression
 def test_lnn():
 
     batch_size = 500
-    benchmark = benchmark_3
+    benchmark = poly_2
     n_vars = 2
     system = partial(benchmark, batch_size)
 

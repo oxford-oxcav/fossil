@@ -10,8 +10,6 @@ times_robust = np.array([
     [125.61, 119.94, 75.46, 96.56],
 ])
 
-times_robust_bc = np.array([[33.21, 46.44, 73.98, 212.21]])
-
 failures_robust = np.array([
     [10, 16, 0, 2],
     [26, 1, 0, 0],
@@ -36,9 +34,6 @@ ax2.set_ylim(bottom, top)
 # plt.figure()
 for idx in np.arange(4):
     plt.scatter(np.arange(6), failures_robust[:, idx], marker='*', s=100)
-# plt.legend(['h = 2', 'h = 10', 'h = 50', 'h = 100'])
-# plt.xticks(np.arange(6), ('10', '20', '50', '100', '200', '500'))
-# plt.xlabel('Radius')
 ax2.set_ylabel('Failures')
 fig.tight_layout()
 

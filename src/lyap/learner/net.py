@@ -108,19 +108,7 @@ class NN(nn.Module, Learner):
     def compute_factors(self, S, lf):
         E, factors = 1, []
         with torch.no_grad():
-            if lf == LearningFactors.LINEAR:  # linear factors
-                for idx in range(self.eq.shape[0]):
-                    # S - self.eq == [ x-x_eq, y-y_eq ]
-                    # (vector_x - eq_0) = ( x-x_eq + y-y_eq )
-                    E *= torch.sum(S - torch.tensor(self.eq[idx, :]), dim=1)
-                    factors.append(torch.sum(S - torch.tensor(self.eq[idx, :]), dim=1))
-                # E = (x-x_eq0 + y-y_eq0) * (x-x_eq1 + y-y_eq1)
-                # dE/dx = (x-x_eq0 + y-y_eq0) + (x-x_eq1 + y-y_eq1) = dE/dy
-                grad = []
-                for idx in range(self.input_size):
-                    grad += [torch.sum(torch.stack(factors), dim=0)]
-                derivative_e = torch.stack(grad).T
-            elif lf == LearningFactors.QUADRATIC:  # quadratic factors
+            if lf == LearningFactors.QUADRATIC:  # quadratic factors
                 # define a tensor to store all the components of the quadratic factors
                 # factors[:,:,0] stores [ x-x_eq0, y-y_eq0 ]
                 # factors[:,:,1] stores [ x-x_eq1, y-y_eq1 ]
