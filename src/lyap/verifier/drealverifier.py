@@ -26,22 +26,26 @@ class DRealVerifier(Verifier):
     def is_sat(self, res) -> bool:
         return isinstance(res, Box)
 
-    def is_unsat(self, res) -> bool:
-        # int(str("x0")) = 0
-        # bounds_not_ok = isinstance(res, Box) and any(not self.in_bounds(int(str(x)[1:]), interval.mid()) for x, interval in res.items())
-        return res is None # or bounds_not_ok
-
     @staticmethod
     def replace_point(expr, ver_vars, point):
         return dreal_replacements(expr, ver_vars, point)
 
+    def is_unsat(self, res) -> bool:
+        # int(str("x0")) = 0
+        return res is None
+
+    def within_bounds(self, res) -> bool:
+        return isinstance(res, Box) and all(
+            self.in_bounds(int(str(x)[1:]), interval.mid()) for x, interval in res.items())
+
     def _solver_solve(self, solver, fml):
         res = CheckSatisfiability(fml, 0.00001)
-        if not self.is_sat(res):
+        if self.is_sat(res) and not self.within_bounds(res):
             new_bound = self.optional_configs.get(VerifierConfig.DREAL_SECOND_CHANCE_BOUND.k, VerifierConfig.DREAL_SECOND_CHANCE_BOUND.v)
-            fml = And(fml, *(x < new_bound for x in self.xs))
+            fml = And(fml, *(And(x < new_bound, x > -new_bound) for x in self.xs))
             res = CheckSatisfiability(fml, 0.00001)
         return res
+
     def _solver_model(self, solver, res):
         assert self.is_sat(res)
         return res
