@@ -5,6 +5,7 @@ import torch
 
 from src.shared.components.Primer import Primer
 from src.shared.system import LinearSystem, NonlinearSystem
+from src.shared.consts import PrimerMode
 
 
 class TestPrimer(unittest.TestCase):
@@ -15,9 +16,9 @@ class TestPrimer(unittest.TestCase):
         f1 = [-x0**3 + x1, -x0 - x1]
         f2 = [x1, x0 - x0**3 - 2*x1 +x0**2 * x1]
         f3  = [-x0 -3, -x1 - 2]
-        self.sys1 = Primer.create_Primer(f=f1, r=10, mode="l")
-        self.sys2 = Primer.create_Primer(f=f2, r=10, mode="l")
-        self.sys3 = Primer.create_Primer(f=f3, r=10, mode="l")
+        self.sys1 = Primer.create_Primer(f=f1, r=10, mode=PrimerMode.LYAPUNOV)
+        self.sys2 = Primer.create_Primer(f=f2, r=10, mode=PrimerMode.LYAPUNOV)
+        self.sys3 = Primer.create_Primer(f=f3, r=10, mode=PrimerMode.LYAPUNOV)
         
     
     def test_check_input(self):
@@ -36,9 +37,9 @@ class TestPrimer(unittest.TestCase):
         f1 = self.sys1.evaluate_dynamics
         f2 = self.sys2.evaluate_dynamics
         f3 = self.sys3.evaluate_dynamics
-        self.assertSequenceEqual(f1(torch.tensor([[0,0]]).T), [0,0])
-        self.assertSequenceEqual(f2(torch.tensor([[0,0]]).T), [0,0])
-        self.assertSequenceEqual(f3(torch.tensor([[0,0]]).T), [0,0])
+        self.assertSequenceEqual(f1(torch.tensor([0,0]).T), [0,0])
+        self.assertSequenceEqual(f2(torch.tensor([0,0]).T), [0,0])
+        self.assertSequenceEqual(f3(torch.tensor([0,0]).T), [0,0])
     
     def test_validate_eqbm_input(self):
         eqbm_true  = sp.sympify([-3, -2])

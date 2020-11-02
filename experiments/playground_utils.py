@@ -9,19 +9,27 @@ from experiments.benchmarks.domain_fcns import Rectangle, Sphere
 
 exp, sin, cos = sp.exp, sp.sin, sp.cos
 
+def simplify_f(function):
+    """
+    Attempts to simplify symbolic function:
+    :param function: symbolic function of type sympy.exp, z3.ArithRef or dreal
+    :returns f: simplified function
+    """
+    if isinstance(function, sp.exp):
+        f = sp.simplify(function)
+        return f
+    if isinstance(function, ArithRef):
+        f = simplify(function)
+        return f
+    else:
+        return function
+
 def print_f(function):
     """
     Attempts to simplify and print symbolic function:
     :param function: symbolic function of type sympy.exp, z3.ArithRef or dreal
     """
-    if isinstance(function, sp.exp):
-        f = sp.simplify(function)
-        print(f)
-    if isinstance(function, ArithRef):
-        f = simplify(function)
-        print(f)
-    else:
-        print(function)
+    print(simplify_f(function))
 
 def initialise_states(N):
     """
@@ -33,5 +41,11 @@ def initialise_states(N):
     return v
 
 def synthesise(f, mode, **kw):
+    """
+    Main synthesis function.
+    :param f: vector field dynamics f as list of symbolic expressions.
+    :param mode: PrimerMode, lyapunov or barrier synthesis
+    :returns C_n, C_s: Numerical and symbolic versions of synthesised certificate 
+    """
     p = Primer.create_Primer(f, mode, **kw)
     return p.get()

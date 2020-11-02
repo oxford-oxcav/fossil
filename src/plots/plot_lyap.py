@@ -58,6 +58,7 @@ def plot_lyapunov_fcn(x, V, f):
     X = np.linspace(-plot_limit, plot_limit, 100)
     Y = np.linspace(-plot_limit, plot_limit, 100)
     x0, x1 = np.meshgrid(X, Y)
+    lambda_f = sp.lambdify(x, str(V), modules=['numpy'])
     lambda_v = sp.lambdify(x, str(V), modules=['numpy'])
     plot_v = lambda_v([x0], [x1])
 
@@ -68,19 +69,17 @@ def plot_lyapunov_fcn(x, V, f):
     # PLOT 2D -- CONTOUR
     ################################
 
-    plt.figure()
-    ax = plt.gca()
+    #plt.figure()
+    #ax = plt.gca()
 
     # plot vector field
-    xv = np.linspace(-plot_limit, plot_limit, 10)
-    yv = np.linspace(-plot_limit, plot_limit, 10)
-    Xv, Yv = np.meshgrid(xv, yv)
-    t = np.linspace(0, 5, 100)
-    vector_field(f, Xv, Yv, t)
-
-    ax.contour(X, Y, plot_v, 5, linewidths=2, colors='k')
-    plt.title('Lyapunov Border')
-    plt.xlabel('$x$')
-    plt.ylabel('$y$')
-
+    #xv = np.linspace(-plot_limit, plot_limit, 10)
+    #yv = np.linspace(-plot_limit, plot_limit, 10)
+    #Xv, Yv = np.meshgrid(xv, yv)
+    #t = np.linspace(0, 5, 100)
+    #vector_field(f, Xv, Yv, t)
+    #ax.contour(X, Y, plot_v, 5, linewidths=2, colors='k')
+    #plt.title('Lyapunov Border')
+    #plt.xlabel('$x$')
+    #plt.ylabel('$y$')
     plt.show()
