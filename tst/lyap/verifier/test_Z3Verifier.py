@@ -5,16 +5,17 @@ from src.lyap.learner.net import NN
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import *
 import torch
-from src.shared.Regulariser import Regulariser 
+from src.shared.components.Regulariser import Regulariser
 from unittest import mock
 from z3 import *
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import RegulariserType
 
+
 class TestZ3Verifier(unittest.TestCase):
 
-    def test_benchmark3_with_good_Lyapunov_function(self): 
-        system = partial(benchmark_3, batch_size=100)
+    def test_poly2_with_good_Lyapunov_function(self):
+        system = partial(poly_2, batch_size=100)
         n_vars = 2
 
         verifier = Z3Verifier
@@ -45,8 +46,8 @@ class TestZ3Verifier(unittest.TestCase):
         self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
         self.assertTrue(res[CegisStateKeys.found])
 
-    def test_benchmark3_with_bad_Lyapunov_function(self):
-        system = partial(benchmark_3, batch_size=100)
+    def test_poly2_with_bad_Lyapunov_function(self):
+        system = partial(poly_2, batch_size=100)
         n_vars = 2
 
         verifier = Z3Verifier
@@ -77,8 +78,8 @@ class TestZ3Verifier(unittest.TestCase):
         self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
         self.assertFalse(res[CegisStateKeys.found])
 
-    def test_benchmark3_with_another_bad_Lyapunov_function(self):
-        system = partial(benchmark_3, batch_size=100)
+    def test_poly2_with_another_bad_Lyapunov_function(self):
+        system = partial(poly_2, batch_size=100)
         n_vars = 2
 
         verifier = Z3Verifier
@@ -105,6 +106,7 @@ class TestZ3Verifier(unittest.TestCase):
         res = verifier.verify(V, Vdot)
         self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
         self.assertFalse(res[CegisStateKeys.found])
-        
+
+
 if __name__ == '__main__':
     unittest.main()
