@@ -34,6 +34,7 @@ def round_init_data(centre, r, batch_size):
     else:
         return n_dim_sphere_init_data(centre, r, batch_size)
 
+
 def slice_nd_init_data(centre, r, batch_size):
     """
     :param centre:
@@ -48,7 +49,6 @@ def slice_nd_init_data(centre, r, batch_size):
         return slice_3d_init_data(centre, r, batch_size)
     else:
         raise ValueError('Positive orthant not supported for more than 3 dimensions.')
-
 
 
 # generates data for x>0, y>0
@@ -195,10 +195,12 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
 
     return new_data
 
+
 def inf_bounds_n(n):
     inf = 1e300
     inf_bounds = [-inf, inf]
     return [inf_bounds] * n
+
 
 if __name__ == '__main__':
     X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
@@ -232,7 +234,6 @@ class Rectangle:
         returns: data points generated in relevant domain according to shape
         """
         return square_init_data([self.lower_bounds, self.upper_bounds], batch_size)
-
 
 
 class Sphere:

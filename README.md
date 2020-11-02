@@ -32,7 +32,7 @@ We provide a Docker configuration for your convenience. Begin by installing Dock
 You can run the tool as:
 
 ```
-# sudo docker build -t fossil .
+# docker build -t fossil .
 # docker run -it fossil bash
 ```
 

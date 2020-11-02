@@ -4,7 +4,7 @@ from functools import partial
 from src.lyap.learner.net import NN
 from src.shared.components.Trajectoriser import Trajectoriser
 from src.shared.activations import ActivationType
-from experiments.benchmarks.benchmarks_lyap import benchmark_3
+from experiments.benchmarks.benchmarks_lyap import poly_2
 from src.shared.cegis_values import CegisStateKeys
 import torch
 
@@ -12,7 +12,7 @@ import torch
 class TrajectoriserTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
-        system = partial(benchmark_3, batch_size=500)
+        system = partial(poly_2, batch_size=500)
         self.f, _, self.S_d = system(functions={'And': 0})
         self.f_learner = partial(self.f, {'And': 0})
         self.hidden = [3]
