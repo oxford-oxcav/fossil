@@ -4,7 +4,7 @@ Install:
 
 > python3 python3-pip curl
 
-On Ubuntu you can do it with: `apt-get install -y python3 python3-pip curl`
+On Ubuntu you can do it with: `sudo apt-get install -y python3 python3-pip curl`
 
 Run: `pip3 install -r ./requirements.txt`
 
@@ -26,7 +26,9 @@ The virtual environment can then be selected using the kernel menu in the toolba
 
 ## Docker
 
-We provide a Docker configuration for your convenience. Begin by installing Docker on your system. You can run the tool as:
+We provide a Docker configuration for your convenience. Begin by installing Docker on your system: on Ubuntu you can use the snap installation with `sudo snap install docker`
+
+You can run the tool as:
 
 ```
 # docker build -t fossil .
