@@ -19,7 +19,6 @@ To run the Jupyter Notebook playgrounds, use:
 
 Users who wish to use the Jupyter Notebooks with a python virtual environment should use the following commands with the environment activated.
 
-> pip3 install ipykernel
 > python3 -m ipykernel install --user --name=venv_name
 
 The virtual environment can then be selected using the kernel menu in the toolbar.

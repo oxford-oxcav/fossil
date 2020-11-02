@@ -56,7 +56,7 @@ class PrimerBarrier(Primer):
             B, Bdot, _ = learner.numerical_net(x, xdot)
             return B, Bdot
 
-        B_v = state[CegisStateKeys.B]
+        B_v = state[CegisStateKeys.V]
         return B_n, B_v
 
     def run_cegis(self):
