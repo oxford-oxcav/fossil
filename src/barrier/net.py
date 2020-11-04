@@ -155,14 +155,6 @@ class NN(nn.Module, Learner):
             #         if Vdot[k] > -margin:
             #             print("Vdot" + str(S[k].tolist()) + " = " + str(Vdot[k].tolist()))
 
-            loss.backward()
-            optimizer.step()
-
-            """
-            moved the break *after* the backward, so even if the verifier gives unusable ctx
-            the network keeps learning, thus changing, so the verifier can find a different ctx.
-            waits for a loss that is negative (i.e. the network approx a good BC) for two updates
-            """
             if percent_accuracy_init_unsafe == 100 and percent_belt >= 99.9:
                 condition = True
             else:
@@ -171,6 +163,9 @@ class NN(nn.Module, Learner):
             if condition and condition_old:
                 break
             condition_old = condition
+
+            loss.backward()
+            optimizer.step()
 
         return {}
 
