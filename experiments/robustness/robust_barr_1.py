@@ -16,7 +16,7 @@ from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, Regu
 def test_robustness(h):
     batch_size = 500
     system = partial(barr_1, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
+    activations = [ActivationType.LINEAR, ActivationType.SQUARE, ActivationType.LINEAR]
     hidden_neurons = [h] * len(activations)
 
     start = timeit.default_timer()

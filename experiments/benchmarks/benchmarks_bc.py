@@ -189,6 +189,57 @@ def barr_2(batch_size, functions):
     return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
 
 
+def obstacle_avoidance(batch_size, functions):
+    _And = functions['And']
+    velo = 1
+
+    def f(functions, v):
+        x, y, phi = v
+        return [
+            velo * functions['sin'](phi), velo * functions['cos'](phi),
+            - functions['sin'](phi) + 3 * (x * functions['sin'](phi) + y * functions['cos'](phi)) / (0.5 + x ** 2 + y ** 2)
+        ]
+
+    def XD(_, v):
+        x, y, phi = v
+        return _And(-2 <= x, x <= 2,
+                    -2 <= y, y <= 2,
+                    -1.57 <= phi, phi <= 1.57)
+
+    def XI(_, v):
+        x, y, phi = v
+        return _And(-0.1 <= x, x <= 0.1, -2 <= y, y <= -1.8, -0.52 <= phi, phi <= 0.52)
+
+    def XU(_, v):
+        x, y, _phi = v
+        return x**2 + y**2 <= 0.04
+
+    def SD():
+        # add a chi2 distribution w degrees of freedom k: higher k, more uniform distro
+        k = 4
+        x_comp = -2 + torch.sum(torch.randn(batch_size, k)**2, dim=1).reshape(batch_size, 1)
+        y_comp = 2 - torch.sum(torch.randn(batch_size, k)**2, dim=1).reshape(batch_size, 1)
+        phi_comp = segment([-1.57, 1.57], batch_size)
+        dom = torch.cat([x_comp, y_comp, phi_comp], dim=1)
+        return dom
+
+    def SI():
+        x = segment([-0.1, 0.1], batch_size)
+        y = segment([-2.0, -1.8], batch_size)
+        phi = segment([-0.52, 0.52], batch_size)
+        return torch.cat([x, y, phi], dim=1)
+
+    def SU():
+        xy = circle_init_data((0., 0.), 0.04, batch_size)
+        phi = segment([-0.52, 0.52], batch_size)
+        return torch.cat([xy, phi], dim=1)
+
+    bounds = inf_bounds_n(2)
+    pi = math.pi
+    bounds.append([-pi/2, pi/2])
+    return f, XD, XI, XU, SD(), SI(), SU(), bounds
+
+
 def twod_hybrid(batch_size, functions):
     # A = [ [0,1,0], [0,0,1] [-0.2,-0.3,-1] ]
     # B = [0, 0, 0.1]

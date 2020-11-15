@@ -169,17 +169,16 @@ class NN(nn.Module, Learner):
             if t % 100 == 0 or t == learn_loops-1:
                 print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
 
+            # t>=1 ensures we always have at least 1 optimisation step
+            if learn_accuracy == batch_size and t >= 1:
+                break
+
             loss.backward()
             optimizer.step()
 
             if self._diagonalise:
                 self.diagonalisation()
 
-            if learn_accuracy == batch_size:
-                break
-
-            # if self._is_there_bias:
-            #     self.weights_projection()
         return {}
 
     def diagonalisation(self):
@@ -187,25 +186,6 @@ class NN(nn.Module, Learner):
         with torch.no_grad():
             for layer in self.layers[:-1]:
                 layer.weight.data = torch.diag(torch.diag(layer.weight))
-
-    def weights_projection(self):
-        # bias_vector = self.layers[0].bias
-        # constraints matrix
-        _, _, c_mat = self.forward_tensors(self.equilibrium, self.equilibrium)
-        # compute projection matrix
-        if (c_mat == 0).all():
-            projection_mat = torch.eye(self.layers[-1].weight.shape[1])
-        else:
-            projection_mat = torch.eye(self.layers[-1].weight.shape[1]) \
-                                  - c_mat.T @ torch.inverse(c_mat @ c_mat.T) @ c_mat
-        # make the projection w/o gradient operations with torch.no_grad
-        with torch.no_grad():
-            self.layers[-1].weight.data = self.layers[-1].weight @ projection_mat
-            x0 = torch.zeros((1, self.input_size))
-            # v0, _, _ = self.forward_tensors(x0, x0)
-            # print('Zero in zero? V(0) = {}'.format(v0.data.item()))
-
-    # todo: mv to utils
 
     def find_closest_unsat(self, S, Sdot, factors):
         min_dist = float('inf')
