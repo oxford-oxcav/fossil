@@ -244,7 +244,7 @@ class Verifier(Component):
         """
         _And = self.solver_fncts()['And']
         s = self.new_solver()
-        f = _And(z3.And(B >= 0.0, Bdot > 0))
+        f = _And(_And(B >= 0.0, Bdot > 0))
         f = _And(f, self.domain)
         res_zero, timedout = self.solve_with_timeout(s, f)
 

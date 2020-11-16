@@ -29,9 +29,7 @@ def positive_definite(learner, S_d, Sdot):
 def negative_definite_lie_derivative(learner, S, Sdot):
     v, vdot, jac = learner.forward_tensors(S, Sdot)
     # find points have vdot > 0
-    index_positive = torch.nonzero(vdot > 0)
-    # check whether points are inside original domain
-    if len(S[index_positive]) > 0 and torch.sqrt(torch.sum(S[index_positive]**2)) < 10.0:
+    if len(torch.nonzero(vdot > 0)) > 0:
         return False
     else:
         return True

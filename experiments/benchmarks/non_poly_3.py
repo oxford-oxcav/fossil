@@ -19,8 +19,8 @@ def test_lnn():
     inner_radius = 0.01
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [3] * len(activations)
+    activations = [ActivationType.LINEAR, ActivationType.SQUARE]
+    n_hidden_neurons = [4] * len(activations)
 
     opts = {
         CegisConfig.N_VARS.k: n_vars,
@@ -31,7 +31,7 @@ def test_lnn():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.SP_HANDLE.k: False,
+        CegisConfig.SP_HANDLE.k: True,
         CegisConfig.INNER_RADIUS.k: inner_radius,
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,

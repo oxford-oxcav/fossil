@@ -18,7 +18,7 @@ def test_robustness(h):
     system = partial(barr_1, batch_size)
     activations = [ActivationType.LINEAR]
     hidden_neurons = [h] * len(activations)
-
+    
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: 2,
