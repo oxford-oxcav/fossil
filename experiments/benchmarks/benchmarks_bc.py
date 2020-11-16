@@ -120,8 +120,7 @@ def barr_1(batch_size, functions):
 
     def XD(_, v):
         x, y = v
-        return _And(-2 <= x, y <= 2)
-
+        return _And(-2 <= x, x <= 2, -2 <= y, y <= 2)
     def XI(_, v):
         x, y = v
         return _And(0 <= x, x <= 1, 1 <= y, y <= 2)
@@ -131,9 +130,8 @@ def barr_1(batch_size, functions):
         return x + y**2 <= 0
 
     def SD():
-        x_comp = -2 + torch.randn(batch_size, 1)**2
-        y_comp = 2 - torch.randn(batch_size, 1)**2
-        dom = torch.cat([x_comp, y_comp], dim=1)
+        domain = [[-2, -2], [2, 2]]
+        dom = square_init_data(domain, batch_size)
         return dom
 
     def SI():

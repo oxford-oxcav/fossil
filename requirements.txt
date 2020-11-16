@@ -10,3 +10,4 @@ tabulate
 scipy
 aenum
 jupyter
+pandas
