@@ -15,10 +15,10 @@ import numpy as np
 
 
 def main():
-    batch_size = 500
+    batch_size = 600
     system = partial(barr_2, batch_size)
-    activations = [ActivationType.TANH]
-    hidden_neurons = [10]
+    activations = [ActivationType.SIGMOID]
+    hidden_neurons = [24]
     opts = {
         CegisConfig.N_VARS.k: 2,
         CegisConfig.LEARNER.k: LearnerType.NN,
@@ -28,7 +28,7 @@ def main():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: True,
+        CegisConfig.SP_SIMPLIFY.k: False,
         CegisConfig.SP_HANDLE.k: False,
         CegisConfig.SYMMETRIC_BELT.k: False,
     }

@@ -15,10 +15,10 @@ from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
-    batch_size = 1000
+    batch_size = 500
     system = partial(barr_3, batch_size)
     activations = [
-                    ActivationType.TANH,
+                    ActivationType.SIGMOID, ActivationType.SIGMOID
                    ]
     hidden_neurons = [20]*len(activations)
     opts = {

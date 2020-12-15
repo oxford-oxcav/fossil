@@ -129,7 +129,7 @@ class Verifier(Component):
         _And = self.solver_fncts()['And']
         # Bdot <= 0 in B == 0
         # lie_constr = And(B >= -0.05, B <= 0.05, Bdot > 0)
-        lie_constr = _And(B == 0, Bdot > 0)
+        lie_constr = _And(B == 0, Bdot >= 0)
 
         # B < 0 if x \in initial
         inital_constr = _And(B >= 0, self.initial_s)
@@ -231,7 +231,7 @@ class Verifier(Component):
         """
         _And = self.solver_fncts()['And']
         s = self.new_solver()
-        f = _And(B >= -0.05, B <= 0.05, Bdot > 0)
+        f = _And(B >= -0.05, B <= 0.05, Bdot >= 0)
         f = _And(f, self.domain)
         res_smooth, timedout = self.solve_with_timeout(s, f)
 
@@ -244,7 +244,7 @@ class Verifier(Component):
         """
         _And = self.solver_fncts()['And']
         s = self.new_solver()
-        f = _And(_And(B >= 0.0, Bdot > 0))
+        f = _And(_And(B >= 0.0, Bdot >= 0))
         f = _And(f, self.domain)
         res_zero, timedout = self.solve_with_timeout(s, f)
 

@@ -198,12 +198,13 @@ def requ_der_z3(x):
 
 
 def hyper_tan_der_dr(x):
-    return np.ones((x.shape)) - np.power(x, 2)
+    return np.ones((x.shape)) - np.power(hyper_tan_dr(x), 2)
 
 
 def sigm_der_dr(x):
+    y = sigm_dr(x)
     # elem-wise multiplication
-    return np.multiply(x, (np.ones(x.shape) - x))
+    return np.multiply(y, (np.ones(x.shape) - y))
 
 
 def lqc_der_z3(x):

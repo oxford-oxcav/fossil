@@ -185,7 +185,6 @@ def hyper_tan(x):
 def sigm(x):
     return torch.sigmoid(x)
 
-
 ##################################################################
 # DERIVATIVES
 ##################################################################
@@ -213,11 +212,12 @@ def relu_square_der(x):
 
 
 def hyper_tan_der(x):
-    return torch.ones(x.shape) - torch.pow(x, 2)
+    return torch.ones(x.shape) - torch.pow(torch.tanh(x), 2)
 
 
 def sigm_der(x):
-    return x * (torch.ones(x.shape)-x)
+    y = sigm(x)
+    return y * (torch.ones(x.shape)-y)
 
 
 def lqc_der(x):
@@ -265,4 +265,3 @@ def l_o_der(x):
                              x[:, 4*h:5*h], x[:, 5*h:6*h], x[:, 6*h:7*h], x[:, 7*h:]
     return torch.cat((torch.ones(x1.shape), 2*x2, 3*torch.pow(x3, 2), 4*torch.pow(x4,3), \
                       5*torch.pow(x5, 4), 6*torch.pow(x6, 5), 7*torch.pow(x7, 6), 8*torch.pow(x8, 7)), dim=1)
-
