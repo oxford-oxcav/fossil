@@ -213,6 +213,9 @@ def forward_Vdot(net, x, f):
 
     return torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)[0]
 
+def vprint(arg, verbose=True):
+    if verbose:
+        print(*arg)
 
 def timer(t):
     assert isinstance(t, Timer)

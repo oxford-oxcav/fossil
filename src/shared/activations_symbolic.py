@@ -1,6 +1,7 @@
 # pylint: disable=no-member
 # definition of various activation fcns
 import numpy as np
+from sympy import Expr
 import z3
 import logging
 try:
@@ -14,7 +15,7 @@ def activation_z3(select, p):
     if select == ActivationType.IDENTITY:
         return p
     elif select == ActivationType.RELU:
-        return relu_z3(p)
+        return relu(p)
     elif select == ActivationType.LINEAR:
         return p
     elif select == ActivationType.SQUARE:
@@ -29,6 +30,8 @@ def activation_z3(select, p):
         return hyper_tan_dr(p)
     elif select == ActivationType.SIGMOID:
         return sigm_dr(p)
+    elif select == ActivationType.SOFTPLUS:
+        return softplus_dr(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_z3(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -62,6 +65,8 @@ def activation_der_z3(select, p):
         return hyper_tan_der_dr(p)
     elif select == ActivationType.SIGMOID:
         return sigm_der_dr(p)
+    elif select == ActivationType.SOFTPLUS:
+        return softplus_der_dr(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_der_z3(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -76,10 +81,18 @@ def activation_der_z3(select, p):
         return l_o_der_z3(p)
 
 
-def relu_z3(x):
+def relu(x):
+    # Won't work with sympy 
     y = x.copy()
-    for idx in range(len(y)):
-        y[idx, 0] = z3.If(y[idx, 0] > 0, y[idx, 0], 0)
+    if isinstance(x[0,0], z3.ArithRef):
+        _If = z3.If
+        for idx in range(len(y)):
+            y[idx, 0] = z3.simplify(_If(y[idx, 0] > 0, y[idx, 0], 0))
+   
+    else:
+        _max = dr.Max
+        for idx in range(len(y)):
+            y[idx, 0] = _max(y[idx, 0], 0) 
     return y
 
 
@@ -98,11 +111,11 @@ def lin_square_z3(x):
 def relu_square_z3(x):
     h = int(len(x) / 2)
     x1, x2 = x[:h], x[h:]
-    return np.vstack((relu_z3(x1), np.power(x2, 2)))
+    return np.vstack((relu(x1), np.power(x2, 2)))
 
 
 def requ_z3(x):
-    return np.multiply(x, relu_z3(x))
+    return np.multiply(x, relu(x))
 
 
 def hyper_tan_dr(x):
@@ -121,6 +134,12 @@ def sigm_dr(x):
         y[idx, 0] = 1/(1+dr.exp(-y[idx, 0]))
     return y
 
+def softplus_dr(x):
+    # softplus is f(x) = ln(1 + e^x)
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = dr.log(1 + dr.exp(y[idx,0]))
+    return y
 
 def lqc_z3(x):
     # linear - quadratic - cubic activation
@@ -176,8 +195,16 @@ def step_z3(x):
     y = x.copy()
     original_shape = y.shape
     y = y.reshape(max(y.shape[0], y.shape[1]), 1)
-    for idx in range(y.shape[0]):
-        y[idx, 0] = z3.If(y[idx, 0] > 0.0, 1.0, 0.0)  # using 0.0 and 1.0 avoids int/float issues
+    if isinstance(x[0,0], z3.ArithRef):
+        _If = z3.If
+        for idx in range(y.shape[0]):
+            y[idx, 0] = z3.simplify(_If(y[idx, 0] > 0.0, 1.0, 0.0))  # using 0.0 and 1.0 avoids int/float issues
+
+    else:
+        _If = dr.if_then_else
+        for idx in range(y.shape[0]):
+            y[idx, 0] = _If(y[idx, 0] > 0.0, 1.0, 0.0)  # using 0.0 and 1.0 avoids int/float issues
+
     return y.reshape(original_shape)
 
 
@@ -194,7 +221,7 @@ def relu_square_der_z3(x):
 
 
 def requ_der_z3(x):
-    return 2*relu_z3(x)
+    return 2*relu(x)
 
 
 def hyper_tan_der_dr(x):
@@ -251,3 +278,6 @@ def l_o_der_z3(x):
                                      x[4*h:5*h], x[5*h:6*h], x[6*h:7*h], x[7*h:]
     return np.vstack([np.ones((h, 1)), 2*x2, 3*np.power(x3, 2), 4*np.power(x4, 3),
                       5*np.power(x5, 4), 6*np.power(x6, 5), 7*np.power(x7, 6), 8*np.power(x8, 7)])
+
+def softplus_der_dr(x):
+    return sigm_dr(x)

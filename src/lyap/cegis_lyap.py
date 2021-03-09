@@ -9,7 +9,7 @@ from src.shared.consts import LearnerType, VerifierType, TrajectoriserType, Regu
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.shared.components.Trajectoriser import Trajectoriser
 from src.shared.components.Regulariser import Regulariser
-from src.lyap.utils import print_section
+from src.lyap.utils import print_section, vprint
 from src.lyap.learner.net import NN
 from functools import partial
 
@@ -42,7 +42,7 @@ class Cegis:
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
         # other opts
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
-
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         # batch init
         self.learning_rate = kw.get(CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v)
 
@@ -62,7 +62,7 @@ class Cegis:
 
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
         self.domain = self.f_whole_domain(verifier.solver_fncts(), self.x)
-        self.verifier = verifier(self.n, self.eq, self.domain, self.x)
+        self.verifier = verifier(self.n, self.eq, self.domain, self.x, **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
         self.x = np.matrix(self.x).T
@@ -70,7 +70,7 @@ class Cegis:
 
         if self.learner_type == LearnerType.NN:
             self.learner = NN(self.n, *self.h, bias=False, activate=self.activations,
-                              equilibria=self.eq, llo=self.llo)
+                              equilibria=self.eq, llo=self.llo, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         else:
             raise ValueError('No learner of type {}'.format(self.learner_type))
@@ -91,7 +91,7 @@ class Cegis:
         else:
             TypeError('Not Implemented Trajectoriser')
         if self.regulariser_type == RegulariserType.DEFAULT:
-            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
         else:
             TypeError('Not Implemented Regulariser')
 
@@ -165,7 +165,8 @@ class Cegis:
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                print_section(component[CegisComponentsState.name], iters)
+                if self.verbose:
+                    print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
                 state = {**state, **outputs}
@@ -175,11 +176,11 @@ class Cegis:
                         outputs, next_component[CegisComponentsState.instance], **state
                     ))}
 
-                if state[CegisStateKeys.found]:
-                    # print('Found a Lyapunov function')
+                if state[CegisStateKeys.found] and component_idx == len(components)-1:
+                    print('Found a Lyapunov function')
                     stop = True
                 if state[CegisStateKeys.verification_timed_out]:
-                    # print('Verification Timed Out')
+                    print('Verification Timed Out')
                     stop = True
 
             if self.max_cegis_iter == iters:
@@ -198,10 +199,10 @@ class Cegis:
             self.learner.get_timer().sum, self.regulariser.get_timer().sum,
             self.verifier.get_timer().sum, self.trajectoriser.get_timer().sum
         ]
-        # print('Learner times: {}'.format(self.learner.get_timer()))
-        # print('Regulariser times: {}'.format(self.regulariser.get_timer()))
-        # print('Verifier times: {}'.format(self.verifier.get_timer()))
-        # print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
+        vprint(['Learner times: {}'.format(self.learner.get_timer())], self.verbose)
+        vprint(['Regulariser times: {}'.format(self.regulariser.get_timer())], self.verbose)
+        vprint(['Verifier times: {}'.format(self.verifier.get_timer())], self.verbose)
+        vprint(['Trajectoriser times: {}'.format(self.trajectoriser.get_timer())], self.verbose)
 
         self._result = state, self.x, self.f_learner, iters
         return self._result

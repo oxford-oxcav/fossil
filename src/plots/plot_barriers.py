@@ -140,7 +140,7 @@ def plot_pjmod_bench(x, B):
 
     def f(v):
         x, y = v
-        dydt = [y + 2 * x * y, -x - y ** 2 + 2 * x ** 2]
+        dydt = [y, - x - y + 1.0/3.0 * x ** 3]
         return dydt
 
     # init Region

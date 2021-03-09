@@ -1,6 +1,6 @@
 # pylint: disable=not-callable
 import torch
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
 from src.shared.consts import LearningFactors
 from src.shared.sympy_converter import sympy_converter
@@ -12,13 +12,14 @@ T = Timer()
 
 
 class Regulariser(Component):
-    def __init__(self, net, x, xdot, eq, rounding):
+    def __init__(self, net, x, xdot, eq, rounding, **kw):
         super().__init__()
         self.net = net
         self.x = x
         self.xdot = xdot
         self.eq = eq
         self.round = rounding
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
 
     @timer(T)
     def get(self, **kw):
@@ -34,7 +35,7 @@ class Regulariser(Component):
             V = sympy_converter(x_map, V)
             Vdot = sympy_converter(x_map, Vdot)
 
-        print('Candidate: {}'.format(V))
+        vprint(['Candidate: {}'.format(V)], self.verbose)
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 

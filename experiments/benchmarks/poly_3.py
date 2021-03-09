@@ -20,7 +20,7 @@ def test_lnn():
     inner_radius = 0.01
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
+    activations = [ActivationType.SOFTPLUS, ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = {

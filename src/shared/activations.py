@@ -14,6 +14,7 @@ class ActivationType(Enum):
     # dReal only from here
     TANH = auto()
     SIGMOID = auto()
+    SOFTPLUS = auto()
     LIN_TO_CUBIC = auto()
     LIN_TO_QUARTIC = auto()
     LIN_TO_QUINTIC = auto()
@@ -47,6 +48,8 @@ def activation(select: ActivationType, p):
         return hyper_tan(p)
     elif select == ActivationType.SIGMOID:
         return sigm(p)
+    elif select == ActivationType.SOFTPLUS:
+        return softplus(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -85,6 +88,8 @@ def activation_der(select: ActivationType, p):
         return hyper_tan_der(p)
     elif select == ActivationType.SIGMOID:
         return sigm_der(p)
+    elif select == ActivationType.SOFTPLUS:
+        return softplus_der(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_der(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -185,6 +190,9 @@ def hyper_tan(x):
 def sigm(x):
     return torch.sigmoid(x)
 
+def softplus(x):
+    return torch.nn.functional.softplus(x)
+
 ##################################################################
 # DERIVATIVES
 ##################################################################
@@ -218,6 +226,9 @@ def hyper_tan_der(x):
 def sigm_der(x):
     y = sigm(x)
     return y * (torch.ones(x.shape)-y)
+
+def softplus_der(x):
+    return torch.sigmoid(x)
 
 
 def lqc_der(x):

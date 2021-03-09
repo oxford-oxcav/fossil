@@ -1,13 +1,16 @@
+from functools import partial
+
 import torch
 import timeit
 import pandas as pd
-from src.lyap.cegis_lyap import Cegis
+from tqdm import tqdm
+
 from experiments.benchmarks.benchmarks_lyap import *
+from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
+from src.lyap.cegis_lyap import Cegis
 from src.shared.activations import ActivationType
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from functools import partial
-
 
 def test_robustness(benchmark, n_vars, domain, hidden):
     batch_size = 500
@@ -35,6 +38,7 @@ def test_robustness(benchmark, n_vars, domain, hidden):
         CegisConfig.INNER_RADIUS.k: inner_radius,
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
+        CegisConfig.VERBOSE.k: False
     }
 
     start = timeit.default_timer()
@@ -47,21 +51,25 @@ def test_robustness(benchmark, n_vars, domain, hidden):
 
 if __name__ == '__main__':
     number_of_runs = 100
+    domains = [10, 20, 50, 100, 200, 500]
+    hiddens = [2, 10, 50, 100]
+    with std_out_err_redirect_tqdm() as orig_stdout:
+        pbar =  tqdm(total=number_of_runs * len(domains) * len(hiddens), file=orig_stdout, dynamic_ncols=True )
+        for domain in domains:
+            for hidden in hiddens:
+                res = pd.DataFrame(columns=['found', 'iters', 'elapsed_time',
+                                            'lrn_time', 'reg_time', 'ver_time', 'trj_time'])
 
-    for domain in [10, 20, 50, 100, 200, 500]:
-        for hidden in [2, 10, 50, 100]:
-            res = pd.DataFrame(columns=['found', 'iters', 'elapsed_time',
-                                        'lrn_time', 'reg_time', 'ver_time', 'trj_time'])
+                for idx in range(number_of_runs):
+                    el_time, found, comp_times, iters = test_robustness(benchmark=nonpoly0, n_vars=2,
+                                                                domain=domain, hidden=hidden)
+                    res = res.append({'found': found, 'iters': iters,
+                                    'elapsed_time': el_time,
+                                    'lrn_time': comp_times[0], 'reg_time': comp_times[1],
+                                    'ver_time': comp_times[2], 'trj_time': comp_times[3]},
+                                    ignore_index=True)
+                    pbar.update(1)
 
-            for idx in range(number_of_runs):
-                el_time, found, comp_times, iters = test_robustness(benchmark=nonpoly0, n_vars=2,
-                                                             domain=domain, hidden=hidden)
-                res = res.append({'found': found, 'iters': iters,
-                                  'elapsed_time': el_time,
-                                  'lrn_time': comp_times[0], 'reg_time': comp_times[1],
-                                  'ver_time': comp_times[2], 'trj_time': comp_times[3]},
-                                 ignore_index=True)
-
-            name_save = 'robustness_lyap_domain_'+str(domain)+'_hdn_'+str(hidden)+'.csv'
-            res.to_csv(name_save)
+                name_save = 'robustness_lyap_domain_'+str(domain)+'_hdn_'+str(hidden)+'.csv'
+                res.to_csv(name_save)
 

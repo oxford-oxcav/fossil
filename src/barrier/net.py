@@ -6,7 +6,7 @@ import z3
 
 from src.barrier.verifier import Verifier
 from src.shared.activations import ActivationType, activation, activation_der
-from src.barrier.utils import Timer, timer, get_symbolic_formula
+from src.barrier.utils import Timer, timer, get_symbolic_formula, vprint
 from src.shared.cegis_values import CegisStateKeys, CegisConfig
 from src.shared.learner import Learner
 from src.shared.sympy_converter import sympy_converter
@@ -24,6 +24,7 @@ class NN(nn.Module, Learner):
         self.equilibrium = torch.zeros((1, self.input_size))
         self.acts = activate
         self._is_there_bias = bias
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         self.layers = []
         k = 1
         for n_hid in args:
@@ -147,8 +148,8 @@ class NN(nn.Module, Learner):
             # loss = loss + (100-percent_accuracy)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print(t, "- loss:", loss.item(), '- accuracy init-unsafe:', percent_accuracy_init_unsafe,
-                        "- accuracy belt:", percent_belt, '- points in belt:', len(belt_index))
+                vprint((t, "- loss:", loss.item(), '- accuracy init-unsafe:', percent_accuracy_init_unsafe,
+                        "- accuracy belt:", percent_belt, '- points in belt:', len(belt_index)), self.verbose)
 
             # if learn_accuracy / batch_size > 0.99:
             #     for k in range(batch_size):

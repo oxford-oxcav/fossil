@@ -32,7 +32,7 @@ def main():
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
         CegisConfig.SP_SIMPLIFY.k: False,
         CegisConfig.SP_HANDLE.k: False,
-        CegisConfig.SYMMETRIC_BELT.k: False,
+        CegisConfig.VERBOSE.k: False
     }
 
     start = timeit.default_timer()

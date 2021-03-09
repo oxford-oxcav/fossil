@@ -6,7 +6,7 @@ import timeit
 
 from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
 from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
-from src.barrier.utils import print_section, compute_trajectory
+from src.barrier.utils import print_section, compute_trajectory, vprint
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
@@ -36,7 +36,7 @@ class Cegis:
         # other opts
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
         self.max_cegis_time = kw.get(CegisConfig.CEGIS_MAX_TIME_S.k, CegisConfig.CEGIS_MAX_TIME_S.v)
-
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         # batch init
         self.batch_size = kw.get(CegisConfig.BATCH_SIZE.k, CegisConfig.BATCH_SIZE.v)
         self.learning_rate = kw.get(CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v)
@@ -64,7 +64,7 @@ class Cegis:
         self.xdot = np.matrix(self.xdot).T
 
         if self.learner_type == LearnerType.NN:
-            self.learner = NN(self.n, *self.h, activate=self.activ, bias=True, symmetric_belt=self.sb)
+            self.learner = NN(self.n, *self.h, activate=self.activ, bias=True, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
@@ -83,7 +83,7 @@ class Cegis:
         else:
             TypeError('Not Implemented Trajectoriser')
         if self.regulariser_type == RegulariserType.DEFAULT:
-            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding)
+            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
         else:
             TypeError('Not Implemented Regulariser')
 
@@ -145,7 +145,7 @@ class Cegis:
             CegisStateKeys.found: False,
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
-            CegisStateKeys.trajectory: None
+            CegisStateKeys.trajectory: None,
         }
 
         # reset timers
@@ -159,7 +159,8 @@ class Cegis:
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                print_section(component[CegisComponentsState.name], iters)
+                if self.verbose:
+                    print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
                 state = {**state, **outputs}
@@ -168,7 +169,7 @@ class Cegis:
                          **(component[CegisComponentsState.to_next_component]
                                 (outputs, next_component[CegisComponentsState.instance], **state))}
 
-                if state[CegisStateKeys.found]:
+                if state[CegisStateKeys.found] and component_idx == len(components) - 1:
                     print('Certified!')
                     stop = True
                 if state[CegisStateKeys.verification_timed_out]:
@@ -194,10 +195,10 @@ class Cegis:
             self.verifier.get_timer().sum, self.trajectoriser.get_timer().sum
         ]
 
-        print('Learner times: {}'.format(self.learner.get_timer()))
-        print('Regulariser times: {}'.format(self.regulariser.get_timer()))
-        print('Verifier times: {}'.format(self.verifier.get_timer()))
-        print('Trajectoriser times: {}'.format(self.trajectoriser.get_timer()))
+        vprint(['Learner times: {}'.format(self.learner.get_timer())], self.verbose)
+        vprint(['Regulariser times: {}'.format(self.regulariser.get_timer())], self.verbose)
+        vprint(['Verifier times: {}'.format(self.verifier.get_timer())], self.verbose)
+        vprint(['Trajectoriser times: {}'.format(self.trajectoriser.get_timer())], self.verbose)
 
         self._result = state, self.x, self.f_learner, iters
         return self._result

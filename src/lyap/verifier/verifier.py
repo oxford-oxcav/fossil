@@ -1,10 +1,11 @@
 import torch
-from src.lyap.utils import Timer, timer, z3_replacements
 import numpy as np
 import timeit
 
-from src.shared.cegis_values import CegisStateKeys
+from src.lyap.utils import Timer, timer, z3_replacements
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
+from src.shared.utils import vprint
 
 T = Timer()
 
@@ -22,6 +23,7 @@ class Verifier(Component):
         self.xs = solver_vars
         self._solver_timeout = 60
         self._vars_bounds = 1e300
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         self.optional_configs = kw
 
         assert self.counterexample_n > 0
@@ -99,14 +101,14 @@ class Verifier(Component):
             print(":/ timed out")
             timed_out = True
         elif self.is_unsat(res):
-            print('No counterexamples found!')
+            vprint(['No counterexamples found!'], self.verbose)
             found = True
         else:
             original_point = self.compute_model(s, res)
             value_in_ctx, value_in_vdot = self.replace_point(V, self.xs, original_point.numpy().T), \
                                           self.replace_point(Vdot, self.xs, original_point.numpy().T)
-            print('V(ctx) = ', value_in_ctx)
-            print('Vdot(ctx) = ', value_in_vdot)
+            vprint(['V(ctx) = ', value_in_ctx], self.verbose)
+            vprint(['Vdot(ctx) = ', value_in_vdot], self.verbose)
             C = self.randomise_counterex(original_point)
 
         return {CegisStateKeys.found: found, CegisStateKeys.verification_timed_out: timed_out,
@@ -164,7 +166,7 @@ class Verifier(Component):
         :return: tensor containing single ctx
         """
         model = self._solver_model(solver, res)
-        print('Counterexample Found: {}'.format(model))
+        vprint(['Counterexample Found: {}'.format(model)], self.verbose)
         temp = []
         for i, x in enumerate(self.xs):
             temp += [self._model_result(solver, model, x, i)]

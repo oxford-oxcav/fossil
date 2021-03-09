@@ -15,10 +15,10 @@ import numpy as np
 
 
 def main():
-    batch_size = 600
+    batch_size = 500
     system = partial(barr_2, batch_size)
-    activations = [ActivationType.SIGMOID]
-    hidden_neurons = [24]
+    activations = [ActivationType.SOFTPLUS]
+    hidden_neurons = [20]
     opts = {
         CegisConfig.N_VARS.k: 2,
         CegisConfig.LEARNER.k: LearnerType.NN,

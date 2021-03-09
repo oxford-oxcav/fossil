@@ -12,7 +12,7 @@ def square_init_data(domain, batch_size):
 
     r1 = torch.tensor(domain[0])
     r2 = torch.tensor(domain[1])
-    square_uniform = (r1 - r2) * torch.rand(batch_size, len(domain)) + r2
+    square_uniform = (r1 - r2) * torch.rand(batch_size, len(domain[0])) + r2
     return square_uniform
 
 

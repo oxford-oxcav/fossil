@@ -1,6 +1,14 @@
+from argparse import ArgumentParser
+import os.path
+
 import pandas as pd
 import numpy as np
 
+def is_valid_file(parser, arg):
+      if not os.path.isfile(arg):
+            parser.error("The file {} does not exist".format(arg))
+      else:
+            return arg
 
 def result_analysis(df):
 
@@ -30,5 +38,11 @@ def result_analysis(df):
           )
 
 
-res = pd.read_csv('robustness_barrier_hdn_10.csv', index_col=0)
-result_analysis(res)
+if __name__ == '__main__':
+      parser = ArgumentParser(description="Results analyser")
+      parser.add_argument("-f", dest="filename", required=True,
+                          help="csv input file", metavar="FILE", 
+                          type=lambda x: is_valid_file(parser, x))
+      args = parser.parse_args()
+      res = pd.read_csv(args.filename, index_col=0)
+      result_analysis(res)

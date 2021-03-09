@@ -6,18 +6,18 @@ import z3
 
 from src.lyap.verifier.verifier import Verifier
 from src.lyap.verifier.z3verifier import Z3Verifier
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.cegis_values import CegisConfig ,CegisStateKeys
 from src.shared.consts import LearningFactors
 from src.shared.learner import Learner
 from src.shared.activations import ActivationType, activation, activation_der
-from src.lyap.utils import Timer, timer, get_symbolic_formula
+from src.lyap.utils import Timer, timer, get_symbolic_formula, vprint
 from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
 
 
 class NN(nn.Module, Learner):
-    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False):
+    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
         super(NN, self).__init__()
 
         self.input_size = input_size
@@ -27,6 +27,7 @@ class NN(nn.Module, Learner):
         self._diagonalise = False
         self.acts = activate
         self._is_there_bias = bias
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         self.layers = []
         self.closest_unsat = None
         k = 1
@@ -167,7 +168,7 @@ class NN(nn.Module, Learner):
                 loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
-                print(t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%')
+                vprint((t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%'), self.verbose)
 
             # t>=1 ensures we always have at least 1 optimisation step
             if learn_accuracy == batch_size and t >= 1:

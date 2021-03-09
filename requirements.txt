@@ -11,3 +11,4 @@ scipy
 aenum
 jupyter
 pandas
+tqdm

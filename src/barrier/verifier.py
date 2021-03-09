@@ -1,7 +1,7 @@
 import torch
 
 from src.barrier.utils import *
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
 
 T = Timer()
@@ -21,6 +21,7 @@ class Verifier(Component):
         self.xs = solver_vars
         self._solver_timeout = 30
         self._vars_bounds = vars_bounds
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         self.optional_configs = kw
 
         assert self.counterexample_n > 0
@@ -83,11 +84,11 @@ class Verifier(Component):
         # if sat, found counterexample; if unsat, V is lyap
         res_init, timedout = self.solve_with_timeout(s_init, fmls['init'])
         if timedout:
-            print("init timed out")
+            vprint("init timed out", self.verbose)
 
         res_unsafe, timedout = self.solve_with_timeout(s_unsafe, fmls['unsafe'])
         if timedout:
-            print("unsafe timed out")
+            vprint("unsafe timed out", self.verbose)
 
         res_lie = []
         no_cex_init = self.is_unsat(res_init)
@@ -96,12 +97,12 @@ class Verifier(Component):
             self._solver_timeout = 150
             res_lie, timedout = self.solve_with_timeout(s_lie, fmls['lie'])
             if timedout:
-                print("timed out -> try smooth Lie")
+                vprint("timed out -> try smooth Lie", self.verbose)
                 self._solver_timeout = 180
                 res_lie, s_lie = self.smoothed_lie(B, Bdot)
                 solvers = {'lie': s_lie, 'init': s_init, 'unsafe': s_unsafe}
                 if timedout:
-                    print(":/ timed out -> try fail_safe")
+                    vprint(":/ timed out -> try fail_safe", self.verbose)
                     res_lie, s_lie = self.fail_safe(B, Bdot)
                     solvers = {'lie': s_lie, 'init': s_init, 'unsafe': s_unsafe}
 
@@ -109,7 +110,7 @@ class Verifier(Component):
 
         results = {'lie': res_lie, 'init': res_init, 'unsafe': res_unsafe}
         if all(self.is_unsat(res) for res in results.values()):
-            print('No counterexamples found!')
+            vprint(['No counterexamples found!'], self.verbose)
             found = True
         else:
             for index, o in enumerate(results.items()):
@@ -118,7 +119,7 @@ class Verifier(Component):
                     original_point = self.compute_model(solvers[solver], res)
                     ces[index] = self.randomise_counterex(original_point)
                 else:
-                    print(res)
+                    vprint([res], self.verbose)
 
         return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
@@ -196,7 +197,7 @@ class Verifier(Component):
         :return: tensor containing single ctx
         """
         model = self._solver_model(solver, res)
-        print('Counterexample Found: {}'.format(model))
+        vprint(['Counterexample Found: {}'.format(model)], self.verbose)
         temp = []
         for i, x in enumerate(self.xs):
             n = self._model_result(solver, model, x, i)
