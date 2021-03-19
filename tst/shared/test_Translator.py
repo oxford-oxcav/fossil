@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 import sympy as sp
 from src.lyap.learner.net import NN
-from src.shared.components.Regulariser import Regulariser
+from src.shared.components.Translator import Translator
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisStateKeys
 from src.lyap.verifier.z3verifier import Z3Verifier
@@ -12,7 +12,7 @@ from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 
 
-class RegulariserTest(unittest.TestCase):
+class TranslatorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(poly_2, batch_size=500)
@@ -24,7 +24,7 @@ class RegulariserTest(unittest.TestCase):
         self.x = [sp.Symbol('x'), sp.Symbol('y')]
         self.xdot = self.f(Z3Verifier.solver_fncts(), self.x)
 
-    # given a point, the trajectoriser returns a list of points - trajectory -
+    # given a point, the consolidator returns a list of points - trajectory -
     # that lead towards the max of Vdot
     def test_fromNet_returnSimplifiedVAndVdot(self):
         # give a value to a hypothetical cex
@@ -50,8 +50,8 @@ class RegulariserTest(unittest.TestCase):
                 torch.tensor([1.0, 1.0, 1.0]).reshape(1, 3)
             )
 
-            # create a 'real' regulariser and compute V, Vdot
-            regolo = Regulariser(learner, np.matrix(self.x).T, self.xdot, None, 1)
+            # create a 'real' translator and compute V, Vdot
+            regolo = Translator(learner, np.matrix(self.x).T, self.xdot, None, 1)
             res = regolo.get(**{'factors': None})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 

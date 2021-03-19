@@ -1,5 +1,5 @@
 # pylint: disable=not-callable
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
+from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
@@ -30,8 +30,8 @@ def test_lnn():
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.LEARNER.k: LearnerType.NN,
         CegisConfig.VERIFIER.k: VerifierType.Z3,
-        CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-        CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+        CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+        CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,

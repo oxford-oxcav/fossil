@@ -2,14 +2,14 @@ import unittest
 from unittest import mock
 from functools import partial
 from src.lyap.learner.net import NN
-from src.shared.components.Trajectoriser import Trajectoriser
+from src.shared.components.Consolidator import Consolidator
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import poly_2
 from src.shared.cegis_values import CegisStateKeys
 import torch
 
 
-class TrajectoriserTest(unittest.TestCase):
+class ConsolidatorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(poly_2, batch_size=500)
@@ -18,7 +18,7 @@ class TrajectoriserTest(unittest.TestCase):
         self.hidden = [3]
         self.activate = [ActivationType.SQUARE]
 
-    # given a point, the trajectoriser returns a list of points - trajectory -
+    # given a point, the consolidator returns a list of points - trajectory -
     # that lead towards the max of Vdot
     def test_fromCex_returnTrajectoryTowardsHighestValueOfVdot(self):
         # give a value to a hypothetical cex
@@ -42,8 +42,8 @@ class TrajectoriserTest(unittest.TestCase):
                 torch.tensor([-1.0, 1.0, -2.0]).reshape(1, 3)
             )
 
-            # create a 'real' trajectoriser
-            traj = Trajectoriser(self.f_learner)
+            # create a 'real' consolidator
+            traj = Consolidator(self.f_learner)
             state = {
                 CegisStateKeys.net: learner,
                 CegisStateKeys.cex: [point],

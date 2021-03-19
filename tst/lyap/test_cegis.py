@@ -8,9 +8,9 @@ from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, LearnerType
 from functools import partial
 from z3 import *
-from src.shared.components.Regulariser import Regulariser
+from src.shared.components.Translator import Translator
 from src.shared.cegis_values import CegisStateKeys
-from src.shared.consts import TrajectoriserType, RegulariserType
+from src.shared.consts import ConsolidatorType, TranslatorType
 
 
 def zero_in_zero(learner):
@@ -49,9 +49,9 @@ class test_cegis(unittest.TestCase):
         f, domain, _ = system(functions=c.verifier.solver_fncts(),
                               inner=c.inner, outer=c.outer)
         domain = domain({}, list(c.x_map.values()))
-        regulariser = Regulariser(c.learner, np.matrix(c.x), np.matrix(c.xdot),
+        translator = Translator(c.learner, np.matrix(c.x), np.matrix(c.xdot),
                                   None, 3)
-        res = regulariser.get(**{'factors': None})
+        res = translator.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         s = Solver()
@@ -95,8 +95,8 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
 
         start = timeit.default_timer()
@@ -133,8 +133,8 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
         c = Cegis(**opts)
         c.solve()
@@ -168,8 +168,8 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
         start = timeit.default_timer()
         c = Cegis(**opts)
@@ -206,8 +206,8 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-            CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
         c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()

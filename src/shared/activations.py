@@ -15,12 +15,14 @@ class ActivationType(Enum):
     TANH = auto()
     SIGMOID = auto()
     SOFTPLUS = auto()
+    COSH = auto()
     LIN_TO_CUBIC = auto()
     LIN_TO_QUARTIC = auto()
     LIN_TO_QUINTIC = auto()
     LIN_TO_SEXTIC = auto()
     LIN_TO_SEPTIC = auto()
     LIN_TO_OCTIC = auto()
+    SQUARE_DEC = auto()
 
 
 # Activation function
@@ -50,6 +52,8 @@ def activation(select: ActivationType, p):
         return sigm(p)
     elif select == ActivationType.SOFTPLUS:
         return softplus(p)
+    elif select == ActivationType.COSH:
+        return cosh(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -62,6 +66,8 @@ def activation(select: ActivationType, p):
         return l_s(p)
     elif select == ActivationType.LIN_TO_OCTIC:
         return l_o(p)
+    elif select == ActivationType.SQUARE_DEC:
+        return s_d(p)
 
 
 def activation_der(select: ActivationType, p):
@@ -90,6 +96,8 @@ def activation_der(select: ActivationType, p):
         return sigm_der(p)
     elif select == ActivationType.SOFTPLUS:
         return softplus_der(p)
+    elif select == ActivationType.COSH:
+        return sinh(p)
     elif select == ActivationType.LIN_TO_CUBIC:
         return lqc_der(p)
     elif select == ActivationType.LIN_TO_QUARTIC:
@@ -102,6 +110,8 @@ def activation_der(select: ActivationType, p):
         return l_s_der(p)
     elif select == ActivationType.LIN_TO_OCTIC:
         return l_o_der(p)
+    elif select == ActivationType.SQUARE_DEC:
+        return s_d_der(p)
 
 
 ##################################################################
@@ -177,6 +187,10 @@ def l_o(x):
     return torch.cat([x1, torch.pow(x2, 2), torch.pow(x3, 3), torch.pow(x4, 4), \
                       torch.pow(x5, 5), torch.pow(x6, 6), torch.pow(x7, 7), torch.pow(x8, 8)], dim=1)
 
+def s_d(x):
+    h = int(x.shape[1]/5)
+    x1, x2, x3, x4, x5 = x[:, :h], x[:, h:2*h], x[:, 2*h:3*h], x[:, 3*h:4*h], x[:, 4*h:]
+    return torch.cat([torch.pow(x1, 2), torch.pow(x2, 4), torch.pow(x3, 6), torch.pow(x4, 8), torch.pow(x5, 10)], dim=1)
 
 # ReQU: Rectified Quadratic Unit
 def requ(x):
@@ -192,6 +206,9 @@ def sigm(x):
 
 def softplus(x):
     return torch.nn.functional.softplus(x)
+
+def cosh(x):
+    return torch.cosh(x) - 1 
 
 ##################################################################
 # DERIVATIVES
@@ -229,6 +246,9 @@ def sigm_der(x):
 
 def softplus_der(x):
     return torch.sigmoid(x)
+
+def sinh(x):
+    return torch.sinh(x)
 
 
 def lqc_der(x):
@@ -276,3 +296,8 @@ def l_o_der(x):
                              x[:, 4*h:5*h], x[:, 5*h:6*h], x[:, 6*h:7*h], x[:, 7*h:]
     return torch.cat((torch.ones(x1.shape), 2*x2, 3*torch.pow(x3, 2), 4*torch.pow(x4,3), \
                       5*torch.pow(x5, 4), 6*torch.pow(x6, 5), 7*torch.pow(x7, 6), 8*torch.pow(x8, 7)), dim=1)
+
+def s_d_der(x):
+    h = int(x.shape[1]/5)
+    x1, x2, x3, x4, x5 = x[:, :h], x[:, h:2*h], x[:, 2*h:3*h], x[:, 3*h:4*h], x[:, 4*h:]
+    return torch.cat([2 * x1, 4 * torch.pow(x2, 3), 6 * torch.pow(x3, 5), 8* torch.pow(x4, 7), 10 * torch.pow(x5, 9)], dim=1)

@@ -9,7 +9,7 @@ from src.shared.utils import Timer, timer
 T = Timer()
 
 
-class Trajectoriser(Component):
+class Consolidator(Component):
     def __init__(self, f):
         super().__init__()
         self.f = f

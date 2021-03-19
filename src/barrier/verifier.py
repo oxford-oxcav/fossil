@@ -61,7 +61,7 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     def get(self, **kw):
-        # regulariser default returns V and Vdot
+        # translator default returns V and Vdot
         return self.verify(kw[CegisStateKeys.V], kw[CegisStateKeys.V_dot])
 
     @timer(T)

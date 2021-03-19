@@ -2,7 +2,7 @@ import math
 from aenum import Enum, NoAlias
 import numpy as np
 
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
+from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
 from src.shared.activations import ActivationType
 
 
@@ -16,8 +16,8 @@ class CegisConfig(Enum, settings=NoAlias):
     CEGIS_MAX_TIME_S        = math.inf  # in sec
     LEARNER                 = LearnerType.NN
     VERIFIER                = VerifierType.Z3
-    TRAJECTORISER           = TrajectoriserType.DEFAULT
-    REGULARISER             = RegulariserType.DEFAULT
+    CONSOLIDATOR           = ConsolidatorType.DEFAULT
+    TRANSLATOR             = TranslatorType.DEFAULT
     BATCH_SIZE              = 500
     LEARNING_RATE           = .1
     FACTORS                 = None

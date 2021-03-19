@@ -80,8 +80,8 @@ class PrimerBarrier(Primer):
                   CegisConfig.N_HIDDEN_NEURONS.k: neurons,
                   CegisConfig.VERIFIER.k: verifier, 
                   CegisConfig.LEARNER.k: CegisConfig.LEARNER.v, 
-                  CegisConfig.TRAJECTORISER.k: CegisConfig.TRAJECTORISER.v,
-                  CegisConfig.REGULARISER.k: CegisConfig.REGULARISER.v}
+                  CegisConfig.CONSOLIDATOR.k: CegisConfig.CONSOLIDATOR.v,
+                  CegisConfig.TRANSLATOR.k: CegisConfig.TRANSLATOR.v}
 
         self.cegis_parameters.update(params)
         c = Cegis_barrier(**self.cegis_parameters)

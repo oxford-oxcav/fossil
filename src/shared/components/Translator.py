@@ -11,7 +11,7 @@ import numpy as np
 T = Timer()
 
 
-class Regulariser(Component):
+class Translator(Component):
     def __init__(self, net, x, xdot, eq, rounding, **kw):
         super().__init__()
         self.net = net

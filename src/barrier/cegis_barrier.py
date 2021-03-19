@@ -5,13 +5,13 @@ import numpy as np
 import timeit
 
 from src.shared.cegis_values import CegisConfig, CegisStateKeys, CegisComponentsState
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
+from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
 from src.barrier.utils import print_section, compute_trajectory, vprint
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
-from src.shared.components.Trajectoriser import Trajectoriser
-from src.shared.components.Regulariser import Regulariser
+from src.shared.components.Consolidator import Consolidator
+from src.shared.components.Translator import Translator
 
 
 class Cegis:
@@ -21,8 +21,8 @@ class Cegis:
         # components types
         self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.trajectoriser_type = kw[CegisConfig.TRAJECTORISER.k]
-        self.regulariser_type = kw[CegisConfig.REGULARISER.k]
+        self.consolidator_type = kw[CegisConfig.CONSOLIDATOR.k]
+        self.translator_type = kw[CegisConfig.TRANSLATOR.k]
         # benchmark options
         self.activ = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
@@ -78,14 +78,14 @@ class Cegis:
         else:
             self.x_sympy, self.xdot_s = None, None
 
-        if self.trajectoriser_type == TrajectoriserType.DEFAULT:
-            self.trajectoriser = Trajectoriser(self.f_learner)
+        if self.consolidator_type == ConsolidatorType.DEFAULT:
+            self.consolidator = Consolidator(self.f_learner)
         else:
-            TypeError('Not Implemented Trajectoriser')
-        if self.regulariser_type == RegulariserType.DEFAULT:
-            self.regulariser = Regulariser(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
+            TypeError('Not Implemented Consolidator')
+        if self.translator_type == TranslatorType.DEFAULT:
+            self.translator = Translator(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
         else:
-            TypeError('Not Implemented Regulariser')
+            TypeError('Not Implemented Translator')
 
         self._result = None
 
@@ -115,8 +115,8 @@ class Cegis:
                 CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
             {
-                CegisComponentsState.name: 'regulariser',
-                CegisComponentsState.instance: self.regulariser,
+                CegisComponentsState.name: 'translator',
+                CegisComponentsState.instance: self.translator,
                 CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
             {
@@ -125,8 +125,8 @@ class Cegis:
                 CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw,
             },
             {
-                CegisComponentsState.name: 'trajectoriser',
-                CegisComponentsState.instance: self.trajectoriser,
+                CegisComponentsState.name: 'consolidator',
+                CegisComponentsState.instance: self.consolidator,
                 CegisComponentsState.to_next_component: lambda _outputs, next_component, **kw: kw
             }
         ]
@@ -137,7 +137,7 @@ class Cegis:
             CegisStateKeys.sp_handle:self.sp_handle,
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
-            CegisStateKeys.factors: self.fcts, # default in trajectoriser
+            CegisStateKeys.factors: self.fcts, # default in consolidator
             CegisStateKeys.B: None,
             CegisStateKeys.B_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
@@ -150,9 +150,9 @@ class Cegis:
 
         # reset timers
         self.learner.get_timer().reset()
-        self.regulariser.get_timer().reset()
+        self.translator.get_timer().reset()
         self.verifier.get_timer().reset()
-        self.trajectoriser.get_timer().reset()
+        self.consolidator.get_timer().reset()
 
         while not stop:
             for component_idx in range(len(components)):
@@ -176,7 +176,7 @@ class Cegis:
                     print('Verification Timed Out')
                     stop = True
 
-            if self.max_cegis_iter == iters or timeit.default_timer() - start > self.max_cegis_time:
+            if (self.max_cegis_iter == iters or timeit.default_timer() - start > self.max_cegis_time) and not state[CegisStateKeys.found]:
                 print('Out of Cegis resources: iters=%d elapsed time=%ss' % (iters, timeit.default_timer() - start))
                 stop = True
 
@@ -191,14 +191,14 @@ class Cegis:
                                          state[CegisStateKeys.cex])
 
         state[CegisStateKeys.components_times] = [
-            self.learner.get_timer().sum, self.regulariser.get_timer().sum,
-            self.verifier.get_timer().sum, self.trajectoriser.get_timer().sum
+            self.learner.get_timer().sum, self.translator.get_timer().sum,
+            self.verifier.get_timer().sum, self.consolidator.get_timer().sum
         ]
 
         vprint(['Learner times: {}'.format(self.learner.get_timer())], self.verbose)
-        vprint(['Regulariser times: {}'.format(self.regulariser.get_timer())], self.verbose)
+        vprint(['Translator times: {}'.format(self.translator.get_timer())], self.verbose)
         vprint(['Verifier times: {}'.format(self.verifier.get_timer())], self.verbose)
-        vprint(['Trajectoriser times: {}'.format(self.trajectoriser.get_timer())], self.verbose)
+        vprint(['Consolidator times: {}'.format(self.consolidator.get_timer())], self.verbose)
 
         self._result = state, self.x, self.f_learner, iters
         return self._result
@@ -229,7 +229,7 @@ class Cegis:
                 #                                   map(self.f_learner, ces[idx]))))], dim=0)
         return S, Sdot
 
-    def trajectoriser_method(self, S, Sdot, ces):
+    def consolidator_method(self, S, Sdot, ces):
         ce = ces[0]
         if len(ce) > 0:
             point = ce[-1]

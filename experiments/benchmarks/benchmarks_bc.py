@@ -80,7 +80,7 @@ def barr_3(batch_size, functions):
         )
 
     def SD():
-        return square_init_data([[-3.5, -2.5], [3, 1.5]], batch_size)
+        return square_init_data([[-3, -2], [2.5, 1]], batch_size)
 
     epsilon = 0
 
@@ -188,6 +188,7 @@ def barr_2(batch_size, functions):
 
 
 def obstacle_avoidance(batch_size, functions):
+    # Obstacle Avoidance
     _And = functions['And']
     velo = 1
 

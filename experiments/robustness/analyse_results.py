@@ -14,9 +14,9 @@ def result_analysis(df):
 
     print('Avg Time: ', df.mean()['elapsed_time'])
     print('Learner avg: ', df.mean()['lrn_time'])
-    print('Regulariser avg: ', df.mean()['reg_time'])
+    print('Translator avg: ', df.mean()['reg_time'])
     print('Verifier avg: ', df.mean()['ver_time'])
-    print('Trajectoriser avg: ', df.mean()['trj_time'])
+    print('Consolidator avg: ', df.mean()['trj_time'])
     print('Max Time: ', df.max()['elapsed_time'])
     print('Min Time: ', df.min()['elapsed_time'])
 

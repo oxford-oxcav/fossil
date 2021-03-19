@@ -12,12 +12,12 @@ class VerifierType(Enum):
     DREAL = auto()
 
 
-class TrajectoriserType(Enum):
+class ConsolidatorType(Enum):
     NONE = auto()
     DEFAULT = auto()
 
 
-class RegulariserType(Enum):
+class TranslatorType(Enum):
     NONE = auto()
     DEFAULT = auto()
 

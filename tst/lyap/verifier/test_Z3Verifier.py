@@ -5,11 +5,11 @@ from src.lyap.learner.net import NN
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import *
 import torch
-from src.shared.components.Regulariser import Regulariser
+from src.shared.components.Translator import Translator
 from unittest import mock
 from z3 import *
 from src.shared.cegis_values import CegisStateKeys
-from src.shared.consts import RegulariserType
+from src.shared.consts import TranslatorType
 
 
 class TestZ3Verifier(unittest.TestCase):
@@ -38,8 +38,8 @@ class TestZ3Verifier(unittest.TestCase):
         model.layers[1].weight[0][1] = 1
         
         xdot = f(Z3Verifier.solver_fncts(), x)
-        regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
-        res = regulariser.get(**{'factors': None})
+        translator = Translator(model, np.matrix(x).T, xdot, None, 1)
+        res = translator.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         print(V)
         res = verifier.verify(V, Vdot)
@@ -71,8 +71,8 @@ class TestZ3Verifier(unittest.TestCase):
         model.layers[0].bias[1] = 1
         
         xdot = f(Z3Verifier.solver_fncts(), x)
-        regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
-        res = regulariser.get(**{'factors': None})
+        translator = Translator(model, np.matrix(x).T, xdot, None, 1)
+        res = translator.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         res = verifier.verify(V, Vdot)
         self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
@@ -100,8 +100,8 @@ class TestZ3Verifier(unittest.TestCase):
         model.layers[0].weight[1][1] = 1
         
         xdot = f(Z3Verifier.solver_fncts(), x)
-        regulariser = Regulariser(model, np.matrix(x).T, xdot, None, 1)
-        res = regulariser.get(**{'factors': None})
+        translator = Translator(model, np.matrix(x).T, xdot, None, 1)
+        res = translator.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         res = verifier.verify(V, Vdot)
         self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])

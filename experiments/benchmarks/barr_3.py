@@ -9,13 +9,13 @@ import timeit
 from experiments.benchmarks.benchmarks_bc import barr_3
 from src.barrier.cegis_barrier import Cegis
 from src.shared.activations import ActivationType
-from src.shared.consts import VerifierType, LearnerType, TrajectoriserType, RegulariserType
+from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
-    batch_size = 500
+    batch_size = 2000
     system = partial(barr_3, batch_size)
     activations = [
                     ActivationType.SIGMOID, ActivationType.SIGMOID
@@ -25,14 +25,13 @@ def main():
         CegisConfig.N_VARS.k: 2,
         CegisConfig.LEARNER.k: LearnerType.NN,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.TRAJECTORISER.k: TrajectoriserType.DEFAULT,
-        CegisConfig.REGULARISER.k: RegulariserType.DEFAULT,
+        CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
+        CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
         CegisConfig.SP_SIMPLIFY.k: False,
         CegisConfig.SP_HANDLE.k: False,
-        CegisConfig.VERBOSE.k: False
     }
 
     start = timeit.default_timer()
