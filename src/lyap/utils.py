@@ -1,3 +1,9 @@
+# Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
+# All rights reserved.
+# 
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree. 
+ 
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import LearningFactors
 from src.shared.utils import *
