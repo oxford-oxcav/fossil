@@ -234,6 +234,23 @@ def twod_hybrid(batch_size, functions, inner, outer):
 
     return f, XD, SD()
 
+def linear_discrete(batch_size, functions, inner, outer):
+    _And = functions['And']
+
+    def f(_, v):
+        x, y = v
+        return [0.5 * x - 0.5 * y, 0.5 * x]
+    
+    def XD(_, v):
+        x0, x1 = v
+        return _And(inner**2 < x0**2 + x1**2,
+                               x0**2 + x1**2 <= outer**2)
+
+    def SD():
+        return circle_init_data((0., 0.), outer**2, batch_size)
+
+    return f, XD, SD()
+
 
 def max_degree_fx(fx):
     return max(max_degree_poly(f) for f in fx)

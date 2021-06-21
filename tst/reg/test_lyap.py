@@ -4,14 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
  
-from experiments.benchmarks.non_poly_0 import test_lnn as np0
-from experiments.benchmarks.non_poly_1 import test_lnn as np1
-from experiments.benchmarks.non_poly_2 import test_lnn as np2
-from experiments.benchmarks.non_poly_3 import test_lnn as np3
-from experiments.benchmarks.poly_1 import test_lnn as p1
-from experiments.benchmarks.poly_2 import test_lnn as p2
-from experiments.benchmarks.poly_3 import test_lnn as p3
-from experiments.benchmarks.poly_4 import test_lnn as p4
+from experiments.benchmarks.lyap.non_poly_0 import test_lnn as np0
+from experiments.benchmarks.lyap.non_poly_1 import test_lnn as np1
+from experiments.benchmarks.lyap.non_poly_2 import test_lnn as np2
+from experiments.benchmarks.lyap.non_poly_3 import test_lnn as np3
+from experiments.benchmarks.lyap.poly_1 import test_lnn as p1
+from experiments.benchmarks.lyap.poly_2 import test_lnn as p2
+from experiments.benchmarks.lyap.poly_3 import test_lnn as p3
+from experiments.benchmarks.lyap.poly_4 import test_lnn as p4
 
 
 def lyap_benchmarks():

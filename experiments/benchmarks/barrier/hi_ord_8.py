@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree. 
  
 # pylint: disable=not-callable
-from experiments.benchmarks.benchmarks_bc import hi_ord_4
-from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
+from experiments.benchmarks.benchmarks_bc import hi_ord_8
+from src.shared.consts import VerifierType, TimeDomain
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.barrier.cegis_barrier import Cegis
@@ -19,16 +19,13 @@ import torch
 def main():
 
     batch_size = 1000
-    system = partial(hi_ord_4, batch_size)
+    system = partial(hi_ord_8, batch_size)
     activations = [ActivationType.LINEAR]
-    hidden_neurons = [20]
-
+    hidden_neurons = [10]
     opts = {
-        CegisConfig.N_VARS.k: 4,
-        CegisConfig.LEARNER.k: LearnerType.NN,
+        CegisConfig.N_VARS.k: 8,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-        CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
@@ -40,7 +37,7 @@ def main():
 
     start = timeit.default_timer()
     c = Cegis(**opts)
-    state, vars, f_learner, iters = c.solve()
+    state, vars, f_learner, _ = c.solve()
     end = timeit.default_timer()
 
     print('Elapsed Time: {}'.format(end - start))
@@ -50,4 +47,3 @@ def main():
 if __name__ == '__main__':
     torch.manual_seed(167)
     main()
-

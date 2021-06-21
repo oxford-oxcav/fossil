@@ -11,10 +11,10 @@ from src.lyap.cegis_lyap import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import VerifierType, TimeDomain
 from functools import partial
 from z3 import *
-from src.shared.components.Translator import Translator
+from src.shared.components.TranslatorContinuous import TranslatorContinuous
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import ConsolidatorType, TranslatorType
 
@@ -55,7 +55,7 @@ class test_cegis(unittest.TestCase):
         f, domain, _ = system(functions=c.verifier.solver_fncts(),
                               inner=c.inner, outer=c.outer)
         domain = domain({}, list(c.x_map.values()))
-        translator = Translator(c.learner, np.matrix(c.x), np.matrix(c.xdot),
+        translator = TranslatorContinuous(c.learner, np.array(c.x).reshape(-1,1), np.array(c.xdot).reshape(-1,1),
                                   None, 3)
         res = translator.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
@@ -92,7 +92,7 @@ class test_cegis(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
@@ -101,8 +101,6 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
 
         start = timeit.default_timer()
@@ -130,7 +128,7 @@ class test_cegis(unittest.TestCase):
         start = timeit.default_timer()
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
@@ -139,8 +137,7 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
+
         }
         c = Cegis(**opts)
         c.solve()
@@ -165,7 +162,7 @@ class test_cegis(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
@@ -174,8 +171,6 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
         start = timeit.default_timer()
         c = Cegis(**opts)
@@ -203,7 +198,7 @@ class test_cegis(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
@@ -212,8 +207,6 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-            CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-            CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         }
         c = Cegis(**opts)
         state, vars, f_learner, iters = c.solve()

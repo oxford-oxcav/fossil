@@ -6,7 +6,7 @@
  
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import hi_ord_6
-from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
+from src.shared.consts import VerifierType, TimeDomain
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.barrier.cegis_barrier import Cegis
@@ -24,10 +24,8 @@ def main():
     hidden_neurons = [10]
     opts = {
         CegisConfig.N_VARS.k: 6,
-        CegisConfig.LEARNER.k: LearnerType.NN,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-        CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,

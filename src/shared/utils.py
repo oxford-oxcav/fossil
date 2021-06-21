@@ -36,7 +36,7 @@ def extract_val_from_z3(model, vars, useSympy):
             values += [RealVal(val)]
 
     if useSympy:
-        return np.matrix(values).T
+        return np.array(values).reshape(-1, 1)
     else:
         return values
 

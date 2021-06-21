@@ -21,10 +21,9 @@ from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
 
-
-class NN(nn.Module, Learner):
+class NNDiscrete(nn.Module, Learner):
     def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
-        super(NN, self).__init__()
+        super(NNDiscrete, self).__init__()
 
         self.input_size = input_size
         n_prev = input_size
@@ -63,10 +62,12 @@ class NN(nn.Module, Learner):
             'cos': torch.cos,
             'exp': torch.exp,
             'If': lambda cond, _then, _else: _then if cond.item() else _else,
+            'Pow': torch.pow,
+            'Real': lambda x: x
         }
 
     # generalisation of forward with tensors
-    def forward_tensors(self, x, xdot):
+    def forward(self, x):
         """
         :param x: tensor of data points
         :param xdot: tensor of data points
@@ -76,68 +77,48 @@ class NN(nn.Module, Learner):
                 jacobian: tensor, evaluation of grad_net
         """
         y = x
-        jacobian = torch.diag_embed(torch.ones(x.shape[0], self.input_size))
 
         for idx, layer in enumerate(self.layers[:-1]):
             z = layer(y)
             y = activation(self.acts[idx], z)
 
-            jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(torch.diag_embed(activation_der(self.acts[idx], z)), jacobian)
-
         numerical_v = torch.matmul(y, self.layers[-1].weight.T)
-        jacobian = torch.matmul(self.layers[-1].weight, jacobian)
-        numerical_vdot = torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)
 
-        return numerical_v[:, 0], numerical_vdot, jacobian[:, 0, :]
+        return numerical_v[:, 0]
 
     def numerical_net(self, S, Sdot, lf):
         assert (len(S) == len(Sdot))
 
-        nn, grad_times_f, grad_nn = self.forward_tensors(S, Sdot)
+        nn = self.forward(S)
+        nn_next = self.forward(Sdot)
         # circle = x0*x0 + ... + xN*xN
         circle = torch.pow(S, 2).sum(dim=1)
 
-        E, derivative_e = self.compute_factors(S, lf)
+        E = self.compute_factors(S, lf)
 
         # define E(x) := (x-eq_0) * ... * (x-eq_N)
         # V = NN(x) * E(x)
         V = nn * E
-        # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
-        # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
-        gradV = nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn) \
-                + grad_nn * E.expand_as(grad_nn.T).T
-        # Vdot = gradV * f(x)
-        Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
+        delta_V = nn_next * E - V
 
-        return V, Vdot, circle
+        return V, delta_V, circle
 
     def compute_factors(self, S, lf):
-        E, factors = 1, []
+        E = 1
         with torch.no_grad():
             if lf == LearningFactors.QUADRATIC:  # quadratic factors
                 # define a tensor to store all the components of the quadratic factors
                 # factors[:,:,0] stores [ x-x_eq0, y-y_eq0 ]
                 # factors[:,:,1] stores [ x-x_eq1, y-y_eq1 ]
-                factors = torch.zeros(S.shape[0], self.input_size, self.eq.shape[0])
                 for idx in range(self.eq.shape[0]):
                     # S - self.eq == [ x-x_eq, y-y_eq ]
                     # torch.power(S - self.eq, 2) == [ (x-x_eq)**2, (y-y_eq)**2 ]
                     # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
-                    factors[:, :, idx] = S-torch.tensor(self.eq[idx, :])
                     E *= torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
-
-                # derivative = 2*(x-eq)*E/E_i
-                grad_e = torch.zeros(S.shape[0], self.input_size)
-                for var in range(self.input_size):
-                    for idx in range(self.eq.shape[0]):
-                        grad_e[:, var] += \
-                            E * factors[:, var, idx] / torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
-                derivative_e = 2*grad_e
             else:
-                E, derivative_e = torch.tensor(1.0), torch.tensor(0.0)
+                E = torch.tensor(1.0)
 
-        return E, derivative_e
+        return E
     
     def get(self, **kw):
         return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S],
@@ -161,17 +142,17 @@ class NN(nn.Module, Learner):
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            V, Vdot, circle = self.numerical_net(S, Sdot, factors)
+            V, delta_V, circle = self.numerical_net(S, Sdot, factors)
 
-            slope = 10 ** (self.order_of_magnitude(max(abs(Vdot)).detach()))
+            slope = 10 ** (self.order_of_magnitude(max(abs(delta_V)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1 / slope)
             # compute loss function. if last layer of ones (llo), can drop parts with V
             if self.llo:
-                learn_accuracy = sum(Vdot <= -margin).item()
-                loss = (leaky_relu(Vdot + margin * circle)).mean()
+                learn_accuracy = sum(delta_V <= -margin).item()
+                loss = (leaky_relu(delta_V + margin * circle)).mean()
             else:
-                learn_accuracy = 0.5 * ( sum(Vdot <= -margin).item() + sum(V >= margin).item() )
-                loss = (leaky_relu(Vdot + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
+                learn_accuracy = 0.5 * ( sum(delta_V <= -margin).item() + sum(V >= margin).item() )
+                loss = (leaky_relu(delta_V + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
 
             if t % 100 == 0 or t == learn_loops-1:
                 vprint((t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%'), self.verbose)
@@ -216,5 +197,4 @@ class NN(nn.Module, Learner):
     @staticmethod
     def get_timer():
         return T
-
 

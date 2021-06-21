@@ -7,20 +7,21 @@
 # pylint: disable=not-callable
 import torch
 import timeit
+import numpy as np 
+
 from src.lyap.cegis_lyap import Cegis
-from experiments.benchmarks.benchmarks_lyap import *
+from experiments.benchmarks.benchmarks_lyap import linear_discrete
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
+from src.shared.consts import VerifierType, TimeDomain
 from functools import partial
-from src.plots.plot_lyap import plot_lyce
-from src.lyap.utils import check_sympy_expression
+from src.plots.plot_lyap import plot_lyce_discrete
 
 
 def test_lnn():
 
     batch_size = 500
-    benchmark = poly_2
+    benchmark = linear_discrete
     n_vars = 2
     system = partial(benchmark, batch_size)
 
@@ -29,19 +30,18 @@ def test_lnn():
     inner_radius = 0.01
 
     # define NN parameters
-    activations = [ActivationType.COSH]
-    n_hidden_neurons = [10] * len(activations)
+    activations = [ActivationType.SQUARE]
+    n_hidden_neurons = [5] * len(activations)
 
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.LEARNER.k: LearnerType.NN,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CONSOLIDATOR.k: ConsolidatorType.DEFAULT,
-        CegisConfig.TRANSLATOR.k: TranslatorType.DEFAULT,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
         CegisConfig.SP_HANDLE.k: False,
+        CegisConfig.SP_SIMPLIFY.k: False,
         CegisConfig.INNER_RADIUS.k: inner_radius,
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
@@ -55,8 +55,8 @@ def test_lnn():
 
     # plotting -- only for 2-d systems
     if len(vars) == 2 and state[CegisStateKeys.found]:
-        V, Vdot = check_sympy_expression(state, system)
-        plot_lyce(np.array(vars), V, Vdot, f_learner)
+        plot_lyce_discrete(np.array(vars), state[CegisStateKeys.V],
+                  state[CegisStateKeys.V_dot], f_learner)
 
 
 if __name__ == '__main__':

@@ -14,9 +14,11 @@ from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.consts import LearnerType, VerifierType, ConsolidatorType, TranslatorType
 from src.lyap.verifier.z3verifier import Z3Verifier
 from src.shared.components.Consolidator import Consolidator
-from src.shared.components.Translator import Translator
+from src.shared.components.TranslatorDiscrete import TranslatorDiscrete
+from src.shared.components.TranslatorContinuous import TranslatorContinuous
 from src.lyap.utils import print_section, vprint
-from src.lyap.learner.net import NN
+from src.lyap.learner.NNContinuous import NNContinuous
+from src.lyap.learner.NNDiscrete import NNDiscrete
 from functools import partial
 
 try:
@@ -30,10 +32,11 @@ class Cegis:
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
         # components type
-        self.learner_type = kw[CegisConfig.LEARNER.k]
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.consolidator_type = kw[CegisConfig.CONSOLIDATOR.k]
-        self.translator_type = kw[CegisConfig.TRANSLATOR.k]
+        self.consolidator_type = kw.get(CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v)
+        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
+        self.learner_type = LearnerType[self.time_domain.name]
+        self.translator_type = TranslatorType[self.time_domain.name]
         # benchmark opts
         self.inner = kw[CegisConfig.INNER_RADIUS.k]
         self.outer = kw[CegisConfig.OUTER_RADIUS.k]
@@ -71,13 +74,18 @@ class Cegis:
         self.verifier = verifier(self.n, self.eq, self.domain, self.x, **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
-        self.x = np.matrix(self.x).T
-        self.xdot = np.matrix(self.xdot).T
+        self.x = np.array(self.x).reshape(-1, 1)
+        self.xdot = np.array(self.xdot).reshape(-1, 1)
 
-        if self.learner_type == LearnerType.NN:
-            self.learner = NN(self.n, *self.h, bias=False, activate=self.activations,
+        if self.learner_type == LearnerType.CONTINUOUS:
+            self.learner = NNContinuous(self.n, *self.h, bias=False, activate=self.activations,
                               equilibria=self.eq, llo=self.llo, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
+        elif self.learner_type == LearnerType.DISCRETE:
+            self.learner = NNDiscrete(self.n, *self.h, bias=False, activate=self.activations,
+                              equilibria=self.eq, llo=self.llo, **kw)
+            self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
+
         else:
             raise ValueError('No learner of type {}'.format(self.learner_type))
 
@@ -88,7 +96,7 @@ class Cegis:
             self.x = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
             self.xdot = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, self.x)
             self.x_map = {**self.x_map, **self.verifier.solver_fncts()}
-            self.x, self.xdot = np.matrix(self.x).T, np.matrix(self.xdot).T
+            self.x, self.xdot = np.array(self.x).reshape(-1,1), np.array(self.xdot).reshape(-1,1)
         else:
             self.x_sympy, self.xdot_s = None, None
 
@@ -96,8 +104,11 @@ class Cegis:
             self.consolidator = Consolidator(self.f_learner)
         else:
             TypeError('Not Implemented Consolidator')
-        if self.translator_type == TranslatorType.DEFAULT:
-            self.translator = Translator(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
+        if self.translator_type == TranslatorType.CONTINUOUS:
+            self.translator = TranslatorContinuous(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
+        elif self.translator_type == TranslatorType.DISCRETE:
+            self.translator = TranslatorDiscrete(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
+            
         else:
             TypeError('Not Implemented Translator')
 
@@ -112,7 +123,7 @@ class Cegis:
         Sdot = list(map(torch.tensor, map(self.f_learner, self.S_d)))
         S, Sdot = self.S_d, torch.stack(Sdot)
 
-        if self.learner_type == LearnerType.NN:
+        if self.learner_type == LearnerType.CONTINUOUS:
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         stats = {}

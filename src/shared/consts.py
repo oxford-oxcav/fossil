@@ -8,9 +8,8 @@ from enum import Enum, auto
 
 
 class LearnerType(Enum):
-    NN = auto()
-    Z3 = auto()
-    SCIPY = auto()
+    CONTINUOUS = auto()
+    DISCRETE = auto()
 
 
 class VerifierType(Enum):
@@ -24,12 +23,18 @@ class ConsolidatorType(Enum):
 
 
 class TranslatorType(Enum):
-    NONE = auto()
-    DEFAULT = auto()
+    DISCRETE = auto()
+    CONTINUOUS = auto()
 
 
 class LearningFactors(Enum):
     QUADRATIC = auto()
+    NONE = auto()
+
+
+class TimeDomain(Enum):
+    CONTINUOUS = auto()
+    DISCRETE = auto()
 
 
 class PrimerMode(Enum):

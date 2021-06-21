@@ -8,7 +8,7 @@ import math
 from aenum import Enum, NoAlias
 import numpy as np
 
-from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType
+from src.shared.consts import VerifierType, LearnerType, ConsolidatorType, TranslatorType, LearningFactors, TimeDomain
 from src.shared.activations import ActivationType
 
 
@@ -20,13 +20,14 @@ class CegisConfig(Enum, settings=NoAlias):
     SYMMETRIC_BELT          = False
     CEGIS_MAX_ITERS         = 10
     CEGIS_MAX_TIME_S        = math.inf  # in sec
-    LEARNER                 = LearnerType.NN
+    TIME_DOMAIN             = TimeDomain.CONTINUOUS 
+    LEARNER                 = LearnerType.CONTINUOUS
     VERIFIER                = VerifierType.Z3
-    CONSOLIDATOR           = ConsolidatorType.DEFAULT
-    TRANSLATOR             = TranslatorType.DEFAULT
+    CONSOLIDATOR            = ConsolidatorType.DEFAULT
+    TRANSLATOR              = TranslatorType.CONTINUOUS
     BATCH_SIZE              = 500
     LEARNING_RATE           = .1
-    FACTORS                 = None
+    FACTORS                 = LearningFactors.NONE
     EQUILIBRIUM             = lambda n_vars: np.zeros((1, n_vars)),  # default in zero
     LLO                     = False  # last layer of ones
     ROUNDING                = 3

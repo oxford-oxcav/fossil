@@ -87,10 +87,10 @@ class Verifier(Component):
         self._solver_timeout = t
 
     @timer(T)
-    def verify(self, V, Vdot):
+    def verify(self, V, dV):
         """
         :param V: z3 expr
-        :param Vdot: z3 expr
+        :param dV: z3 expr
         :return:
                 found_lyap: True if V is valid
                 C: a list of ctx
@@ -99,7 +99,7 @@ class Verifier(Component):
         C = []
 
         s = self.new_solver()
-        fmls = self.domain_constraints(V, Vdot)
+        fmls = self.domain_constraints(V, dV)
 
         # if sat, found counterexample; if unsat, V is lyap
         res, timedout = self.solve_with_timeout(s, fmls)
@@ -111,25 +111,25 @@ class Verifier(Component):
             found = True
         else:
             original_point = self.compute_model(s, res)
-            value_in_ctx, value_in_vdot = self.replace_point(V, self.xs, original_point.numpy().T), \
-                                          self.replace_point(Vdot, self.xs, original_point.numpy().T)
+            value_in_ctx, value_in_dV = self.replace_point(V, self.xs, original_point.numpy().T), \
+                                          self.replace_point(dV, self.xs, original_point.numpy().T)
             vprint(['V(ctx) = ', value_in_ctx], self.verbose)
-            vprint(['Vdot(ctx) = ', value_in_vdot], self.verbose)
+            vprint(['dV(ctx) = ', value_in_dV], self.verbose)
             C = self.randomise_counterex(original_point)
 
         return {CegisStateKeys.found: found, CegisStateKeys.verification_timed_out: timed_out,
                 CegisStateKeys.cex: C}
 
-    def domain_constraints(self, V, Vdot):
+    def domain_constraints(self, V, dV):
         """
         :param V:
-        :param Vdot:
+        :param dV:
         :return:
         """
         _Or = self.solver_fncts()['Or']
         _And = self.solver_fncts()['And']
 
-        lyap_negated = _Or(V <= 0, Vdot > 0)
+        lyap_negated = _Or(V <= 0, dV > 0)
 
         # domain_constr = []
         # for idx in range(self.eq.shape[0]):

@@ -46,7 +46,7 @@ def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
 
     assert z.shape == (1, 1)
     # V = NN(x) * E(x)
-    E, derivative_e = compute_factors(equilibrium, np.matrix(x), lf)
+    E, derivative_e = compute_factors(equilibrium, np.array(x).reshape(1,-1), lf)
 
     # gradV = der(NN) * E + dE/dx * NN
     gradV = np.multiply(jacobian, np.broadcast_to(E, jacobian.shape)) \

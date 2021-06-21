@@ -35,7 +35,7 @@ def lyap_synthesis(benchmark, n_vars):
     activations = [ActivationType.LINEAR]
     n_hidden_neurons = [5] * len(activations)
 
-    learner_type = LearnerType.NN
+    learner_type = LearnerType.CONTINUOUS
     verifier_type = VerifierType.Z3
 
     """
@@ -66,7 +66,7 @@ def barrier_synthesis(benchmark, n_vars):
         start = timeit.default_timer()
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
+            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,

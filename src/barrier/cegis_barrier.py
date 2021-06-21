@@ -17,7 +17,7 @@ from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
 from src.shared.components.Consolidator import Consolidator
-from src.shared.components.Translator import Translator
+from src.shared.components.TranslatorContinuous import TranslatorContinuous
 
 
 class Cegis:
@@ -66,10 +66,10 @@ class Cegis:
         self.verifier = verifier_class(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x, **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
-        self.x = np.matrix(self.x).T
-        self.xdot = np.matrix(self.xdot).T
+        self.x = np.array(self.x).reshape(-1, 1)
+        self.xdot = np.array(self.xdot).reshape(-1, 1)
 
-        if self.learner_type == LearnerType.NN:
+        if self.learner_type == LearnerType.CONTINUOUS:
             self.learner = NN(self.n, *self.h, activate=self.activ, bias=True, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
@@ -80,7 +80,7 @@ class Cegis:
             self.x = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
             self.xdot = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, self.x)
             self.x_map = {**self.x_map, **self.verifier.solver_fncts()}
-            self.x, self.xdot = np.matrix(self.x).T, np.matrix(self.xdot).T
+            self.x, self.xdot = np.array(self.x).reshape(-1,1), np.array(self.xdot).reshape(-1,1)
         else:
             self.x_sympy, self.xdot_s = None, None
 
@@ -247,7 +247,7 @@ class Cegis:
 
     def _assert_state(self):
         assert self.verifier_type in [VerifierType.Z3, VerifierType.DREAL]
-        assert self.learner_type in [LearnerType.NN]
+        assert self.learner_type in [LearnerType.CONTINUOUS]
         assert self.batch_size > 0
         assert self.learning_rate > 0
         assert self.max_cegis_time > 0

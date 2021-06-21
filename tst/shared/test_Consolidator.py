@@ -7,7 +7,7 @@
 import unittest
 from unittest import mock
 from functools import partial
-from src.lyap.learner.net import NN
+from src.lyap.learner.NNContinuous import NNContinuous
 from src.shared.components.Consolidator import Consolidator
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import poly_2
@@ -31,7 +31,7 @@ class ConsolidatorTest(unittest.TestCase):
         point = torch.tensor([1., 2.])
 
         # def neural learner
-        with mock.patch.object(NN, 'learn') as learner:
+        with mock.patch.object(NNContinuous, 'learn') as learner:
             # setup learner
             learner.input_size = 2
             learner.acts = [ActivationType.SQUARE]

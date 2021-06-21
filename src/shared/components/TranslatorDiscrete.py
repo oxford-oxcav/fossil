@@ -8,6 +8,7 @@
 import torch
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
+from src.shared.components.TranslatorContinuous import TranslatorContinuous
 from src.shared.consts import LearningFactors
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import *
@@ -17,15 +18,9 @@ import numpy as np
 T = Timer()
 
 
-class Translator(Component):
+class TranslatorDiscrete(TranslatorContinuous):
     def __init__(self, net, x, xdot, eq, rounding, **kw):
-        super().__init__()
-        self.net = net
-        self.x = x
-        self.xdot = xdot
-        self.eq = eq
-        self.round = rounding
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
+        super().__init__(net, x, xdot, eq, rounding, **kw)
 
     @timer(T)
     def get(self, **kw):
@@ -53,7 +48,7 @@ class Translator(Component):
         :return:
         """
 
-        z, jacobian = self.network_until_last_layer(x)
+        z, z_xdot = self.network_until_last_layer(x), self.network_until_last_layer(xdot)
 
         if self.round < 0:
             last_layer = self.net.layers[-1].weight.data.numpy()
@@ -61,26 +56,22 @@ class Translator(Component):
             last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
-        jacobian = last_layer @ jacobian  # jacobian now contains the grad V
+        z_xdot = last_layer @ z_xdot  
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)
-        E, derivative_e = self.compute_factors(np.matrix(x), lf)
+        E = self.compute_factors(np.array(x).reshape(1,-1), lf)
 
         # gradV = der(NN) * E + dE/dx * NN
-        gradV = np.multiply(jacobian, np.broadcast_to(E, jacobian.shape)) \
-                + np.multiply(derivative_e, np.broadcast_to(z[0, 0], jacobian.shape))
-        # Vdot = gradV * f(x)
-        Vdot = gradV @ xdot
-
+        
         if isinstance(E, sp.Add):
             V = sp.expand(z[0, 0] * E)
-            Vdot = sp.expand(Vdot[0, 0])
+            z_xdot = sp.expand(z_xdot[0, 0] * E)
         else:
             V = z[0, 0] * E
-            Vdot = Vdot[0, 0]
+            z_xdot = z_xdot[0, 0]
 
-        return V, Vdot
+        return V, z_xdot - V
 
     def network_until_last_layer(self, x):
         """
@@ -88,7 +79,6 @@ class Translator(Component):
         :return:
         """
         z = x
-        jacobian = np.eye(self.net.input_size, self.net.input_size)
 
         for idx, layer in enumerate(self.net.layers[:-1]):
             if self.round < 0:
@@ -107,10 +97,7 @@ class Translator(Component):
             zhat = w @ z + b
             z = activation_z3(self.net.acts[idx], zhat)
             # Vdot
-            jacobian = w @ jacobian
-            jacobian = np.diagflat(activation_der_z3(self.net.acts[idx], zhat)) @ jacobian
-
-        return z, jacobian
+        return z
 
     def compute_factors(self, x, lf):
         """
@@ -125,21 +112,12 @@ class Translator(Component):
                 E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[0, 0]
                 factors[idx] = (x.T - self.eq[idx, :].reshape(x.T.shape))
             # derivative = 2*(x-eq)*E/E_i
-            grad_e = sp.zeros(1, x.shape[0])
-            for var in range(x.shape[0]):
-                for idx in range(self.eq.shape[0]):
-                    grad_e[var] += sp.simplify(
-                        E * factors[idx, var] / sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[0, 0]
-                    )
-            derivative_e = 2 * grad_e
         else:  # no factors
-            E, derivative_e = 1.0, 0.0
+            E = 1.0
 
-        return E, derivative_e
+        return E
 
     @staticmethod
     def get_timer():
         return T
-
-
 
