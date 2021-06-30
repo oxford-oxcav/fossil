@@ -9,7 +9,7 @@ import numpy as np
 import sympy as sp
 import torch
 
-from src.shared.components.Primer import Primer
+from src.shared.components.primer import Primer
 from src.shared.system import LinearSystem, NonlinearSystem
 from src.shared.consts import PrimerMode
 

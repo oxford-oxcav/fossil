@@ -11,8 +11,8 @@ import numpy as np
 import sympy as sp
 from src.lyap.learner.NNContinuous import NNContinuous
 from src.lyap.learner.NNContinuous import NNDiscrete
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
-from src.shared.components.TranslatorDiscrete import TranslatorDiscrete
+from src.shared.components.translator_continuous import TranslatorContinuous
+from src.shared.components.translator_discrete import TranslatorDiscrete
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisStateKeys
 from src.lyap.verifier.z3verifier import Z3Verifier

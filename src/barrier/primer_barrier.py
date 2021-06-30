@@ -6,7 +6,7 @@
  
 from functools import partial
 
-from src.shared.components.Primer import Primer
+from src.shared.components.primer import Primer
 from src.shared.system import NonlinearSystem
 from experiments.benchmarks.domain_fcns import * 
 from src.barrier.cegis_barrier import Cegis as Cegis_barrier

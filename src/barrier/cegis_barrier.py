@@ -16,8 +16,8 @@ from src.barrier.utils import print_section, compute_trajectory, vprint
 from src.barrier.net import NN
 from src.shared.sympy_converter import *
 from src.barrier.drealverifier import DRealVerifier
-from src.shared.components.Consolidator import Consolidator
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
+from src.shared.components.consolidator import Consolidator
+from src.shared.components.translator_continuous import TranslatorContinuous
 
 
 class Cegis:

@@ -11,7 +11,7 @@ from src.lyap.learner.NNContinuous import NNContinuous
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import *
 import torch
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
+from src.shared.components.translator_continuous import TranslatorContinuous
 from unittest import mock
 from z3 import *
 from src.shared.cegis_values import CegisStateKeys
@@ -32,7 +32,7 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier(n_vars, f, domain_z3, x)
 
         # model
-        model = NNContinuous(2, 2,
+        model = NNContinuous(2, None, 2,
                    bias=False,
                    activate=[ActivationType.SQUARE],
                    equilibria=None)
@@ -64,7 +64,7 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier(n_vars, f, domain_z3, x)
 
         # model
-        model = NNContinuous(2, 2,
+        model = NNContinuous(2, None, 2,
                    bias=True,
                    activate=[ActivationType.SQUARE],
                    equilibria=None)
@@ -96,7 +96,7 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier(n_vars, f, domain_z3, x)
 
         # model
-        model = NNContinuous(2, 2,
+        model = NNContinuous(2, None, 2,
                    bias=False,
                    activate=[ActivationType.SQUARE],
                    equilibria=None)

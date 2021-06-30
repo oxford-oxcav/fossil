@@ -8,7 +8,7 @@
 import torch
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
+from src.shared.components.translator_continuous import TranslatorContinuous
 from src.shared.consts import LearningFactors
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import *

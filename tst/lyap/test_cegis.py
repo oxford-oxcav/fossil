@@ -14,7 +14,7 @@ from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, TimeDomain
 from functools import partial
 from z3 import *
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
+from src.shared.components.translator_continuous import TranslatorContinuous
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import ConsolidatorType, TranslatorType
 

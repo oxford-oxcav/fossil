@@ -21,8 +21,9 @@ from src.shared.sympy_converter import sympy_converter
 
 T = Timer()
 
+
 class NNDiscrete(nn.Module, Learner):
-    def __init__(self, input_size, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
+    def __init__(self, input_size, learn_method, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
         super(NNDiscrete, self).__init__()
 
         self.input_size = input_size
@@ -33,6 +34,7 @@ class NNDiscrete(nn.Module, Learner):
         self.acts = activate
         self._is_there_bias = bias
         self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
+        self.factors = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.layers = []
         self.closest_unsat = None
         k = 1
@@ -54,6 +56,7 @@ class NNDiscrete(nn.Module, Learner):
         else:          # free output layer
             self.register_parameter("W" + str(k), layer.weight)
             self.layers.append(layer)
+        self.learn_method = learn_method
 
     @staticmethod
     def learner_fncts():
@@ -127,47 +130,7 @@ class NNDiscrete(nn.Module, Learner):
     # backprop algo
     @timer(T)
     def learn(self, optimizer, S, Sdot, factors):
-        """
-        :param optimizer: torch optimiser
-        :param S: tensor of data
-        :param Sdot: tensor contain f(data)
-        :param factors:
-        :return: --
-        """
-
-        batch_size = len(S)
-        learn_loops = 1000
-        margin = 0*0.01
-
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            V, delta_V, circle = self.numerical_net(S, Sdot, factors)
-
-            slope = 10 ** (self.order_of_magnitude(max(abs(delta_V)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1 / slope)
-            # compute loss function. if last layer of ones (llo), can drop parts with V
-            if self.llo:
-                learn_accuracy = sum(delta_V <= -margin).item()
-                loss = (leaky_relu(delta_V + margin * circle)).mean()
-            else:
-                learn_accuracy = 0.5 * ( sum(delta_V <= -margin).item() + sum(V >= margin).item() )
-                loss = (leaky_relu(delta_V + margin * circle)).mean() + (leaky_relu(-V + margin * circle)).mean()
-
-            if t % 100 == 0 or t == learn_loops-1:
-                vprint((t, "- loss:", loss.item(), "- acc:", learn_accuracy * 100 / batch_size, '%'), self.verbose)
-
-            # t>=1 ensures we always have at least 1 optimisation step
-            if learn_accuracy == batch_size and t >= 1:
-                break
-
-            loss.backward()
-            optimizer.step()
-
-            if self._diagonalise:
-                self.diagonalisation()
-
-        return {}
+        return self.learn_method(self, optimizer, S, Sdot)
 
     def diagonalisation(self):
         # makes the weight matrices diagonal. works iff intermediate layers are square matrices

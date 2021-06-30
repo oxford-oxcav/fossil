@@ -40,3 +40,9 @@ class TimeDomain(Enum):
 class PrimerMode(Enum):
     BARRIER = auto()
     LYAPUNOV = auto()
+
+
+class Certificate(Enum):
+    BARRIER = auto()
+    BARRIER_ALTERNATE = auto()
+    LYAPUNOV = auto()

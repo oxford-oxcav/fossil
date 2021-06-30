@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 from functools import partial
 from src.lyap.learner.NNContinuous import NNContinuous
-from src.shared.components.Consolidator import Consolidator
+from src.shared.components.consolidator import Consolidator
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import poly_2
 from src.shared.cegis_values import CegisStateKeys

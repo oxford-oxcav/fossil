@@ -13,9 +13,10 @@ from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponents
 from src.lyap.verifier.drealverifier import DRealVerifier
 from src.shared.consts import LearnerType, VerifierType, ConsolidatorType, TranslatorType
 from src.lyap.verifier.z3verifier import Z3Verifier
-from src.shared.components.Consolidator import Consolidator
-from src.shared.components.TranslatorDiscrete import TranslatorDiscrete
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
+from src.shared.components.consolidator import Consolidator
+from src.shared.components.lyapunov_certificate import LyapunovCertificate
+from src.shared.components.translator_continuous import TranslatorContinuous
+from src.shared.components.translator_discrete import TranslatorDiscrete
 from src.lyap.utils import print_section, vprint
 from src.lyap.learner.NNContinuous import NNContinuous
 from src.lyap.learner.NNDiscrete import NNDiscrete
@@ -38,6 +39,7 @@ class Cegis:
         self.learner_type = LearnerType[self.time_domain.name]
         self.translator_type = TranslatorType[self.time_domain.name]
         # benchmark opts
+        self.certificate = LyapunovCertificate(**kw)
         self.inner = kw[CegisConfig.INNER_RADIUS.k]
         self.outer = kw[CegisConfig.OUTER_RADIUS.k]
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
@@ -78,11 +80,11 @@ class Cegis:
         self.xdot = np.array(self.xdot).reshape(-1, 1)
 
         if self.learner_type == LearnerType.CONTINUOUS:
-            self.learner = NNContinuous(self.n, *self.h, bias=False, activate=self.activations,
+            self.learner = NNContinuous(self.n, self.certificate.learn, *self.h, bias=False, activate=self.activations,
                               equilibria=self.eq, llo=self.llo, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         elif self.learner_type == LearnerType.DISCRETE:
-            self.learner = NNDiscrete(self.n, *self.h, bias=False, activate=self.activations,
+            self.learner = NNDiscrete(self.n, self.certificate.learn, *self.h, bias=False, activate=self.activations,
                               equilibria=self.eq, llo=self.llo, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
