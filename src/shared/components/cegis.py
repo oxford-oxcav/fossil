@@ -10,16 +10,17 @@ import sympy as sp
 import logging
 
 from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponentsState
-from src.lyap.verifier.drealverifier import DRealVerifier
-from src.shared.consts import LearnerType, VerifierType, ConsolidatorType, TranslatorType
-from src.lyap.verifier.z3verifier import Z3Verifier
+from src.verifier.drealverifier import DRealVerifier
+from src.shared.consts import LearnerType, VerifierType, ConsolidatorType, TranslatorType, CertificateType
+from src.verifier.z3verifier import Z3Verifier
 from src.shared.components.consolidator import Consolidator
-from src.shared.components.lyapunov_certificate import LyapunovCertificate
-from src.shared.components.translator_continuous import TranslatorContinuous
-from src.shared.components.translator_discrete import TranslatorDiscrete
-from src.lyap.utils import print_section, vprint
-from src.lyap.learner.NNContinuous import NNContinuous
-from src.lyap.learner.NNDiscrete import NNDiscrete
+from src.certificate.lyapunov_certificate import LyapunovCertificate
+from src.certificate.barrier_certificate import BarrierCertificate
+from src.translator.translator_continuous import TranslatorContinuous
+from src.translator.translator_discrete import TranslatorDiscrete
+from src.shared.utils import print_section, vprint, rotate
+from src.learner.net_continuous import NNContinuous
+from src.learner.net_discrete import NNDiscrete
 from functools import partial
 
 try:
@@ -34,14 +35,14 @@ class Cegis:
         self.n = kw[CegisConfig.N_VARS.k]
         # components type
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
         self.consolidator_type = kw.get(CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v)
         self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
         self.learner_type = LearnerType[self.time_domain.name]
         self.translator_type = TranslatorType[self.time_domain.name]
         # benchmark opts
-        self.certificate = LyapunovCertificate(**kw)
-        self.inner = kw[CegisConfig.INNER_RADIUS.k]
-        self.outer = kw[CegisConfig.OUTER_RADIUS.k]
+        self.inner = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
+        self.outer = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.activations = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
@@ -67,20 +68,29 @@ class Cegis:
         self.x = verifier.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
-        self.f, self.f_whole_domain, self.S_d = \
+        self.f, self.f_domains, self.S, vars_bounds = \
             self.system(functions=verifier.solver_fncts(), inner=self.inner, outer=self.outer)
         # self.S_d = self.S_d.requires_grad_(True)
 
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
-        self.domain = self.f_whole_domain(verifier.solver_fncts(), self.x)
-        self.verifier = verifier(self.n, self.eq, self.domain, self.x, **kw)
+        self.domains = [f_domain(verifier.solver_fncts(), self.x) for f_domain in self.f_domains]
+        if self.certificate_type == CertificateType.LYAPUNOV:
+            self.certificate = LyapunovCertificate(XD=self.domains[0], **kw)
+            is_bias = False
+        elif self.certificate_type == CertificateType.BARRIER:
+            self.certificate = BarrierCertificate(XD=self.domains[0], XI=self.domains[1], XU=self.domains[2], **kw)
+            is_bias = True
+        else:
+            raise ValueError('No certificate of type {}'.format(self.certificate_type))
+
+        self.verifier = verifier(self.n, self.certificate.get_constraints, self.domains[0], vars_bounds, self.x, **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
         self.x = np.array(self.x).reshape(-1, 1)
         self.xdot = np.array(self.xdot).reshape(-1, 1)
 
         if self.learner_type == LearnerType.CONTINUOUS:
-            self.learner = NNContinuous(self.n, self.certificate.learn, *self.h, bias=False, activate=self.activations,
+            self.learner = NNContinuous(self.n, self.certificate.learn, *self.h, bias=is_bias, activate=self.activations,
                               equilibria=self.eq, llo=self.llo, **kw)
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         elif self.learner_type == LearnerType.DISCRETE:
@@ -122,8 +132,8 @@ class Cegis:
 
         # Sdot = self.f_learner(self.S_d.T)
         # needed to make hybrid work
-        Sdot = list(map(torch.tensor, map(self.f_learner, self.S_d)))
-        S, Sdot = self.S_d, torch.stack(Sdot)
+        Sdot = [list(map(torch.tensor, map(self.f_learner, S))) for S in self.S ]
+        S, Sdot = rotate(self.S, 1), rotate([torch.stack(sdot) for sdot in Sdot], 1) 
 
         if self.learner_type == LearnerType.CONTINUOUS:
             self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
@@ -208,11 +218,14 @@ class Cegis:
 
             iters += 1
             if not (state[CegisStateKeys.found] or state[CegisStateKeys.verification_timed_out]):
-                self.learner.find_closest_unsat(state[CegisStateKeys.S], state[CegisStateKeys.S_dot], self.fcts)
-                # S, Sdot = self.add_ces_to_data(S, Sdot, ces)
+                self.learner.find_closest_unsat(state[CegisStateKeys.S], state[CegisStateKeys.S_dot])
+                if len(state[CegisStateKeys.cex]) == 3 or len(state[CegisStateKeys.cex]) == 1:
+                    state[CegisStateKeys.cex][-1] = torch.cat([state[CegisStateKeys.cex][-1],
+                                                             state[CegisStateKeys.trajectory]])
                 state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = \
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
-                                         torch.cat((state[CegisStateKeys.cex], state[CegisStateKeys.trajectory])))
+                                         state[CegisStateKeys.cex])
+                                         
 
         state[CegisStateKeys.components_times] = [
             self.learner.get_timer().sum, self.translator.get_timer().sum,
@@ -239,9 +252,32 @@ class Cegis:
                 S: torch tensor, added new ctx
                 Sdot torch tensor, added  f(new_ctx)
         """
-        S = torch.cat([S, ces], dim=0).detach()
-        # Sdot = torch.stack(self.f_learner(S.T)).T
-        # needed to make hybrid work
-        Sdot = torch.stack(list(map(torch.tensor, map(self.f_learner, S))))
-        # torch.cat([Sdot, torch.stack(self.f_learner(ces.T)).T], dim=0)
+        for idx in range(len(ces)):
+            if len(ces[idx]) != 0:
+                S[idx] = torch.cat([S[idx], ces[idx]], dim=0).detach()
+                # Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
+                Sdot[idx] = list(map(torch.tensor, map(self.f_learner, S[idx])))
+                Sdot[idx] = torch.stack(Sdot[idx])
+
+                # S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
+                # Sdot[idx] = torch.cat([Sdot[idx],
+                #                       torch.stack(list(map(torch.tensor,
+                #                                   map(self.f_learner, ces[idx]))))], dim=0)
         return S, Sdot
+
+    def consolidator_method(self, S, Sdot, ces):
+        ce = ces[0]
+        if len(ce) > 0:
+            point = ce[-1]
+            point.requires_grad = True
+            trajectory = compute_trajectory(self.learner, point, self.f_learner)
+            S, Sdot = self.add_ces_to_data(S, Sdot, [torch.stack(trajectory), [], []])
+
+        return S, Sdot
+
+    def _assert_state(self):
+        assert self.verifier_type in [VerifierType.Z3, VerifierType.DREAL]
+        assert self.learner_type in [LearnerType.CONTINUOUS]
+        assert self.batch_size > 0
+        assert self.learning_rate > 0
+        assert self.max_cegis_time > 0

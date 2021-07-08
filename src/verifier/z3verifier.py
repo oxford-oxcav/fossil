@@ -6,8 +6,7 @@
  
 from z3 import *
 
-from src.lyap.verifier.verifier import Verifier
-from src.lyap.utils import z3_replacements
+from src.verifier.verifier import Verifier
 
 
 class Z3Verifier(Verifier):
@@ -28,10 +27,6 @@ class Z3Verifier(Verifier):
     def is_unsat(self, res) -> bool:
         return res == unsat
 
-    @staticmethod
-    def replace_point(expr, ver_vars, point):
-        return z3_replacements(expr, ver_vars, point)
-
     def _solver_solve(self, solver, fml):
         solver.add(fml)
         return solver.check()
@@ -44,11 +39,11 @@ class Z3Verifier(Verifier):
             return float(model[x].as_fraction())
         except AttributeError:
             return float(model[x].approx(10).as_fraction())
-        except Z3Exception:
+        except TypeError:
             try:
                 return float(model[x[0, 0]].as_fraction())
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
-    def __init__(self, n_vars, equilibrium, domain, z3_vars, **kw):
-        super().__init__(n_vars, equilibrium, domain, z3_vars, **kw)
+    def __init__(self, n_vars, constraints_method, whole_domain, vars_bounds, z3_vars, **kw):
+        super().__init__(n_vars, constraints_method, whole_domain, vars_bounds, z3_vars, **kw)

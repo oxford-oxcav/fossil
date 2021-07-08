@@ -19,13 +19,13 @@ class Primer():
         :param f: dynamical system as list of sympy expressions or as python function (requires nested functions for domains).
         """
         if mode == PrimerMode.LYAPUNOV:
-            from src.lyap.primer_lyap import PrimerLyap
+            from src.shared.components.primer_lyap import PrimerLyap
             return PrimerLyap(f, **kw)
         if mode == PrimerMode.BARRIER:
             xd = kw.get(CegisConfig.XD.k)
             xi = kw.get(CegisConfig.XI.k)
             xu = kw.get(CegisConfig.XU.k) 
-            from src.barrier.primer_barrier import PrimerBarrier
+            from src.shared.components.primer_barrier import PrimerBarrier
             return PrimerBarrier(f, xd, xi, xu, **kw)
 
     def seed_and_speed(self, time=8, max_attempts=500):

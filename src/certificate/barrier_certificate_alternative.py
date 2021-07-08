@@ -8,17 +8,16 @@ from typing import Generator
 import torch
 from torch.optim import Optimizer
 
-from src.shared.components.certificate import Certificate
+from src.certificate.certificate import Certificate
 from src.shared.cegis_values import CegisConfig
-from src.shared.learner import Learner
+from src.learner.learner import Learner
 from src.shared.utils import vprint
 
-class BarrierCertificate(Certificate):
+class BarrierCertificateAlternative(Certificate):
     def __init__(self, **kw) -> None:
         self.initial_s = kw.get(CegisConfig.XI.k, CegisConfig.XI.v)
         self.unsafe_s = kw.get(CegisConfig.XU.v, CegisConfig.XU.k)
-        self.domain = kw.get(CegisConfig.XD.k, CegisConfig.XD.v)
-        self.SYMMETRIC_BELT = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
+        self.domain = kw.get(CegisConfig.XD.k, CegisConfig.XD.v) 
 
     def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
         """
@@ -45,7 +44,9 @@ class BarrierCertificate(Certificate):
 
             learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
             percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[1]) + len(S[2]))
+            percent_accuracy = percent_accuracy_init_unsafe
             slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+            leaky_relu = torch.nn.LeakyReLU(slope)
             relu6 = torch.nn.ReLU6()
             # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
             loss = (torch.relu(B_i + margin) - slope*relu6(-B_i + margin)).mean() \
@@ -53,23 +54,21 @@ class BarrierCertificate(Certificate):
 
             # set two belts
             percent_belt = 0
-            if self.SYMMETRIC_BELT:
-                belt_index = torch.nonzero(torch.abs(B_d) <= 0.5)
-            else:
-                belt_index = torch.nonzero(B_d >= -margin)
 
-            if belt_index.nelement() != 0:
-                dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
-                learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
-                percent_belt = 100*(sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
+            lie_accuracy =  100 * (sum(Bdot_d <= -margin)).item() /  Bdot_d.shape[0]
 
-                loss = loss - (relu6(-dB_belt + 0*margin)).mean()
+            loss = loss - (relu6(-Bdot_d + margin)).mean()
 
             # loss = loss + (100-percent_accuracy)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 vprint((t, "- loss:", loss.item(), '- accuracy init-unsafe:', percent_accuracy_init_unsafe,
-                        "- accuracy belt:", percent_belt, '- points in belt:', len(belt_index)), learner.verbose)
+                        "- accuracy lie:", lie_accuracy), learner.verbose)
+
+            # if learn_accuracy / batch_size > 0.99:
+            #     for k in range(batch_size):
+            #         if Vdot[k] > -margin:
+            #             print("Vdot" + str(S[k].tolist()) + " = " + str(Vdot[k].tolist()))
 
             if percent_accuracy_init_unsafe == 100 and percent_belt >= 99.9:
                 condition = True
@@ -85,34 +84,31 @@ class BarrierCertificate(Certificate):
 
         return {}
 
-    @staticmethod
     def get_constraints(self, verifier, B, Bdot) -> Generator:
         """
         :param verifier: verifier object
-        :param B: SMT formula of Barrier function
-        :param Bdot: SMT formula of Barrier lie derivative
+        :param B: SMT Formula of Barrier function
+        :param Bdot: SMT Formula of Barrier lie derivative or one-step difference
         :return: tuple of dictionaries of Barrier conditons 
         """
         _And = verifier.solver_fncts()['And']
         # Bdot <= 0 in B == 0
         # lie_constr = And(B >= -0.05, B <= 0.05, Bdot > 0)
-        lie_constr = _And(B == 0, Bdot >= 0)
+        lie_constr = _And(Bdot > 0)
 
         # B < 0 if x \in initial
-        initial_constr = _And(B >= 0, self.initial_s)
+        inital_constr = _And(B >= 0, self.initial_s)
 
         # B > 0 if x \in unsafe
         unsafe_constr = _And(B <= 0, self.unsafe_s)
 
         # add domain constraints
         lie_constr = _And(lie_constr, self.domain)
-        inital_constr = _And(initial_constr, self.domain)
+        inital_constr = _And(inital_constr, self.domain)
         unsafe_constr = _And(unsafe_constr, self.domain)
-
-        #TODO: will intial_s (etc) be stored in verfier, or should it be here?
-        #TODO: Add 'failsafe' constraints 
         for cs in (
             {'init': inital_constr, 'unsafe': unsafe_constr}, 
             {'lie': lie_constr}
             ):
             yield cs
+    

@@ -5,30 +5,27 @@
 # LICENSE file in the root directory of this source tree. 
  
 import torch
-import numpy as np
-import timeit
 
-from src.lyap.utils import Timer, timer, z3_replacements
+from src.shared.utils import *
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.utils import vprint
 
 T = Timer()
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, equilibrium, domain, solver_vars, **kw):
+    def __init__(self, n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw):
         super().__init__()
         self.iter = -1
         self.n = n_vars
-        self.eq = equilibrium
+        self.domain = whole_domain
         self.counterexample_n = 20
-        self.domain = domain
         self._last_cex = []
         self._n_cex_to_keep = self.counterexample_n * 1
         self.xs = solver_vars
-        self._solver_timeout = 60
-        self._vars_bounds = 1e300
+        self._solver_timeout = 30
+        self._vars_bounds = vars_bounds
+        self.constraints_method = constraints_method
         self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         self.optional_configs = kw
 
@@ -42,11 +39,6 @@ class Verifier(Component):
     @staticmethod
     def solver_fncts() -> {}:
         """Example: return {'And': z3.And}"""
-        raise NotImplementedError('')
-
-    @staticmethod
-    def replace_point():
-        """Example: return V(ctx)"""
         raise NotImplementedError('')
 
     def new_solver(self):
@@ -74,79 +66,82 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     def get(self, **kw):
+        # translator default returns V and Vdot
         return self.verify(kw[CegisStateKeys.V], kw[CegisStateKeys.V_dot])
 
-    @property
-    def timeout(self):
-        return self._solver_timeout
-
-    @timeout.setter
-    def timeout(self, _t):
-        t = int(_t)
-        assert t >= 0
-        self._solver_timeout = t
-
     @timer(T)
-    def verify(self, V, dV):
+    def verify(self, C, dC):
         """
-        :param V: z3 expr
-        :param dV: z3 expr
+        :param C: z3 expr
+        :param dC: z3 expr
         :return:
-                found_lyap: True if V is valid
+                found_lyap: True if C is valid
                 C: a list of ctx
         """
         found, timed_out = False, False
-        C = []
+        fmls = self.domain_constraints(C, dC)
+        results = {}
+        solvers = {}
 
-        s = self.new_solver()
-        fmls = self.domain_constraints(V, dV)
+        for group in fmls:
+            for label, condition in group.items():
+                s = self.new_solver()
+                res, timedout = self.solve_with_timeout(s, condition)
+                results[label] = res
+                solvers[label] = s
+        # if sat, found counterexample; if unsat, C is lyap
+                if timedout:
+                    vprint(label + "timed out", self.verbose)
+            if any(self.is_sat(res) for res in results.values()):
+                break
+            
+        ces = [[] for res in results.keys()]
 
-        # if sat, found counterexample; if unsat, V is lyap
-        res, timedout = self.solve_with_timeout(s, fmls)
-        if timedout:
-            print(":/ timed out")
-            timed_out = True
-        elif self.is_unsat(res):
+        if all(self.is_unsat(res) for res in results.values()):
             vprint(['No counterexamples found!'], self.verbose)
             found = True
         else:
-            original_point = self.compute_model(s, res)
-            value_in_ctx, value_in_dV = self.replace_point(V, self.xs, original_point.numpy().T), \
-                                          self.replace_point(dV, self.xs, original_point.numpy().T)
-            vprint(['V(ctx) = ', value_in_ctx], self.verbose)
-            vprint(['dV(ctx) = ', value_in_dV], self.verbose)
-            C = self.randomise_counterex(original_point)
+            for index, o in enumerate(results.items()):
+                label, res = o
+                if self.is_sat(res):
+                    vprint([label + ": "], self.verbose)
+                    original_point = self.compute_model(solvers[label], res)
+                    ces[index] = self.randomise_counterex(original_point)
+                else:
+                    vprint([res], self.verbose)
 
-        return {CegisStateKeys.found: found, CegisStateKeys.verification_timed_out: timed_out,
-                CegisStateKeys.cex: C}
+        return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
-    def domain_constraints(self, V, dV):
-        """
-        :param V:
-        :param dV:
-        :return:
-        """
-        _Or = self.solver_fncts()['Or']
-        _And = self.solver_fncts()['And']
+    def normalize_number(self, n):
+        return n
 
-        lyap_negated = _Or(V <= 0, dV > 0)
+    def domain_constraints(self, C, dC):
+        return self.constraints_method(self, C, dC)
 
-        # domain_constr = []
-        # for idx in range(self.eq.shape[0]):
-        #     circle = self.circle_constr(self.eq[idx, :])
-        #     domain_constr += [_And(circle > self.inner ** 2, circle < self.outer ** 2)]
-        # # _And(*(domain_constr for _ in range(len(domain_constr))))
-        return _And(self.domain, lyap_negated)
-
-    def circle_constr(self, c):
+    def circle_constr(self, c, r):
         """
         :param x:
         :param c:
         :return:
         """
-        circle_constr = np.sum([(x - c[i]) ** 2 for i, x in enumerate(self.xs)])
+        circle_constr = np.sum([(x - c[i]) ** 2 for i, x in enumerate(self.xs)]) <= r
 
         return circle_constr
+
+    def square_constr(self, domain):
+        """
+        :param domain:
+        :return:
+        """
+        square_constr = []
+        for idx, x in enumerate(self.xs):
+            try:
+                square_constr += [x[0, 0] >= domain[idx][0]]
+                square_constr += [x[0, 0] <= domain[idx][1]]
+            except:
+                square_constr += [x >= domain[idx][0]]
+                square_constr += [x <= domain[idx][1]]
+        return square_constr
 
     def solve_with_timeout(self, solver, fml):
         """
@@ -175,7 +170,9 @@ class Verifier(Component):
         vprint(['Counterexample Found: {}'.format(model)], self.verbose)
         temp = []
         for i, x in enumerate(self.xs):
-            temp += [self._model_result(solver, model, x, i)]
+            n = self._model_result(solver, model, x, i)
+            normalized = self.normalize_number(n)
+            temp += [normalized]
 
         original_point = torch.tensor(temp)
         return original_point[None, :]
@@ -192,14 +189,44 @@ class Verifier(Component):
         shape = (1, max(point.shape[0], point.shape[1]))
         point = point.reshape(shape)
         for i in range(self.counterexample_n):
-            random_point = point + 5*1e-3 * torch.randn(shape)
+            random_point = point + 5*1e-4 * torch.randn(shape)
             # if self.inner < torch.norm(random_point) < self.outer:
             C.append(random_point)
         C.append(point)
         return torch.stack(C, dim=1)[0, :, :]
 
+    def smoothed_lie(self, B, Bdot):
+        """
+        :param B:
+        :return:
+        """
+        _And = self.solver_fncts()['And']
+        s = self.new_solver()
+        f = _And(B >= -0.05, B <= 0.05, Bdot >= 0)
+        f = _And(f, self.domain)
+        res_smooth, timedout = self.solve_with_timeout(s, f)
+
+        return res_smooth, s
+
+    def fail_safe(self, B, Bdot):
+        """
+        :param B:
+        :return:
+        """
+        _And = self.solver_fncts()['And']
+        s = self.new_solver()
+        f = _And(_And(B >= 0.0, Bdot >= 0))
+        f = _And(f, self.domain)
+        res_zero, timedout = self.solve_with_timeout(s, f)
+
+        if timedout:
+            print('fail_safe timedout')
+
+        return res_zero, s
+
     def in_bounds(self, var, n):
-        return True
+        left, right = self._vars_bounds[var]
+        return left < n < right
 
     @staticmethod
     def get_timer():

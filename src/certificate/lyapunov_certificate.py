@@ -8,9 +8,9 @@ from typing import Generator
 import torch
 from torch.optim import Optimizer
 
-from src.shared.components.certificate import Certificate
+from src.certificate.certificate import Certificate
 from src.shared.cegis_values import CegisConfig
-from src.shared.learner import Learner
+from src.learner.learner import Learner
 from src.shared.consts import LearningFactors
 from src.shared.utils import vprint
 
@@ -29,14 +29,14 @@ class LyapunovCertificate(Certificate):
         """
 
         assert (len(S) == len(Sdot))
-        batch_size = len(S)
+        batch_size = len(S[0])
         learn_loops = 1000
         margin = 0*0.01
 
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            V, Vdot, circle = learner.numerical_net(S, Sdot, learner.factors)
+            V, Vdot, circle = learner.forward(S[0], Sdot[0])
 
             slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1 / slope)

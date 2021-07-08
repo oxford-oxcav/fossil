@@ -6,7 +6,7 @@
  
 import sympy as sp
 
-from src.shared.learner import Learner
+from src.learner.learner import Learner
 
 
 class SympySolver(Learner):

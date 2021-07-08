@@ -23,7 +23,7 @@ def inf_bounds_n(n):
     return [inf_bounds] * n
 
 
-def prajna07_simple(batch_size, functions):
+def prajna07_simple(batch_size, functions, **kw):
     _And = functions['And']
 
     def f(_, v):
@@ -54,10 +54,10 @@ def prajna07_simple(batch_size, functions):
     def SU():
         return circle_init_data((-1, -1), 0.16, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
-def barr_3(batch_size, functions):
+def barr_3(batch_size, functions, **kw):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -114,10 +114,10 @@ def barr_3(batch_size, functions):
             add_corners_2d([[0.4, 0.1], [0.8, 0.3]])
         ])
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
-def barr_1(batch_size, functions):
+def barr_1(batch_size, functions, **kw):
     _And = functions['And']
 
     def f(_, v):
@@ -156,10 +156,10 @@ def barr_1(batch_size, functions):
             points += dom[idx][:, 0, :]
         return torch.stack(points[:batch_size])
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
-def barr_2(batch_size, functions):
+def barr_2(batch_size, functions, **kw):
     _And = functions['And']
 
     def f(functions, v):
@@ -190,10 +190,10 @@ def barr_2(batch_size, functions):
     def SU():
         return circle_init_data((0.7, -0.7), 0.09, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
-def obstacle_avoidance(batch_size, functions):
+def obstacle_avoidance(batch_size, functions, **kw):
     # Obstacle Avoidance
     _And = functions['And']
     velo = 1
@@ -242,10 +242,10 @@ def obstacle_avoidance(batch_size, functions):
     bounds = inf_bounds_n(2)
     pi = math.pi
     bounds.append([-pi/2, pi/2])
-    return f, XD, XI, XU, SD(), SI(), SU(), bounds
+    return f, [XD, XI, XU], [SD(), SI(), SU()], bounds
 
 
-def twod_hybrid(batch_size, functions):
+def twod_hybrid(batch_size, functions, **kw):
     # A = [ [0,1,0], [0,0,1] [-0.2,-0.3,-1] ]
     # B = [0, 0, 0.1]
     # C = [1, 0, 0]  --> output is x0
@@ -283,11 +283,11 @@ def twod_hybrid(batch_size, functions):
     def SU():
         return circle_init_data((1., 1.), 0.25, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(2)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
 # 4-d ODE benchmark
-def hi_ord_4(batch_size, functions):
+def hi_ord_4(batch_size, functions, **kw):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -325,11 +325,11 @@ def hi_ord_4(batch_size, functions):
     def SU():
         return n_dim_sphere_init_data([-2., -2., -2., -2.], 0.16, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(4)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(4)
 
 
 # 6-d ODE benchmark
-def hi_ord_6(batch_size, functions):
+def hi_ord_6(batch_size, functions, **kw):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -370,11 +370,11 @@ def hi_ord_6(batch_size, functions):
     def SU():
         return n_dim_sphere_init_data([-2., -2., -2., -2., -2., -2.], 0.16, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(6)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(6)
 
 
 # 8-d ODE benchmark
-def hi_ord_8(batch_size, functions):
+def hi_ord_8(batch_size, functions, **kw):
     _And = functions['And']
     _Or = functions['Or']
 
@@ -418,7 +418,7 @@ def hi_ord_8(batch_size, functions):
     def SU():
         return n_dim_sphere_init_data([-2., -2., -2., -2., -2., -2., -2., -2.], 0.16, batch_size)
 
-    return f, XD, XI, XU, SD(), SI(), SU(), inf_bounds_n(8)
+    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(8)
 
 
 if __name__ == '__main__':

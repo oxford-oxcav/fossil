@@ -5,15 +5,17 @@
 # LICENSE file in the root directory of this source tree. 
  
 import unittest
-from src.lyap.verifier.z3verifier import Z3Verifier
 from functools import partial
-from src.lyap.learner.NNContinuous import NNContinuous
+from unittest import mock
+
+from z3 import *
+
+from src.verifier.z3verifier import Z3Verifier
+from src.learner.net_continuous import NNContinuous
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import *
-import torch
-from src.shared.components.translator_continuous import TranslatorContinuous
-from unittest import mock
-from z3 import *
+from src.translator.translator_continuous import TranslatorContinuous
+from src.certificate.lyapunov_certificate import LyapunovCertificate
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import TranslatorType
 
@@ -27,9 +29,10 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier
         x = verifier.new_vars(n_vars)
 
-        f, domain, _ = system(functions=verifier.solver_fncts(), inner=0, outer=100)
-        domain_z3 = domain(verifier.solver_fncts(), x)
-        verifier = Z3Verifier(n_vars, f, domain_z3, x)
+        f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
+        domain_z3 = domain[0](verifier.solver_fncts(), x)
+        lc = LyapunovCertificate(XD=domain_z3)
+        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,
@@ -49,7 +52,7 @@ class TestZ3Verifier(unittest.TestCase):
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         print(V)
         res = verifier.verify(V, Vdot)
-        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [])
+        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == [[]])
         self.assertTrue(res[CegisStateKeys.found])
 
     def test_poly2_with_bad_Lyapunov_function(self):
@@ -59,9 +62,10 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier
         x = verifier.new_vars(n_vars)
 
-        f, domain, _ = system(functions=verifier.solver_fncts(), inner=0, outer=100)
-        domain_z3 = domain(verifier.solver_fncts(), x)
-        verifier = Z3Verifier(n_vars, f, domain_z3, x)
+        f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
+        domain_z3 = domain[0](verifier.solver_fncts(), x)
+        lc = LyapunovCertificate(XD=domain_z3)
+        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,
@@ -91,9 +95,10 @@ class TestZ3Verifier(unittest.TestCase):
         verifier = Z3Verifier
         x = verifier.new_vars(n_vars)
 
-        f, domain, _ = system(functions=verifier.solver_fncts(), inner=0, outer=100)
-        domain_z3 = domain(verifier.solver_fncts(), x)
-        verifier = Z3Verifier(n_vars, f, domain_z3, x)
+        f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
+        domain_z3 = domain[0](verifier.solver_fncts(), x)
+        lc = LyapunovCertificate(XD=domain_z3)
+        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,

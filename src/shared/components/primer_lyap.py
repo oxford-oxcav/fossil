@@ -12,8 +12,9 @@ from src.shared.components.primer import Primer
 from src.shared.system import NonlinearSystem
 from experiments.benchmarks.domain_fcns import * 
 from src.shared.sympy_converter import sympy_converter
-from src.lyap.cegis_lyap import Cegis as Cegis_lyap
+from src.shared.components.cegis import Cegis 
 from src.shared.utils import FailedSynthesis
+from src.shared.consts import TimeDomain, CertificateType
 from src.shared.cegis_values import CegisStateKeys, CegisConfig
 
 class PrimerLyap(Primer):
@@ -205,13 +206,13 @@ class PrimerLyap(Primer):
                   CegisConfig.INNER_RADIUS.k:self.inner_radius, 
                   CegisConfig.OUTER_RADIUS.k:self.outer_radius,
                   CegisConfig.VERIFIER.k: verifier,
-                  CegisConfig.LEARNER.k: CegisConfig.LEARNER.v, 
-                  CegisConfig.CONSOLIDATOR.k: CegisConfig.CONSOLIDATOR.v,
-                  CegisConfig.TRANSLATOR.k: CegisConfig.TRANSLATOR.v}
+                  CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
+                  CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
+                  }
 
         self.cegis_parameters.update(params)
         
-        c = Cegis_lyap(**self.cegis_parameters)
+        c = Cegis(**self.cegis_parameters)
         state, x, f_learner, iters = c.solve()
 
         return state, f_learner

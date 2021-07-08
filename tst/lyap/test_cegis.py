@@ -7,33 +7,31 @@
 import unittest
 import torch
 import timeit
-from src.lyap.cegis_lyap import Cegis
+from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from functools import partial
 from z3 import *
-from src.shared.components.translator_continuous import TranslatorContinuous
+from src.translator.translator_continuous import TranslatorContinuous
 from src.shared.cegis_values import CegisStateKeys
-from src.shared.consts import ConsolidatorType, TranslatorType
 
 
 def zero_in_zero(learner):
-    v_zero, vdot_zero, grad_v = learner.forward_tensors(
+    v_zero, _ = learner.forward_tensors(
         torch.zeros(1, learner.input_size).reshape(1, learner.input_size),
-        torch.zeros(learner.input_size, 1).reshape(learner.input_size, 1)
     )
     return v_zero == .0
 
 
 def positive_definite(learner, S_d, Sdot):
-    v, _, _ = learner.forward_tensors(S_d, Sdot)
+    v, _, _ = learner.forward(S_d, Sdot)
     return all(v >= .0)
 
 
 def negative_definite_lie_derivative(learner, S, Sdot):
-    v, vdot, jac = learner.forward_tensors(S, Sdot)
+    v, vdot, _  = learner.forward(S, Sdot)
     # find points have vdot > 0
     if len(torch.nonzero(vdot > 0)) > 0:
         return False
@@ -52,9 +50,9 @@ class test_cegis(unittest.TestCase):
 
     def assertLyapunovOverPositiveOrthant(self, system, c):
 
-        f, domain, _ = system(functions=c.verifier.solver_fncts(),
+        f, domain, _, _ = system(functions=c.verifier.solver_fncts(),
                               inner=c.inner, outer=c.outer)
-        domain = domain({}, list(c.x_map.values()))
+        domain = domain[0]({}, list(c.x_map.values()))
         translator = TranslatorContinuous(c.learner, np.array(c.x).reshape(-1,1), np.array(c.xdot).reshape(-1,1),
                                   None, 3)
         res = translator.get(**{'factors': None})
@@ -70,8 +68,8 @@ class test_cegis(unittest.TestCase):
             model = ""
         self.assertEqual(res, z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model))
 
-        Sdot = c.f_learner(c.S_d.T)
-        S, Sdot = c.S_d, torch.stack(Sdot).T
+        Sdot = c.f_learner(c.S[0].T)
+        S, Sdot = c.S[0], torch.stack(Sdot).T
         self.assertNumericallyLyapunov(c.learner, S, Sdot)
 
     def test_poly_2(self):
@@ -93,6 +91,7 @@ class test_cegis(unittest.TestCase):
         opts = {
             CegisConfig.N_VARS.k: n_vars,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
             CegisConfig.SYSTEM.k: system,
@@ -128,6 +127,7 @@ class test_cegis(unittest.TestCase):
         start = timeit.default_timer()
         opts = {
             CegisConfig.N_VARS.k: n_vars,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
@@ -162,6 +162,7 @@ class test_cegis(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,
@@ -198,6 +199,7 @@ class test_cegis(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.Z3,
             CegisConfig.ACTIVATION.k: activations,

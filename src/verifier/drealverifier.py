@@ -4,15 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
  
-from src.shared.verifier_values import VerifierConfig
+from typing import Dict, Callable
+from src.verifier.verifier_values import VerifierConfig
 
 try:
     from dreal import *
 except:
     print("No dreal")
 
-from src.barrier.verifier import Verifier
-
+from src.verifier.verifier import Verifier
+from src.shared.utils import dreal_replacements
 
 class DRealVerifier(Verifier):
     @staticmethod
@@ -23,7 +24,7 @@ class DRealVerifier(Verifier):
         return None
 
     @staticmethod
-    def solver_fncts() -> {}:
+    def solver_fncts() -> Dict[str, Callable]:
         return {
             'sin': sin, 'cos': cos, 'exp': exp,
             'And': And, 'Or': Or, 'If': if_then_else
@@ -31,6 +32,10 @@ class DRealVerifier(Verifier):
 
     def is_sat(self, res) -> bool:
         return isinstance(res, Box)
+
+    @staticmethod
+    def replace_point(expr, ver_vars, point):
+        return dreal_replacements(expr, ver_vars, point)
 
     def is_unsat(self, res) -> bool:
         # int(str("x0")) = 0
@@ -55,14 +60,5 @@ class DRealVerifier(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def normalize_number(self, n):
-        # cap = 1e10
-        # a = abs(n)
-        # if n != 0 and a > cap:
-        #     sign = a / n
-        #     return sign * cap
-        # return n
-        return n  # todo do we want this?
-
-    def __init__(self, n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, dreal_vars, **kw):
-        super().__init__(n_vars, whole_domain, initial_state, unsafe_state, vars_bounds, dreal_vars, **kw)
+    def __init__(self, n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw):
+        super().__init__(n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw)

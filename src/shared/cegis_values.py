@@ -25,6 +25,7 @@ class CegisConfig(Enum, settings=NoAlias):
     VERIFIER                = VerifierType.Z3
     CONSOLIDATOR            = ConsolidatorType.DEFAULT
     TRANSLATOR              = TranslatorType.CONTINUOUS
+    CERTIFICATE             = None
     BATCH_SIZE              = 500
     LEARNING_RATE           = .1
     FACTORS                 = LearningFactors.NONE

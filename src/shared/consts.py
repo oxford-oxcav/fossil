@@ -42,7 +42,7 @@ class PrimerMode(Enum):
     LYAPUNOV = auto()
 
 
-class Certificate(Enum):
+class CertificateType(Enum):
     BARRIER = auto()
     BARRIER_ALTERNATE = auto()
     LYAPUNOV = auto()

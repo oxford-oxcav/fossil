@@ -10,26 +10,22 @@ import numpy as np
 import sympy as sp
 import z3
 
-from src.lyap.verifier.verifier import Verifier
-from src.lyap.verifier.z3verifier import Z3Verifier
 from src.shared.cegis_values import CegisConfig ,CegisStateKeys
 from src.shared.consts import LearningFactors
-from src.shared.learner import Learner
+from src.learner.learner import Learner
 from src.shared.activations import ActivationType, activation, activation_der
-from src.lyap.utils import Timer, timer, get_symbolic_formula, vprint
-from src.shared.sympy_converter import sympy_converter
+from src.shared.utils import Timer, timer
 
 T = Timer()
 
 
 class NNContinuous(nn.Module, Learner):
-    def __init__(self, input_size, learn_method, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
+    def __init__(self, input_size, learn_method, *args, bias=True, activate=ActivationType.SQUARE, equilibria=0, llo=False, **kw):
         super(NNContinuous, self).__init__()
 
         self.input_size = input_size
         n_prev = input_size
         self.eq = equilibria
-        self.llo = llo
         self._diagonalise = False
         self.acts = activate
         self._is_there_bias = bias
@@ -67,14 +63,33 @@ class NNContinuous(nn.Module, Learner):
             'If': lambda cond, _then, _else: _then if cond.item() else _else,
         }
 
+    def forward(self, S, Sdot):
+        assert (len(S) == len(Sdot))
+
+        nn, grad_nn = self.forward_tensors(S)
+        # circle = x0*x0 + ... + xN*xN
+        circle = torch.pow(S, 2).sum(dim=1)
+
+        E, derivative_e = self.compute_factors(S, self.factors)
+
+        # define E(x) := (x-eq_0) * ... * (x-eq_N)
+        # V = NN(x) * E(x)
+        V = nn * E
+        # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
+        # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
+        gradV = nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn) \
+                + grad_nn * E.expand_as(grad_nn.T).T
+        # Vdot = gradV * f(x)
+        Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
+
+        return V, Vdot, circle
+
     # generalisation of forward with tensors
-    def forward_tensors(self, x, xdot):
+    def forward_tensors(self, x):
         """
         :param x: tensor of data points
-        :param xdot: tensor of data points
         :return:
                 V: tensor, evaluation of x in net
-                Vdot: tensor, evaluation of x in derivative net
                 jacobian: tensor, evaluation of grad_net
         """
         y = x
@@ -89,30 +104,8 @@ class NNContinuous(nn.Module, Learner):
 
         numerical_v = torch.matmul(y, self.layers[-1].weight.T)
         jacobian = torch.matmul(self.layers[-1].weight, jacobian)
-        numerical_vdot = torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)
 
-        return numerical_v[:, 0], numerical_vdot, jacobian[:, 0, :]
-
-    def numerical_net(self, S, Sdot, lf):
-        assert (len(S) == len(Sdot))
-
-        nn, grad_times_f, grad_nn = self.forward_tensors(S, Sdot)
-        # circle = x0*x0 + ... + xN*xN
-        circle = torch.pow(S, 2).sum(dim=1)
-
-        E, derivative_e = self.compute_factors(S, lf)
-
-        # define E(x) := (x-eq_0) * ... * (x-eq_N)
-        # V = NN(x) * E(x)
-        V = nn * E
-        # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
-        # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
-        gradV = nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn) \
-                + grad_nn * E.expand_as(grad_nn.T).T
-        # Vdot = gradV * f(x)
-        Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
-
-        return V, Vdot, circle
+        return numerical_v[:, 0], jacobian[:, 0, :]
 
     def compute_factors(self, S, lf):
         E, factors = 1, []
@@ -143,11 +136,11 @@ class NNContinuous(nn.Module, Learner):
     
     def get(self, **kw):
         return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S],
-                          kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
+                          kw[CegisStateKeys.S_dot])
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot, factors):
+    def learn(self, optimizer, S, Sdot):
         return self.learn_method(self, optimizer, S, Sdot)
 
     def diagonalisation(self):
@@ -156,14 +149,14 @@ class NNContinuous(nn.Module, Learner):
             for layer in self.layers[:-1]:
                 layer.weight.data = torch.diag(torch.diag(layer.weight))
 
-    def find_closest_unsat(self, S, Sdot, factors):
+    def find_closest_unsat(self, S, Sdot):
         min_dist = float('inf')
-        V, Vdot, _ = self.numerical_net(S, Sdot, factors)
-        for iii in range(S.shape[0]):
+        V, Vdot, _ = self.forward(S[0], Sdot[0])
+        for iii in range(S[0].shape[0]):
             v = V[iii]
             vdot = Vdot[iii]
             if V[iii].item() < 0 or Vdot[iii].item() > 0:
-                dist = S[iii].norm()
+                dist = S[0][iii].norm()
                 if dist < min_dist:
                     min_dist = dist
         self.closest_unsat = min_dist

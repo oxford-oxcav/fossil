@@ -9,7 +9,7 @@ import torch
 import timeit
 import numpy as np 
 
-from src.lyap.cegis_lyap import Cegis
+from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import linear_discrete
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys

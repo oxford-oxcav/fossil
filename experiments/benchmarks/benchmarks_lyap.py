@@ -38,7 +38,7 @@ def nonpoly0(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return slice_init_data((0, 0), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def nonpoly1(batch_size, functions, inner=0.0, outer=10.0):
@@ -58,7 +58,7 @@ def nonpoly1(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return slice_init_data((0, 0), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def nonpoly2(batch_size, functions, inner=0.0, outer=10.0):
@@ -79,7 +79,7 @@ def nonpoly2(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(3)
 
 
 def nonpoly3(batch_size, functions, inner=0.0, outer=10.0):
@@ -100,7 +100,7 @@ def nonpoly3(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(3)
 
 
 ######################
@@ -123,7 +123,7 @@ def benchmark_0(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return circle_init_data((0, 0), outer ** 2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def poly_1(batch_size, functions, inner=0.0, outer=10.0):
@@ -147,7 +147,7 @@ def poly_1(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return sphere_init_data((0, 0, 0), outer ** 2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(3)
 
 
 # this series comes from
@@ -172,7 +172,7 @@ def poly_2(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return circle_init_data((0, 0), outer ** 2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def poly_3(batch_size, functions, inner=0.0, outer=10.0):
@@ -189,7 +189,7 @@ def poly_3(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return circle_init_data((0, 0), outer ** 2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def poly_4(batch_size, functions, inner=0.0, outer=10.0):
@@ -209,7 +209,7 @@ def poly_4(batch_size, functions, inner=0.0, outer=10.0):
     def SD():
         return circle_init_data((0, 0), outer ** 2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def twod_hybrid(batch_size, functions, inner, outer):
@@ -232,7 +232,7 @@ def twod_hybrid(batch_size, functions, inner, outer):
     def SD():
         return circle_init_data((0., 0.), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 def linear_discrete(batch_size, functions, inner, outer):
     _And = functions['And']
@@ -249,7 +249,7 @@ def linear_discrete(batch_size, functions, inner, outer):
     def SD():
         return circle_init_data((0., 0.), outer**2, batch_size)
 
-    return f, XD, SD()
+    return f, [XD], [SD()], inf_bounds_n(2)
 
 
 def max_degree_fx(fx):
@@ -268,6 +268,6 @@ def max_degree_poly(p):
 
 
 if __name__ == '__main__':
-    f, XD, SD = poly_1(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
-    plt.scatter(SD[:, 0].detach(), SD[:, 1].detach(), color='b')
+    f, [XD], SD, _ = poly_1(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
+    plt.scatter(SD[0][:, 0].detach(), SD[0][:, 1].detach(), color='b')
     plt.show()

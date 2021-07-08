@@ -21,16 +21,13 @@ class Consolidator(Component):
         self.f = f
 
     def get(self, **kw):
-        if len(kw[CegisStateKeys.cex]) == 0 or kw[CegisStateKeys.cex] == [[], [], []]:  # not elegant but works
+        if all([c == [] for c in kw[CegisStateKeys.cex]]):  # not elegant but works
             return {CegisStateKeys.trajectory: []}
-        elif len(kw[CegisStateKeys.cex]) == 3:  # barrier case
-            if len(kw[CegisStateKeys.cex][0]) == 0:  # S_d is empty, no traj needed
+        elif len(kw[CegisStateKeys.cex]) == 2 :  # barrier case, S_d is empty, no traj needed
                 return {CegisStateKeys.trajectory: []}
-            else:
-                return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][0][-1])
         else:
-            # the original ctx is in the last row of ces, i.e. ces[-1]
-            return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1])
+            return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1][-1])
+
 
     # computes the gradient of V, Vdot in point
     # computes a 20-step trajectory (20 is arbitrary) starting from point

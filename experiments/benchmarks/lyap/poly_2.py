@@ -7,14 +7,14 @@
 # pylint: disable=not-callable
 import torch
 import timeit
-from src.lyap.cegis_lyap import Cegis
+from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from functools import partial
 from src.plots.plot_lyap import plot_lyce
-from src.lyap.utils import check_sympy_expression
+from src.shared.utils import check_sympy_expression
 
 
 def test_lnn():
@@ -34,6 +34,7 @@ def test_lnn():
 
     opts = {
         CegisConfig.N_VARS.k: n_vars,
+        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.Z3,
         CegisConfig.ACTIVATION.k: activations,
