@@ -35,6 +35,7 @@ def main():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+        CegisConfig.SP_HANDLE.k: True,
         CegisConfig.SP_SIMPLIFY.k: True,
     }
     c = Cegis(**opts)

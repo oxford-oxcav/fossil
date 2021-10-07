@@ -15,8 +15,8 @@ from src.shared.activations import ActivationType
 # prefer this over CegisConfig = Enum('CegisConfig', "...")
 # to aid with the ide
 class CegisConfig(Enum, settings=NoAlias):
-    SP_SIMPLIFY             = True
-    SP_HANDLE               = True
+    SP_SIMPLIFY             = False
+    SP_HANDLE               = False
     SYMMETRIC_BELT          = False
     CEGIS_MAX_ITERS         = 10
     CEGIS_MAX_TIME_S        = math.inf  # in sec
@@ -46,6 +46,7 @@ class CegisConfig(Enum, settings=NoAlias):
     XI                      = 0
     XU                      = 0
     VERBOSE                 = True
+    ENET                    = None
 
     @property
     def k(self):
@@ -79,6 +80,7 @@ class CegisStateKeys:
     verifier_fun = 'verifier_fun'
     equilibrium = 'equilibrium'
     components_times = 'components_times'
+    ENet = "ENet"
 
 
 class CegisComponentsState:

@@ -15,9 +15,17 @@ from src.shared.consts import LearningFactors
 from src.shared.utils import vprint
 
 class LyapunovCertificate(Certificate):
-    def __init__(self, **kw) -> None:
+    """
+    Certificate object for Lyapunov function synthesis
+    Keyword arguments:
+    bool LLO: last layer of ones in network
+    XD: Symbolic formula of domain
+    
+    """
+    def __init__(self, domains, **kw) -> None:
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
-        self.domain = kw.get(CegisConfig.XD.k, CegisConfig.XD.v)
+        self.domain = domains[0]
+        self.bias = False
 
     def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
         """
@@ -39,7 +47,7 @@ class LyapunovCertificate(Certificate):
             V, Vdot, circle = learner.forward(S[0], Sdot[0])
 
             slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1 / slope)
+            leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
             # compute loss function. if last layer of ones (llo), can drop parts with V
             if self.llo:
                 learn_accuracy = sum(Vdot <= -margin).item()

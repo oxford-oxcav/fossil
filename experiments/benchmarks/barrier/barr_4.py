@@ -34,8 +34,6 @@ def main():
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: False,
-        CegisConfig.SP_HANDLE.k: False,
     }
 
     start = timeit.default_timer()

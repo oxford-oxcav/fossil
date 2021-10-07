@@ -14,10 +14,11 @@ from src.learner.learner import Learner
 from src.shared.utils import vprint
 
 class BarrierCertificateAlternative(Certificate):
-    def __init__(self, **kw) -> None:
-        self.initial_s = kw.get(CegisConfig.XI.k, CegisConfig.XI.v)
-        self.unsafe_s = kw.get(CegisConfig.XU.v, CegisConfig.XU.k)
-        self.domain = kw.get(CegisConfig.XD.k, CegisConfig.XD.v) 
+    def __init__(self, domains, **kw) -> None:
+        self.domain = domains[0]
+        self.initial_s = domains[1]
+        self.unsafe_s = domains[2]
+        self.bias = True
 
     def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
         """
@@ -38,12 +39,12 @@ class BarrierCertificateAlternative(Certificate):
 
             # permutation_index = torch.randperm(S[0].size()[0])
             # permuted_S, permuted_Sdot = S[0][permutation_index], S_dot[0][permutation_index]
-            B_d, Bdot_d, __ = learner.numerical_net(S[0], Sdot[0])
-            B_i, _, __ = learner.numerical_net(S[1], Sdot[1])
-            B_u, _, __ = learner.numerical_net(S[2], Sdot[2])
+            B_d, Bdot_d, __ = learner.forward(S[2], Sdot[2])
+            B_i, _, __ = learner.forward(S[0], Sdot[0])
+            B_u, _, __ = learner.forward(S[1], Sdot[1])
 
             learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[1]) + len(S[2]))
+            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[0]) + len(S[1]))
             percent_accuracy = percent_accuracy_init_unsafe
             slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(slope)

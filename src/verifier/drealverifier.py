@@ -60,5 +60,5 @@ class DRealVerifier(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw):
-        super().__init__(n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw)
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, **kw)

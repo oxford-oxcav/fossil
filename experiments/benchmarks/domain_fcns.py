@@ -250,7 +250,7 @@ class Sphere:
         self.centre = centre
         self.radius = radius
         self.dimension = len(centre)
-    
+
     def generate_domain(self, x, _And):
         """
         param x: data point x

@@ -6,9 +6,6 @@
  
 import torch
 import torch.nn as nn
-import numpy as np
-import sympy as sp
-import z3
 
 from src.shared.cegis_values import CegisConfig ,CegisStateKeys
 from src.shared.consts import LearningFactors
@@ -21,13 +18,12 @@ T = Timer()
 
 
 class NNDiscrete(nn.Module, Learner):
-    def __init__(self, input_size, learn_method, *args, bias=True, activate=ActivationType.LIN_SQUARE, equilibria=0, llo=False, **kw):
+    def __init__(self, input_size, learn_method, *args, bias=True, activate=[ActivationType.LIN_SQUARE], equilibria=0, llo=False, **kw):
         super(NNDiscrete, self).__init__()
 
         self.input_size = input_size
         n_prev = input_size
         self.eq = equilibria
-        self.llo = llo
         self._diagonalise = False
         self.acts = activate
         self._is_there_bias = bias
@@ -68,7 +64,7 @@ class NNDiscrete(nn.Module, Learner):
         }
 
     # generalisation of forward with tensors
-    def forward(self, x):
+    def numerical_net(self, x):
         """
         :param x: tensor of data points
         :param xdot: tensor of data points
@@ -83,24 +79,25 @@ class NNDiscrete(nn.Module, Learner):
             z = layer(y)
             y = activation(self.acts[idx], z)
 
-        numerical_v = torch.matmul(y, self.layers[-1].weight.T)
+        last_layer = self.layers[-1]
+        numerical_v = last_layer(y)
 
-        return numerical_v[:, 0]
+        return numerical_v
 
-    def numerical_net(self, S, Sdot, lf):
-        assert (len(S) == len(Sdot))
+    def forward(self, S, Sdot):
+        #assert (len(S) == len(Sdot))  ## This causes a warning in Marabou
 
-        nn = self.forward(S)
-        nn_next = self.forward(Sdot)
+        nn = self.numerical_net(S)
+        nn_next = self.numerical_net(Sdot)
         # circle = x0*x0 + ... + xN*xN
         circle = torch.pow(S, 2).sum(dim=1)
 
-        E = self.compute_factors(S, lf)
+        E = self.compute_factors(S, self.factors)
 
         # define E(x) := (x-eq_0) * ... * (x-eq_N)
         # V = NN(x) * E(x)
-        V = nn * E
-        delta_V = nn_next * E - V
+        V = nn 
+        delta_V = nn_next - V
 
         return V, delta_V, circle
 
@@ -117,7 +114,7 @@ class NNDiscrete(nn.Module, Learner):
                     # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
                     E *= torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
             else:
-                E = torch.tensor(1.0)
+                E = torch.tensor(1.0)  # This also causes a warning in Marabou - but always constant so should be okay
 
         return E
     
@@ -151,7 +148,7 @@ class NNDiscrete(nn.Module, Learner):
     @staticmethod
     def order_of_magnitude(number):
         if number.item() != 0:
-            return np.ceil(np.log10(number))
+            return torch.ceil(torch.log10(number))
         else:
             return 1.0
 

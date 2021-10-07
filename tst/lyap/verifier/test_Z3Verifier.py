@@ -31,8 +31,8 @@ class TestZ3Verifier(unittest.TestCase):
 
         f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
         domain_z3 = domain[0](verifier.solver_fncts(), x)
-        lc = LyapunovCertificate(XD=domain_z3)
-        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
+        lc = LyapunovCertificate(domains=[domain_z3])
+        verifier = Z3Verifier(n_vars, lc.get_constraints, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,
@@ -64,8 +64,8 @@ class TestZ3Verifier(unittest.TestCase):
 
         f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
         domain_z3 = domain[0](verifier.solver_fncts(), x)
-        lc = LyapunovCertificate(XD=domain_z3)
-        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
+        lc = LyapunovCertificate(domains=[domain_z3])
+        verifier = Z3Verifier(n_vars, lc.get_constraints, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,
@@ -97,8 +97,8 @@ class TestZ3Verifier(unittest.TestCase):
 
         f, domain, _, var_bounds = system(functions=verifier.solver_fncts(), inner=0, outer=100)
         domain_z3 = domain[0](verifier.solver_fncts(), x)
-        lc = LyapunovCertificate(XD=domain_z3)
-        verifier = Z3Verifier(n_vars, lc.get_constraints, domain_z3, var_bounds, x)
+        lc = LyapunovCertificate(domains=[domain_z3])
+        verifier = Z3Verifier(n_vars, lc.get_constraints, var_bounds, x)
 
         # model
         model = NNContinuous(2, None, 2,

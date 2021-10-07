@@ -14,11 +14,10 @@ T = Timer()
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, constraints_method, whole_domain, vars_bounds, solver_vars, **kw):
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
         super().__init__()
         self.iter = -1
         self.n = n_vars
-        self.domain = whole_domain
         self.counterexample_n = 20
         self._last_cex = []
         self._n_cex_to_keep = self.counterexample_n * 1

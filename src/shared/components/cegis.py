@@ -4,24 +4,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
  
-import torch
+import logging
+from functools import partial
+from src.certificate.certificate_utils import get_certificate
+
 import numpy as np
 import sympy as sp
-import logging
-
-from src.shared.cegis_values import CegisStateKeys, CegisConfig, CegisComponentsState
-from src.verifier.drealverifier import DRealVerifier
-from src.shared.consts import LearnerType, VerifierType, ConsolidatorType, TranslatorType, CertificateType
-from src.verifier.z3verifier import Z3Verifier
+import torch
+from src.shared.cegis_values import (CegisComponentsState, CegisConfig,
+                                     CegisStateKeys)
 from src.shared.components.consolidator import Consolidator
-from src.certificate.lyapunov_certificate import LyapunovCertificate
-from src.certificate.barrier_certificate import BarrierCertificate
-from src.translator.translator_continuous import TranslatorContinuous
-from src.translator.translator_discrete import TranslatorDiscrete
-from src.shared.utils import print_section, vprint, rotate
-from src.learner.net_continuous import NNContinuous
-from src.learner.net_discrete import NNDiscrete
-from functools import partial
+from src.shared.consts import (CertificateType, ConsolidatorType, LearnerType,
+                               VerifierType)
+from src.shared.utils import print_section, rotate, vprint
+from src.translator.translator_utils import get_translator, get_translator_type
+from src.verifier.verifier_utils import get_verifier_type, get_verifier
+from src.learner.learner_utils import get_learner
 
 try:
     import dreal as dr
@@ -36,10 +34,11 @@ class Cegis:
         # components type
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
         self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
+        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
         self.consolidator_type = kw.get(CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v)
         self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.learner_type = LearnerType[self.time_domain.name]
-        self.translator_type = TranslatorType[self.time_domain.name]
+        self.learner_type = get_learner(self.time_domain)
+        self.translator_type = get_translator_type(self.time_domain, self.verifier_type)
         # benchmark opts
         self.inner = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
         self.outer = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
@@ -52,18 +51,15 @@ class Cegis:
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
         self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
+        self.ENet = kw.get(CegisConfig.ENET.k, CegisConfig.ENET.v)
         # other opts
         self.max_cegis_iter = kw.get(CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v)
         self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
         # batch init
         self.learning_rate = kw.get(CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v)
 
-        if self.verifier_type == VerifierType.Z3:
-            verifier = Z3Verifier
-        elif self.verifier_type == VerifierType.DREAL:
-            verifier = DRealVerifier
-        else:
-            raise ValueError('No verifier of type {}'.format(self.verifier_type))
+        # Verifier init
+        verifier = get_verifier_type(self.verifier_type)
 
         self.x = verifier.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
@@ -74,33 +70,20 @@ class Cegis:
 
         # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
         self.domains = [f_domain(verifier.solver_fncts(), self.x) for f_domain in self.f_domains]
-        if self.certificate_type == CertificateType.LYAPUNOV:
-            self.certificate = LyapunovCertificate(XD=self.domains[0], **kw)
-            is_bias = False
-        elif self.certificate_type == CertificateType.BARRIER:
-            self.certificate = BarrierCertificate(XD=self.domains[0], XI=self.domains[1], XU=self.domains[2], **kw)
-            is_bias = True
-        else:
-            raise ValueError('No certificate of type {}'.format(self.certificate_type))
+        certificate = get_certificate(self.certificate_type)
+        self.certificate = certificate(domains=self.domains, **kw)
 
-        self.verifier = verifier(self.n, self.certificate.get_constraints, self.domains[0], vars_bounds, self.x, **kw)
+        self.verifier = get_verifier(verifier, self.n, self.certificate.get_constraints, vars_bounds, self.x, self.domains[0], **kw)
 
         self.xdot = self.f(self.verifier.solver_fncts(), self.x)
         self.x = np.array(self.x).reshape(-1, 1)
         self.xdot = np.array(self.xdot).reshape(-1, 1)
 
-        if self.learner_type == LearnerType.CONTINUOUS:
-            self.learner = NNContinuous(self.n, self.certificate.learn, *self.h, bias=is_bias, activate=self.activations,
+        # Learner init
+        self.learner = self.learner_type(self.n, self.certificate.learn, *self.h, bias=self.certificate.bias, activate=self.activations,
                               equilibria=self.eq, llo=self.llo, **kw)
-            self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
-        elif self.learner_type == LearnerType.DISCRETE:
-            self.learner = NNDiscrete(self.n, self.certificate.learn, *self.h, bias=False, activate=self.activations,
-                              equilibria=self.eq, llo=self.llo, **kw)
-            self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
-        else:
-            raise ValueError('No learner of type {}'.format(self.learner_type))
-
+        self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
@@ -116,14 +99,9 @@ class Cegis:
             self.consolidator = Consolidator(self.f_learner)
         else:
             TypeError('Not Implemented Consolidator')
-        if self.translator_type == TranslatorType.CONTINUOUS:
-            self.translator = TranslatorContinuous(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
-        elif self.translator_type == TranslatorType.DISCRETE:
-            self.translator = TranslatorDiscrete(self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
-            
-        else:
-            TypeError('Not Implemented Translator')
 
+        # Translator init
+        self.translator = get_translator(self.translator_type, self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
         self._result = None
 
     # the cegis loop
@@ -134,9 +112,6 @@ class Cegis:
         # needed to make hybrid work
         Sdot = [list(map(torch.tensor, map(self.f_learner, S))) for S in self.S ]
         S, Sdot = rotate(self.S, 1), rotate([torch.stack(sdot) for sdot in Sdot], 1) 
-
-        if self.learner_type == LearnerType.CONTINUOUS:
-            self.optimizer = torch.optim.AdamW(self.learner.parameters(), lr=self.learning_rate)
 
         stats = {}
         # the CEGIS loop
@@ -180,7 +155,8 @@ class Cegis:
             CegisStateKeys.found: False,
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
-            CegisStateKeys.trajectory: None
+            CegisStateKeys.trajectory: None,
+            CegisStateKeys.ENet: self.ENet
         }
 
         # reset timers
@@ -276,8 +252,8 @@ class Cegis:
         return S, Sdot
 
     def _assert_state(self):
-        assert self.verifier_type in [VerifierType.Z3, VerifierType.DREAL]
-        assert self.learner_type in [LearnerType.CONTINUOUS]
+        assert self.verifier_type in [VerifierType.Z3, VerifierType.DREAL, VerifierType.MARABOU]
+        assert self.learner_type in [LearnerType.CONTINUOUS, LearnerType.DISCRETE]
         assert self.batch_size > 0
         assert self.learning_rate > 0
         assert self.max_cegis_time > 0

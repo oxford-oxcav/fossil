@@ -14,11 +14,12 @@ from src.learner.learner import Learner
 from src.shared.utils import vprint
 
 class BarrierCertificate(Certificate):
-    def __init__(self, **kw) -> None:
-        self.initial_s = kw.get(CegisConfig.XI.k, CegisConfig.XI.v)
-        self.unsafe_s = kw.get(CegisConfig.XU.k, CegisConfig.XU.v)
-        self.domain = kw.get(CegisConfig.XD.k, CegisConfig.XD.v)
+    def __init__(self, domains,  **kw) -> None:
+        self.domain = domains[0]
+        self.initial_s = domains[1]
+        self.unsafe_s = domains[2]
         self.SYMMETRIC_BELT = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
+        self.bias = True
 
     def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
         """
@@ -44,7 +45,7 @@ class BarrierCertificate(Certificate):
             B_u, _, __ = learner.forward(S[1], Sdot[1])
 
             learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[1]) + len(S[2]))
+            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[0]) + len(S[1]))
             slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
             relu6 = torch.nn.ReLU6()
             # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()

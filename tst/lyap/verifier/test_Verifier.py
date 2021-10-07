@@ -25,12 +25,12 @@ class SimplifierTest(unittest.TestCase):
         domain = x*x + y*y + z*z <= 1
         return_value = 'result'
         t = 1
-        lc = LyapunovCertificate()
+        lc = LyapunovCertificate(domains=[domain])
 
         with mock.patch.object(Verifier, '_solver_solve') as s:
             # setup
             s.return_value = return_value
-            v = Verifier(3, lc.get_constraints, 0, domain, self.z3_vars)
+            v = Verifier(3, lc.get_constraints, 0, self.z3_vars)
             v.timeout = t
 
             # call tested function

@@ -15,6 +15,7 @@ class LearnerType(Enum):
 class VerifierType(Enum):
     Z3 = auto()
     DREAL = auto()
+    MARABOU = auto()
 
 
 class ConsolidatorType(Enum):

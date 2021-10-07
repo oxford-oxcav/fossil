@@ -21,20 +21,18 @@ import numpy as np
 
 
 def main():
-    batch_size = 500
+    batch_size = 2000
     system = partial(barr_2, batch_size)
     activations = [ActivationType.SOFTPLUS]
     hidden_neurons = [20]
     opts = {
         CegisConfig.N_VARS.k: 2,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER_ALTERNATE,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: False,
-        CegisConfig.SP_HANDLE.k: False,
         CegisConfig.SYMMETRIC_BELT.k: False,
     }
 

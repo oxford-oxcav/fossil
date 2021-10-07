@@ -37,6 +37,7 @@ def test_lnn():
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
         CegisConfig.SP_HANDLE.k: True,
+        CegisConfig.SP_SIMPLIFY.k: True,
         CegisConfig.INNER_RADIUS.k: inner_radius,
         CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
