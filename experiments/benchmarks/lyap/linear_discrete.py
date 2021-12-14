@@ -7,13 +7,13 @@
 # pylint: disable=not-callable
 import torch
 import timeit
-import numpy as np 
+import numpy as np
 
-from src.lyap.cegis_lyap import Cegis
+from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import linear_discrete
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import CertificateType, VerifierType, TimeDomain
 from functools import partial
 from src.plots.plot_lyap import plot_lyce_discrete
 
@@ -37,6 +37,7 @@ def test_lnn():
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
+        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,

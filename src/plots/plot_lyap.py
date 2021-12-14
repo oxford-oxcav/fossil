@@ -8,10 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from src.plots.plot_fcns import plotting_3d, vector_field
 from src.shared.sympy_converter import sympy_converter
-from matplotlib.patches import Rectangle
 import sympy as sp
-import z3 as z3
-from src.lyap.utils import get_symbolic_formula
 
 
 def set_title_and_label_3d(ax, x_label, y_label, z_label, title):

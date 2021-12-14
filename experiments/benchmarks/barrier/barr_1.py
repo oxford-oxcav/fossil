@@ -6,12 +6,12 @@
  
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import barr_1
-from src.barrier.cegis_barrier import Cegis
+from src.shared.components.cegis import Cegis
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from src.shared.activations import ActivationType
-from src.barrier.cegis_barrier import Cegis
+from src.shared.components.cegis import Cegis
 from src.plots.plot_barriers import plot_darboux_bench
 from functools import partial
 import numpy as np
@@ -29,11 +29,13 @@ def main():
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: 2,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+        CegisConfig.SP_HANDLE.k: True,
         CegisConfig.SP_SIMPLIFY.k: True,
     }
     c = Cegis(**opts)

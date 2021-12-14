@@ -7,8 +7,8 @@
 import unittest
 from unittest import mock
 from functools import partial
-from src.lyap.learner.NNContinuous import NNContinuous
-from src.shared.components.Consolidator import Consolidator
+from src.learner.net_continuous import NNContinuous
+from src.shared.components.consolidator import Consolidator
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import poly_2
 from src.shared.cegis_values import CegisStateKeys
@@ -19,7 +19,7 @@ class ConsolidatorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(poly_2, batch_size=500)
-        self.f, _, self.S_d = system(functions={'And': 0})
+        self.f, _, self.S_d, _ = system(functions={'And': 0})
         self.f_learner = partial(self.f, {'And': 0})
         self.hidden = [3]
         self.activate = [ActivationType.SQUARE]
@@ -52,7 +52,7 @@ class ConsolidatorTest(unittest.TestCase):
             traj = Consolidator(self.f_learner)
             state = {
                 CegisStateKeys.net: learner,
-                CegisStateKeys.cex: [point],
+                CegisStateKeys.cex: [[point]],
                 CegisStateKeys.trajectory: None,
             }
             output = traj.get(**state)

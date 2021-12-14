@@ -9,13 +9,13 @@ from unittest import mock
 from functools import partial
 import numpy as np
 import sympy as sp
-from src.lyap.learner.NNContinuous import NNContinuous
-from src.lyap.learner.NNContinuous import NNDiscrete
-from src.shared.components.TranslatorContinuous import TranslatorContinuous
-from src.shared.components.TranslatorDiscrete import TranslatorDiscrete
+from src.learner.net_continuous import NNContinuous
+from src.learner.net_discrete import NNDiscrete
+from src.translator.translator_continuous import TranslatorContinuous
+from src.translator.translator_discrete import TranslatorDiscrete
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisStateKeys
-from src.lyap.verifier.z3verifier import Z3Verifier
+from src.verifier.z3verifier import Z3Verifier
 from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 
@@ -24,7 +24,7 @@ class TranslatorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(poly_2, batch_size=500)
-        self.f, _, self.S_d = system(functions={'And': 0})
+        self.f, _, self.S_d, _ = system(functions={'And': 0})
         self.f_learner = partial(self.f, {'And': 0})
         self.f_verifier = partial(self.f, {'And': 0})
         self.hidden = [3]
@@ -79,7 +79,7 @@ class TranslatorDiscreteTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
         system = partial(poly_2, batch_size=500)
-        self.f, _, self.S_d = system(functions={'And': 0})
+        self.f, _, self.S_d, _ = system(functions={'And': 0})
         self.f_learner = partial(self.f, {'And': 0})
         self.f_verifier = partial(self.f, {'And': 0})
         self.hidden = [3]

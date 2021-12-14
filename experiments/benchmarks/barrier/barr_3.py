@@ -13,9 +13,9 @@ import numpy as np
 import timeit
 
 from experiments.benchmarks.benchmarks_bc import barr_3
-from src.barrier.cegis_barrier import Cegis
+from src.shared.components.cegis import Cegis
 from src.shared.activations import ActivationType
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.plots.plot_barriers import plot_pjmod_bench
 
@@ -29,13 +29,12 @@ def main():
     hidden_neurons = [20]*len(activations)
     opts = {
         CegisConfig.N_VARS.k: 2,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: False,
-        CegisConfig.SP_HANDLE.k: False,
     }
 
     start = timeit.default_timer()

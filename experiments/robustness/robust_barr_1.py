@@ -15,10 +15,10 @@ from tqdm import tqdm
 
 from experiments.benchmarks.benchmarks_bc import barr_1
 from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
-from src.barrier.cegis_barrier import Cegis
+from src.shared.components.cegis import Cegis
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 
 
 def test_robustness(h):
@@ -32,7 +32,7 @@ def test_robustness(h):
         CegisConfig.N_VARS.k: 2,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,

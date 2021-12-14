@@ -15,6 +15,7 @@ class LearnerType(Enum):
 class VerifierType(Enum):
     Z3 = auto()
     DREAL = auto()
+    MARABOU = auto()
 
 
 class ConsolidatorType(Enum):
@@ -39,4 +40,10 @@ class TimeDomain(Enum):
 
 class PrimerMode(Enum):
     BARRIER = auto()
+    LYAPUNOV = auto()
+
+
+class CertificateType(Enum):
+    BARRIER = auto()
+    BARRIER_ALTERNATE = auto()
     LYAPUNOV = auto()

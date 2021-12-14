@@ -6,12 +6,11 @@
  
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import hi_ord_6
-from src.shared.consts import VerifierType, TimeDomain
+from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.barrier.cegis_barrier import Cegis
+from src.shared.components.cegis import Cegis
 from functools import partial
-import traceback
 import timeit
 import torch
 
@@ -24,6 +23,7 @@ def main():
     hidden_neurons = [10]
     opts = {
         CegisConfig.N_VARS.k: 6,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
