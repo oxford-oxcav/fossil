@@ -21,7 +21,7 @@ from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
-    batch_size = 2000
+    batch_size = 500
     system = partial(barr_3, batch_size)
     activations = [
                     ActivationType.SIGMOID, ActivationType.SIGMOID

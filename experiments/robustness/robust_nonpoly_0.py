@@ -66,7 +66,7 @@ if __name__ == '__main__':
                                             'lrn_time', 'reg_time', 'ver_time', 'trj_time'])
 
                 for idx in range(number_of_runs):
-                    el_time, found, comp_times, iters = test_robustness(benchmark=nonpoly0, n_vars=2,
+                    el_time, found, comp_times, iters = test_robustness(benchmark=nonpoly0_lyap, n_vars=2,
                                                                 domain=domain, hidden=hidden)
                     res = res.append({'found': found, 'iters': iters,
                                     'elapsed_time': el_time,

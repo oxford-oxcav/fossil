@@ -7,13 +7,16 @@
 import math
 
 import matplotlib.pyplot as plt
+from z3 import z3
+import dreal
+
 from experiments.benchmarks.domain_fcns import *
+import experiments.benchmarks.models as models
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
 # by Zhao H. et al
 # HSCC 2020
-from z3 import z3
 
 inf = 1e300
 inf_bounds = [-inf, inf]
@@ -21,6 +24,7 @@ inf_bounds = [-inf, inf]
 
 def inf_bounds_n(n):
     return [inf_bounds] * n
+
 
 
 def prajna07_simple(batch_size, functions, **kw):
@@ -117,34 +121,19 @@ def barr_3(batch_size, functions, **kw):
     return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
 
 
-def barr_1(batch_size, functions, **kw):
-    _And = functions['And']
+def barr_1():
+    _And = dreal.And
+    batch_size = 500
 
-    def f(_, v):
-        x, y = v
-        return [y + 2*x*y, -x - y**2 + 2*x**2]
+    f = models.Barr1()
 
-    def XD(_, v):
-        x, y = v
-        return _And(-2 <= x, x <= 2, -2 <= y, y <= 2)
-    def XI(_, v):
-        x, y = v
-        return _And(0 <= x, x <= 1, 1 <= y, y <= 2)
+    XD = Rectangle([-2, -2], [2, 2])
+    XI = Rectangle([0, 1], [1, 2])
 
-    def XU(_, v):
+    def XU(v):
         x, y = v
         return x + y**2 <= 0
-
-    def SD():
-        domain = [[-2, -2], [2, 2]]
-        dom = square_init_data(domain, batch_size)
-        return dom
-
-    def SI():
-        # domain = [ [x_l, y_l], [x_u, y_u] ]
-        domain = [ [0, 1], [1, 2] ]
-        dom = square_init_data(domain, batch_size)
-        return dom
+    domains = {'lie': XD.generate_domain, 'init': XI.generate_domain, 'unsafe': XU}
 
     def SU():
         # find points in parabola x + y**2 <= 0
@@ -156,7 +145,8 @@ def barr_1(batch_size, functions, **kw):
             points += dom[idx][:, 0, :]
         return torch.stack(points[:batch_size])
 
-    return f, [XD, XI, XU], [SD(), SI(), SU()], inf_bounds_n(2)
+    data = {'lie': XD.generate_data(batch_size), 'init': XI.generate_data(batch_size), 'unsafe': SU()}
+    return f, domains, data, inf_bounds_n(2)
 
 
 def barr_2(batch_size, functions, **kw):

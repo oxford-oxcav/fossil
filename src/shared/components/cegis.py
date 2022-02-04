@@ -6,25 +6,24 @@
  
 import logging
 from functools import partial
-from src.certificate.certificate_utils import get_certificate
 
 import numpy as np
-import sympy as sp
 import torch
-from src.shared.cegis_values import (CegisComponentsState, CegisConfig,
-                                     CegisStateKeys)
-from src.shared.components.consolidator import Consolidator
-from src.shared.consts import (CertificateType, ConsolidatorType, LearnerType,
-                               VerifierType)
-from src.shared.utils import print_section, rotate, vprint
-from src.translator.translator_utils import get_translator, get_translator_type
-from src.verifier.verifier_utils import get_verifier_type, get_verifier
-from src.learner.learner_utils import get_learner
-
 try:
     import dreal as dr
 except Exception as e:
     logging.exception('Exception while importing dReal')
+
+from src.certificate.certificate_utils import get_certificate
+from src.learner.learner_utils import get_learner
+from src.shared.cegis_values import (CegisComponentsState, CegisConfig,
+                                     CegisStateKeys)
+from src.shared.components.consolidator import Consolidator
+from src.shared.consts import ConsolidatorType, LearnerType, VerifierType
+from src.shared.utils import print_section, rotate, vprint
+from src.translator.translator_utils import get_translator, get_translator_type
+from src.verifier.verifier_utils import get_verifier, get_verifier_type
+
 
 
 class Cegis:
@@ -40,13 +39,9 @@ class Cegis:
         self.learner_type = get_learner(self.time_domain)
         self.translator_type = get_translator_type(self.time_domain, self.verifier_type)
         # benchmark opts
-        self.inner = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
-        self.outer = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.activations = kw[CegisConfig.ACTIVATION.k]
         self.system = kw[CegisConfig.SYSTEM.k]
-        self.sp_simplify = kw.get(CegisConfig.SP_SIMPLIFY.k, CegisConfig.SP_SIMPLIFY.v)
-        self.sp_handle = kw.get(CegisConfig.SP_HANDLE.k, CegisConfig.SP_HANDLE.v)
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.eq = kw.get(CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n))
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
@@ -65,17 +60,15 @@ class Cegis:
         self.x_map = {str(x): x for x in self.x}
 
         self.f, self.f_domains, self.S, vars_bounds = \
-            self.system(functions=verifier.solver_fncts(), inner=self.inner, outer=self.outer)
-        # self.S_d = self.S_d.requires_grad_(True)
+            self.system()
 
-        # self.verifier = verifier(self.n, self.domain, self.initial_s, self.unsafe, vars_bounds, self.x)
-        self.domains = [f_domain(verifier.solver_fncts(), self.x) for f_domain in self.f_domains]
+        self.domains = {lab: dom(self.x) for lab,dom in self.f_domains.items()}
         certificate = get_certificate(self.certificate_type)
         self.certificate = certificate(domains=self.domains, **kw)
 
-        self.verifier = get_verifier(verifier, self.n, self.certificate.get_constraints, vars_bounds, self.x, self.domains[0], **kw)
+        self.verifier = get_verifier(verifier, self.n, self.certificate.get_constraints, vars_bounds, self.x, **kw)
 
-        self.xdot = self.f(self.verifier.solver_fncts(), self.x)
+        self.xdot = self.f(self.x)
         self.x = np.array(self.x).reshape(-1, 1)
         self.xdot = np.array(self.xdot).reshape(-1, 1)
 
@@ -87,16 +80,9 @@ class Cegis:
         self.f_verifier = partial(self.f, self.verifier.solver_fncts())
         self.f_learner = partial(self.f, self.learner.learner_fncts())
 
-        if self.sp_handle:
-            self.x = [sp.Symbol('x%d' % i, real=True) for i in range(self.n)]
-            self.xdot = self.f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, self.x)
-            self.x_map = {**self.x_map, **self.verifier.solver_fncts()}
-            self.x, self.xdot = np.array(self.x).reshape(-1,1), np.array(self.xdot).reshape(-1,1)
-        else:
-            self.x_sympy, self.xdot_s = None, None
 
         if self.consolidator_type == ConsolidatorType.DEFAULT:
-            self.consolidator = Consolidator(self.f_learner)
+            self.consolidator = Consolidator(self.f)
         else:
             TypeError('Not Implemented Consolidator')
 
@@ -104,16 +90,11 @@ class Cegis:
         self.translator = get_translator(self.translator_type, self.learner, self.x, self.xdot, self.eq, self.rounding, **kw)
         self._result = None
 
-    # the cegis loop
-    # todo: fix return, fix map(f, S)
     def solve(self):
 
-        # Sdot = self.f_learner(self.S_d.T)
-        # needed to make hybrid work
-        Sdot = [list(map(torch.tensor, map(self.f_learner, S))) for S in self.S ]
-        S, Sdot = rotate(self.S, 1), rotate([torch.stack(sdot) for sdot in Sdot], 1) 
+        Sdot = {lab: self.f(S) for lab, S in self.S.items()}
+        S = self.S
 
-        stats = {}
         # the CEGIS loop
         iters = 0
         stop = False
@@ -147,7 +128,6 @@ class Cegis:
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
             CegisStateKeys.factors: self.fcts,
-            CegisStateKeys.sp_handle: self.sp_handle,
             CegisStateKeys.V: None,
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
@@ -194,10 +174,10 @@ class Cegis:
 
             iters += 1
             if not (state[CegisStateKeys.found] or state[CegisStateKeys.verification_timed_out]):
-                self.learner.find_closest_unsat(state[CegisStateKeys.S], state[CegisStateKeys.S_dot])
-                if len(state[CegisStateKeys.cex]) == 3 or len(state[CegisStateKeys.cex]) == 1:
-                    state[CegisStateKeys.cex][-1] = torch.cat([state[CegisStateKeys.cex][-1],
-                                                             state[CegisStateKeys.trajectory]])
+                if state[CegisStateKeys.trajectory] != []:
+                    lie_label = [key for key in S.keys() if 'lie' in key][0]
+                    state[CegisStateKeys.cex][lie_label] = torch.cat([state[CegisStateKeys.cex][lie_label], 
+                                                            state[CegisStateKeys.trajectory]])
                 state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = \
                     self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot],
                                          state[CegisStateKeys.cex])
@@ -212,7 +192,7 @@ class Cegis:
         vprint(['Verifier times: {}'.format(self.verifier.get_timer())], self.verbose)
         vprint(['Consolidator times: {}'.format(self.consolidator.get_timer())], self.verbose)
 
-        self._result = state, self.x, self.f_learner, iters
+        self._result = state, self.x, self.f, iters
         return self._result
 
     @property
@@ -228,27 +208,10 @@ class Cegis:
                 S: torch tensor, added new ctx
                 Sdot torch tensor, added  f(new_ctx)
         """
-        for idx in range(len(ces)):
-            if len(ces[idx]) != 0:
-                S[idx] = torch.cat([S[idx], ces[idx]], dim=0).detach()
-                # Sdot[idx] = torch.stack(self.f_learner(S[idx].T)).T
-                Sdot[idx] = list(map(torch.tensor, map(self.f_learner, S[idx])))
-                Sdot[idx] = torch.stack(Sdot[idx])
-
-                # S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
-                # Sdot[idx] = torch.cat([Sdot[idx],
-                #                       torch.stack(list(map(torch.tensor,
-                #                                   map(self.f_learner, ces[idx]))))], dim=0)
-        return S, Sdot
-
-    def consolidator_method(self, S, Sdot, ces):
-        ce = ces[0]
-        if len(ce) > 0:
-            point = ce[-1]
-            point.requires_grad = True
-            trajectory = compute_trajectory(self.learner, point, self.f_learner)
-            S, Sdot = self.add_ces_to_data(S, Sdot, [torch.stack(trajectory), [], []])
-
+        for lab, cex in ces.items():
+            if cex != []:
+                S[lab] = torch.cat([S[lab], cex], dim=0).detach()
+                Sdot[lab] = self.f(S[lab])
         return S, Sdot
 
     def _assert_state(self):

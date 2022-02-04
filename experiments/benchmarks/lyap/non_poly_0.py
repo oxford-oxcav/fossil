@@ -13,18 +13,12 @@ from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from src.plots.plot_lyap import plot_lyce
-from functools import partial
 
 
 def test_lnn():
-    batch_size = 500
-    benchmark = nonpoly0
+    benchmark = nonpoly0_lyap
     n_vars = 2
-    system = partial(benchmark, batch_size)
-
-    # define domain constraints
-    outer_radius = 10
-    inner_radius = 0.01
+    system = benchmark
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
@@ -39,19 +33,17 @@ def test_lnn():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.INNER_RADIUS.k: inner_radius,
-        CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
     c = Cegis(**opts)
-    state, vars, f_learner, iters = c.solve()
+    state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print('Elapsed Time: {}'.format(stop-start))
 
     # plotting -- only for 2-d systems
     if len(vars) == 2 and state[CegisStateKeys.found]:
         plot_lyce(np.array(vars), state[CegisStateKeys.V],
-                  state[CegisStateKeys.V_dot], f_learner)
+                  state[CegisStateKeys.V_dot], f)
 
 
 if __name__ == '__main__':

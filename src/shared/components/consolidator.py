@@ -21,13 +21,11 @@ class Consolidator(Component):
         self.f = f
 
     def get(self, **kw):
-        if all([c == [] for c in kw[CegisStateKeys.cex]]):  # not elegant but works
-            return {CegisStateKeys.trajectory: []}
-        elif len(kw[CegisStateKeys.cex]) == 2 :  # barrier case, S_d is empty, no traj needed
+        for label, cex in kw[CegisStateKeys.cex].items():
+            if 'lie' in label and cex != []:   # Trying to 'generalise' when we use the trajectoriser
+                return self.compute_trajectory(kw[CegisStateKeys.net], cex[-1])
+            else:
                 return {CegisStateKeys.trajectory: []}
-        else:
-            return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1][-1])
-
 
     # computes the gradient of V, Vdot in point
     # computes a 20-step trajectory (20 is arbitrary) starting from point
@@ -97,7 +95,7 @@ class Consolidator(Component):
                 Vdot: tensor, evaluation of x in derivative net
         """
         y = x[None, :]
-        xdot = torch.stack(self.f(y.T))
+        xdot = self.f(y)
         jacobian = torch.diag_embed(torch.ones(x.shape[0], net.input_size))
 
         for idx, layer in enumerate(net.layers[:-1]):

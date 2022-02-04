@@ -15,13 +15,13 @@ from src.shared.utils import vprint
 
 class BarrierCertificate(Certificate):
     def __init__(self, domains,  **kw) -> None:
-        self.domain = domains[0]
-        self.initial_s = domains[1]
-        self.unsafe_s = domains[2]
+        self.domain = domains['lie']
+        self.initial_s = domains['init']
+        self.unsafe_s = domains['unsafe']
         self.SYMMETRIC_BELT = kw.get(CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v)
         self.bias = True
 
-    def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
+    def learn(self, learner: Learner, optimizer: Optimizer, S: dict, Sdot: dict) -> dict:
         """
         :param learner: learner object
         :param optimizer: torch optimiser
@@ -34,21 +34,23 @@ class BarrierCertificate(Certificate):
         learn_loops = 1000
         margin = 0.1
         condition_old = False
+        i1 = S['lie'].shape[0]
+        i2 = S['init'].shape[0]
+        S_cat, Sdot_cat = torch.cat([s for s in S.values()]), torch.cat([sdot for sdot in Sdot.values()])
 
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            # permutation_index = torch.randperm(S[0].size()[0])
-            # permuted_S, permuted_Sdot = S[0][permutation_index], S_dot[0][permutation_index]
-            B_d, Bdot_d, __ = learner.forward(S[2], Sdot[2])
-            B_i, _, __ = learner.forward(S[0], Sdot[0])
-            B_u, _, __ = learner.forward(S[1], Sdot[1])
+            # This seems slightly faster
+            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B_d, Bdot_d,  = B[:i1], Bdot[:i1]
+            B_i = B[i1:i1+i2]
+            B_u = B[i1+i2:]
 
             learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S[0]) + len(S[1]))
-            slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+            percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(S['unsafe']) + len(S['init']))
+            slope = 1 / 10 ** 4  
             relu6 = torch.nn.ReLU6()
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
             loss = (torch.relu(B_i + margin) - slope*relu6(-B_i + margin)).mean() \
                     + (torch.relu(-B_u + margin) - slope*relu6(B_u + margin)).mean()
 
@@ -66,7 +68,6 @@ class BarrierCertificate(Certificate):
 
                 loss = loss - (relu6(-dB_belt + 0*margin)).mean()
 
-            # loss = loss + (100-percent_accuracy)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 vprint((t, "- loss:", loss.item(), '- accuracy init-unsafe:', percent_accuracy_init_unsafe,
@@ -109,8 +110,6 @@ class BarrierCertificate(Certificate):
         inital_constr = _And(initial_constr, self.domain)
         unsafe_constr = _And(unsafe_constr, self.domain)
 
-        #TODO: will intial_s (etc) be stored in verfier, or should it be here?
-        #TODO: Add 'failsafe' constraints 
         for cs in (
             {'init': inital_constr, 'unsafe': unsafe_constr}, 
             {'lie': lie_constr}

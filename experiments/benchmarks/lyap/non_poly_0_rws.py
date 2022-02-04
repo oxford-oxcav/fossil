@@ -5,44 +5,47 @@
 # LICENSE file in the root directory of this source tree. 
  
 # pylint: disable=not-callable
-from experiments.benchmarks.benchmarks_bc import barr_1
+import torch
+import timeit
 from src.shared.components.cegis import Cegis
+from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
-from src.shared.activations import ActivationType
-from src.shared.components.cegis import Cegis
-from src.plots.plot_barriers import plot_darboux_bench
-import numpy as np
-import timeit
-import torch
+from src.plots.plot_lyap import plot_lyce
 
 
-def main():
-    system = barr_1
-    activations = [ActivationType.LINEAR]
-    hidden_neurons = [10] * len(activations)
+def test_lnn():
+    benchmark = nonpoly0_rws
+    n_vars = 2
+    system = benchmark
+
+    # define NN parameters
+    activations = [ActivationType.TANH]
+    n_hidden_neurons = [10] * len(activations)
+
     start = timeit.default_timer()
     opts = {
-        CegisConfig.N_VARS.k: 2,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
+        CegisConfig.N_VARS.k: n_vars,
+        CegisConfig.CERTIFICATE.k: CertificateType.RWS,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
+        CegisConfig.LLO.k: True,
     }
     c = Cegis(**opts)
-    state, vars, f_learner, iters = c.solve()
-    end = timeit.default_timer()
-    print('Elapsed Time: {}'.format(end - start))
-    print("Found? {}".format(state[CegisStateKeys.found]))
+    state, vars, f, iters = c.solve()
+    stop = timeit.default_timer()
+    print('Elapsed Time: {}'.format(stop-start))
 
     # plotting -- only for 2-d systems
-    if state[CegisStateKeys.found]:
-        plot_darboux_bench(np.array(vars), state[CegisStateKeys.V])
+    if len(vars) == 2 and state[CegisStateKeys.found]:
+        plot_lyce(np.array(vars), state[CegisStateKeys.V],
+                  state[CegisStateKeys.V_dot], f)
 
 
 if __name__ == '__main__':
     torch.manual_seed(167)
-    main()
+    test_lnn()

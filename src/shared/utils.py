@@ -3,12 +3,14 @@
 # 
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
- 
+from collections.abc import Iterable
+
 import numpy as np
 import sympy as sp
 import timeit
 import signal
 from z3 import *
+import dreal
 import torch
 import functools
 from src.shared.activations import activation, activation_der
@@ -524,3 +526,22 @@ class Timeout:
 class FailedSynthesis(Exception):
     """Exception raised in Primer if CEGIS fails to synthesise"""
     pass
+
+
+def is_iterable(x):
+    return isinstance(x, Iterable)
+
+def contains_object(x, obj):
+    if is_iterable(x):
+        return contains_object(next(iter(x)), obj)
+    else:
+        return isinstance(x, obj)
+
+
+if __name__ == "__main__":
+    import dreal
+    x = Real('x')
+    xd = dreal.Variable('xd')
+    l = np.array([[xd]])
+    # l = torch.rand((2,1))
+    print(contains_object(l, dreal.Variable))

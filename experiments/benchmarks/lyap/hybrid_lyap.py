@@ -23,7 +23,7 @@ import torch
 def main():
 
     batch_size = 1000
-    system = partial(twod_hybrid, batch_size)
+    system = twod_hybrid
     activations = [ActivationType.SQUARE]
     hidden_neurons = [10] * len(activations)
 

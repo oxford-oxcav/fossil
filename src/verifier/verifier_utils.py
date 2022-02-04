@@ -25,6 +25,6 @@ def get_verifier_type(verifier: Literal) -> Verifier:
     else:
         raise ValueError('No verifier of type {}'.format(verifier))
 
-def get_verifier(verifier, n_vars, constraints_method, vars_bounds, solver_vars, whole_domain, **kw):
+def get_verifier(verifier, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
     if verifier == DRealVerifier or verifier == Z3Verifier or verifier == MarabouVerifier:
         return verifier(n_vars, constraints_method, vars_bounds, solver_vars, **kw)

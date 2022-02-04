@@ -7,6 +7,7 @@
 from z3 import *
 
 from src.verifier.verifier import Verifier
+from src.shared.utils import contains_object
 
 
 class Z3Verifier(Verifier):
@@ -18,8 +19,16 @@ class Z3Verifier(Verifier):
         return z3.Solver()
 
     @staticmethod
+    def check_type(x) -> bool:
+        """
+        :param x: any
+        :returns: True if Dreal compatible, else false
+        """
+        return contains_object(x, ArithRef)
+
+    @staticmethod
     def solver_fncts() -> {}:
-        return {'And': And, 'Or': Or, 'If': If}
+        return {'And': And, 'Or': Or, 'If': If, 'Check': Z3Verifier.check_type}
 
     def is_sat(self, res) -> bool:
         return res == sat
