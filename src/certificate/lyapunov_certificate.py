@@ -11,13 +11,11 @@ from torch.optim import Optimizer
 from src.certificate.certificate import Certificate
 from src.shared.cegis_values import CegisConfig
 from src.learner.learner import Learner
-from src.shared.consts import LearningFactors
 from src.shared.utils import vprint
 
 class LyapunovCertificate(Certificate):
     """
-    Certificate object for Lyapunov function synthesis
-    Keyword arguments:
+    Certificies stability for CT and DT models
     bool LLO: last layer of ones in network
     XD: Symbolic formula of domain
     

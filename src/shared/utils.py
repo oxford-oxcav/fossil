@@ -1,32 +1,37 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
+# LICENSE file in the root directory of this source tree.
 from collections.abc import Iterable
+import timeit
+import signal
+import functools
 
 import numpy as np
 import sympy as sp
-import timeit
-import signal
 from z3 import *
 import dreal
 import torch
-import functools
+
 from src.shared.activations import activation, activation_der
 from src.shared.activations_symbolic import activation_z3, activation_der_z3
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import LearningFactors
 
+
 def check_sympy_expression(state, system):
     V, Vdot = state[CegisStateKeys.V], state[CegisStateKeys.V_dot]
     if z3.is_expr(V):
-        f, _, __, _ = system(functions={'And': None})
-        x = [sp.Symbol('x%d' % i, real=True) for i in range(2)]
-        xdot = f({'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp}, x)
-        V, Vdot = get_symbolic_formula(state[CegisStateKeys.net], sp.Matrix(x), sp.Matrix(xdot))
+        f, _, __, _ = system(functions={"And": None})
+        x = [sp.Symbol("x%d" % i, real=True) for i in range(2)]
+        xdot = f({"sin": sp.sin, "cos": sp.cos, "exp": sp.exp}, x)
+        V, Vdot = get_symbolic_formula(
+            state[CegisStateKeys.net], sp.Matrix(x), sp.Matrix(xdot)
+        )
 
     return V, Vdot
+
 
 def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
     """
@@ -54,11 +59,12 @@ def get_symbolic_formula(net, x, xdot, equilibrium=None, rounding=3, lf=None):
 
     assert z.shape == (1, 1)
     # V = NN(x) * E(x)
-    E, derivative_e = compute_factors(equilibrium, np.array(x).reshape(1,-1), lf)
+    E, derivative_e = compute_factors(equilibrium, np.array(x).reshape(1, -1), lf)
 
     # gradV = der(NN) * E + dE/dx * NN
-    gradV = np.multiply(jacobian, np.broadcast_to(E, jacobian.shape)) \
-            + np.multiply(derivative_e, np.broadcast_to(z[0,0], jacobian.shape))
+    gradV = np.multiply(jacobian, np.broadcast_to(E, jacobian.shape)) + np.multiply(
+        derivative_e, np.broadcast_to(z[0, 0], jacobian.shape)
+    )
     # Vdot = gradV * f(x)
     Vdot = gradV @ xdot
 
@@ -153,17 +159,25 @@ def compute_factors(equilibrium, x, lf):
     """
     if lf == LearningFactors.QUADRATIC:  # quadratic terms
         E, temp = 1, []
-        factors = np.full(shape=(equilibrium.shape[0], x.shape[0]), dtype=object, fill_value=0)
-        for idx in range(equilibrium.shape[0]): # number of equilibrium points
-            E *= sum(np.power((x.T - equilibrium[idx, :].reshape(x.T.shape)), 2).T)[0,0]
-            factors[idx] = (x.T - equilibrium[idx, :].reshape(x.T.shape))
+        factors = np.full(
+            shape=(equilibrium.shape[0], x.shape[0]), dtype=object, fill_value=0
+        )
+        for idx in range(equilibrium.shape[0]):  # number of equilibrium points
+            E *= sum(np.power((x.T - equilibrium[idx, :].reshape(x.T.shape)), 2).T)[
+                0, 0
+            ]
+            factors[idx] = x.T - equilibrium[idx, :].reshape(x.T.shape)
         # derivative = 2*(x-eq)*E/E_i
         grad_e = sp.zeros(1, x.shape[0])
         for var in range(x.shape[0]):
             for idx in range(equilibrium.shape[0]):
                 grad_e[var] += sp.simplify(
-                    E * factors[idx, var] / sum(np.power((x.T - equilibrium[idx, :].reshape(x.T.shape)), 2).T)[0,0]
-                            )
+                    E
+                    * factors[idx, var]
+                    / sum(
+                        np.power((x.T - equilibrium[idx, :].reshape(x.T.shape)), 2).T
+                    )[0, 0]
+                )
         derivative_e = 2 * grad_e
     else:  # no factors
         E, derivative_e = 1.0, 0.0
@@ -185,8 +199,10 @@ def weights_projection(net, equilibrium, rounding, z):
     if c_mat == sp.zeros(c_mat.shape[0], c_mat.shape[1]):
         projection_mat = sp.eye(net.layers[-1].weight.shape[1])
     else:
-        projection_mat = sp.eye(net.layers[-1].weight.shape[1]) \
-                         - c_mat.T * (c_mat @ c_mat.T)**(-1) @ c_mat
+        projection_mat = (
+            sp.eye(net.layers[-1].weight.shape[1])
+            - c_mat.T * (c_mat @ c_mat.T) ** (-1) @ c_mat
+        )
     # make the projection w/o gradient operations with torch.no_grad
     if rounding > 0:
         last_layer = np.round(net.layers[-1].weight.data.numpy(), rounding)
@@ -196,7 +212,6 @@ def weights_projection(net, equilibrium, rounding, z):
     new_last_layer = sp.Matrix(last_layer @ projection_mat)
 
     return new_last_layer
-
 
 
 def z3_replacements(expr, z3_vars, ctx):
@@ -231,8 +246,6 @@ def dreal_replacements(expr, dr_vars, ctx):
         replacements = {dr_vars[i]: ctx[i, 0] for i in range(len(dr_vars))}
 
     return expr.Substitute(replacements)
-
-
 
 
 def z3_to_string(f):
@@ -271,16 +284,16 @@ def to_rational(x):
 
 def to_numpy(x):
     """
-       :param x: a Z3 numerical representation of a number
-       :return: numpy's rational representation
-       """
-    x = str(x).replace('?', '0')
+    :param x: a Z3 numerical representation of a number
+    :return: numpy's rational representation
+    """
+    x = str(x).replace("?", "0")
     return np.float(sp.Rational(x))
 
 
 def print_section(word, k):
     print("=" * 80)
-    print(' ', word, ' ', k)
+    print(" ", word, " ", k)
     print("=" * 80)
 
 
@@ -343,7 +356,7 @@ def compute_bounds(n_vars, f, equilibrium):
     """
     x0 = equilibrium
     # real=True should consider only real sols
-    x_sp = [sp.Symbol('x%d' % i, real=True) for i in range(n_vars)]
+    x_sp = [sp.Symbol("x%d" % i, real=True) for i in range(n_vars)]
     sols = compute_equilibria(f(x_sp))
     # sols = check_real_solutions(sols, x_sp) # removes imaginary solutions
     min_dist = np.inf
@@ -380,7 +393,11 @@ def compute_trajectory(net, point, f):
         # compute gradient of Vdot
         gradient, num_vdot_value = compute_Vdot_grad(net, point, f)
         # set break conditions
-        if abs(num_vdot_value_old - num_vdot_value) < 1e-3 or num_vdot_value > 1e6 or (gradient > 1e6).any():
+        if (
+            abs(num_vdot_value_old - num_vdot_value) < 1e-3
+            or num_vdot_value > 1e6
+            or (gradient > 1e6).any()
+        ):
             break
         else:
             num_vdot_value_old = num_vdot_value
@@ -433,18 +450,23 @@ def forward_Vdot(net, x, f):
         z = layer(y)
         y = activation(net.acts[idx], z)
         jacobian = torch.matmul(layer.weight, jacobian)
-        jacobian = torch.matmul(torch.diag_embed(activation_der(net.acts[idx], z)), jacobian)
+        jacobian = torch.matmul(
+            torch.diag_embed(activation_der(net.acts[idx], z)), jacobian
+        )
 
     jacobian = torch.matmul(net.layers[-1].weight, jacobian)
 
     return torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)[0]
 
+
 def vprint(arg, verbose=True):
     if verbose:
         print(*arg)
 
+
 def rotate(l: list, x: int):
     return l[x:] + l[:x]
+
 
 def timer(t):
     assert isinstance(t, Timer)
@@ -456,7 +478,9 @@ def timer(t):
             x = f(*a, **kw)
             t.stop()
             return x
+
         return wrapper
+
     return dec
 
 
@@ -502,14 +526,14 @@ class Timer:
 
     def __repr__(self):
         return "total={}s,min={}s,max={}s,avg={}s".format(
-                self._sum, self.min, self.max, self.avg
+            self._sum, self.min, self.max, self.avg
         )
 
 
 class Timeout:
-# from https://stackoverflow.com/a/22348885
-# Requires UNIX
-    def __init__(self, seconds=1, error_message='Timeout'):
+    # from https://stackoverflow.com/a/22348885
+    # Requires UNIX
+    def __init__(self, seconds=1, error_message="Timeout"):
         self.seconds = seconds
         self.error_message = error_message
 
@@ -523,13 +547,16 @@ class Timeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
+
 class FailedSynthesis(Exception):
     """Exception raised in Primer if CEGIS fails to synthesise"""
+
     pass
 
 
 def is_iterable(x):
     return isinstance(x, Iterable)
+
 
 def contains_object(x, obj):
     if is_iterable(x):
@@ -540,8 +567,9 @@ def contains_object(x, obj):
 
 if __name__ == "__main__":
     import dreal
-    x = Real('x')
-    xd = dreal.Variable('xd')
+
+    x = Real("x")
+    xd = dreal.Variable("xd")
     l = np.array([[xd]])
     # l = torch.rand((2,1))
     print(contains_object(l, dreal.Variable))

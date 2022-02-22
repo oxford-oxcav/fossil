@@ -6,24 +6,29 @@
 
 # pylint: disable=not-callable
 
-from src.shared.component import Component
 from typing import Literal
+
+from src.shared.component import Component
 from src.translator.translator_continuous import TranslatorContinuous
 from src.translator.translator_discrete import TranslatorDiscrete
 from src.translator.translator_marabou import MarabouTranslator
 from src.shared.consts import VerifierType, TimeDomain
 
+
 def get_translator_type(time_domain: Literal, verifier: Literal) -> Component:
     if verifier == VerifierType.MARABOU:
         if time_domain != TimeDomain.DISCRETE:
-            raise ValueError("Marabou verifier not compatible with continuous-time dynamics")
+            raise ValueError(
+                "Marabou verifier not compatible with continuous-time dynamics"
+            )
         return MarabouTranslator
     elif time_domain == TimeDomain.DISCRETE:
         return TranslatorDiscrete
     elif time_domain == TimeDomain.CONTINUOUS:
         return TranslatorContinuous
     else:
-        TypeError('Not Implemented Translator')
+        TypeError("Not Implemented Translator")
+
 
 def get_translator(translator_type: Component, net, x, xdot, eq, rounding, **kw):
     if translator_type == TranslatorContinuous or translator_type == TranslatorDiscrete:

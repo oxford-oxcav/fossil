@@ -1,24 +1,33 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import torch
 import torch.nn as nn
 
-from src.shared.cegis_values import CegisConfig ,CegisStateKeys
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import LearningFactors
 from src.learner.learner import Learner
-from src.shared.activations import ActivationType, activation, activation_der
-from src.shared.utils import Timer, timer, get_symbolic_formula, vprint
-from src.shared.sympy_converter import sympy_converter
+from src.shared.activations import ActivationType, activation
+from src.shared.utils import Timer, timer
 
 T = Timer()
 
 
 class NNDiscrete(nn.Module, Learner):
-    def __init__(self, input_size, learn_method, *args, bias=True, activate=[ActivationType.LIN_SQUARE], equilibria=0, llo=False, **kw):
+    def __init__(
+        self,
+        input_size,
+        learn_method,
+        *args,
+        bias=True,
+        activate=[ActivationType.LIN_SQUARE],
+        equilibria=0,
+        llo=False,
+        **kw
+    ):
         super(NNDiscrete, self).__init__()
 
         self.input_size = input_size
@@ -47,7 +56,7 @@ class NNDiscrete(nn.Module, Learner):
         if llo:
             layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
             self.layers.append(layer)
-        else:          # free output layer
+        else:  # free output layer
             self.register_parameter("W" + str(k), layer.weight)
             self.layers.append(layer)
         self.learn_method = learn_method
@@ -55,12 +64,12 @@ class NNDiscrete(nn.Module, Learner):
     @staticmethod
     def learner_fncts():
         return {
-            'sin': torch.sin,
-            'cos': torch.cos,
-            'exp': torch.exp,
-            'If': lambda cond, _then, _else: _then if cond.item() else _else,
-            'Pow': torch.pow,
-            'Real': lambda x: x
+            "sin": torch.sin,
+            "cos": torch.cos,
+            "exp": torch.exp,
+            "If": lambda cond, _then, _else: _then if cond.item() else _else,
+            "Pow": torch.pow,
+            "Real": lambda x: x,
         }
 
     # generalisation of forward with tensors
@@ -85,7 +94,7 @@ class NNDiscrete(nn.Module, Learner):
         return numerical_v
 
     def forward(self, S, Sdot):
-        #assert (len(S) == len(Sdot))  ## This causes a warning in Marabou
+        # assert (len(S) == len(Sdot))  ## This causes a warning in Marabou
 
         nn = self.numerical_net(S)
         nn_next = self.numerical_net(Sdot)
@@ -96,7 +105,7 @@ class NNDiscrete(nn.Module, Learner):
 
         # define E(x) := (x-eq_0) * ... * (x-eq_N)
         # V = NN(x) * E(x)
-        V = nn 
+        V = nn
         delta_V = nn_next - V
 
         return V, delta_V, circle
@@ -112,15 +121,23 @@ class NNDiscrete(nn.Module, Learner):
                     # S - self.eq == [ x-x_eq, y-y_eq ]
                     # torch.power(S - self.eq, 2) == [ (x-x_eq)**2, (y-y_eq)**2 ]
                     # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
-                    E *= torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
+                    E *= torch.sum(
+                        torch.pow(S - torch.tensor(self.eq[idx, :]), 2), dim=1
+                    )
             else:
-                E = torch.tensor(1.0)  # This also causes a warning in Marabou - but always constant so should be okay
+                E = torch.tensor(
+                    1.0
+                )  # This also causes a warning in Marabou - but always constant so should be okay
 
         return E
-    
+
     def get(self, **kw):
-        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S],
-                          kw[CegisStateKeys.S_dot], kw[CegisStateKeys.factors])
+        return self.learn(
+            kw[CegisStateKeys.optimizer],
+            kw[CegisStateKeys.S],
+            kw[CegisStateKeys.S_dot],
+            kw[CegisStateKeys.factors],
+        )
 
     # backprop algo
     @timer(T)
@@ -134,7 +151,7 @@ class NNDiscrete(nn.Module, Learner):
                 layer.weight.data = torch.diag(torch.diag(layer.weight))
 
     def find_closest_unsat(self, S, Sdot, factors):
-        min_dist = float('inf')
+        min_dist = float("inf")
         V, Vdot, _ = self.numerical_net(S, Sdot, factors)
         for iii in range(S.shape[0]):
             v = V[iii]
@@ -155,4 +172,3 @@ class NNDiscrete(nn.Module, Learner):
     @staticmethod
     def get_timer():
         return T
-

@@ -1,13 +1,12 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import multiprocessing
 
-from src.barrier.cegis_barrier import Cegis as CegisBarrier
-from src.lyap.cegis_lyap import Cegis as CegisLyapunov
+from src.shared.components.cegis import Cegis
 
 
 class CegisSupervisor:
@@ -21,7 +20,7 @@ class CegisSupervisor:
         cegis_config = {}
         while not stop:
             # change config
-            c = CegisBarrier(**cegis_config)
+            c = Cegis(**cegis_config)
             p = multiprocessing.Process(target=c.solve)
             p.start()
             p.join(self.cegis_timeout_sec)
@@ -31,7 +30,5 @@ class CegisSupervisor:
         print(c.result)
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

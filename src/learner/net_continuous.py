@@ -1,16 +1,14 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import torch
 import torch.nn as nn
 import numpy as np
-import sympy as sp
-import z3
 
-from src.shared.cegis_values import CegisConfig ,CegisStateKeys
+from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import LearningFactors
 from src.learner.learner import Learner
 from src.shared.activations import ActivationType, activation, activation_der
@@ -20,7 +18,17 @@ T = Timer()
 
 
 class NNContinuous(nn.Module, Learner):
-    def __init__(self, input_size, learn_method, *args, bias=True, activate=ActivationType.SQUARE, equilibria=0, llo=False, **kw):
+    def __init__(
+        self,
+        input_size,
+        learn_method,
+        *args,
+        bias=True,
+        activate=ActivationType.SQUARE,
+        equilibria=0,
+        llo=False,
+        **kw
+    ):
         super(NNContinuous, self).__init__()
 
         self.input_size = input_size
@@ -49,7 +57,7 @@ class NNContinuous(nn.Module, Learner):
         if llo:
             layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
             self.layers.append(layer)
-        else:          # free output layer
+        else:  # free output layer
             self.register_parameter("W" + str(k), layer.weight)
             self.layers.append(layer)
         self.learn_method = learn_method
@@ -57,14 +65,14 @@ class NNContinuous(nn.Module, Learner):
     @staticmethod
     def learner_fncts():
         return {
-            'sin': torch.sin,
-            'cos': torch.cos,
-            'exp': torch.exp,
-            'If': lambda cond, _then, _else: _then if cond.item() else _else,
+            "sin": torch.sin,
+            "cos": torch.cos,
+            "exp": torch.exp,
+            "If": lambda cond, _then, _else: _then if cond.item() else _else,
         }
 
     def forward(self, S, Sdot):
-        assert (len(S) == len(Sdot))
+        assert len(S) == len(Sdot)
 
         nn, grad_nn = self.forward_tensors(S)
         # circle = x0*x0 + ... + xN*xN
@@ -77,8 +85,10 @@ class NNContinuous(nn.Module, Learner):
         V = nn * E
         # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
         # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
-        gradV = nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn) \
-                + grad_nn * E.expand_as(grad_nn.T).T
+        gradV = (
+            nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn)
+            + grad_nn * E.expand_as(grad_nn.T).T
+        )
         # Vdot = gradV * f(x)
         Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
 
@@ -100,7 +110,9 @@ class NNContinuous(nn.Module, Learner):
             y = activation(self.acts[idx], z)
 
             jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(torch.diag_embed(activation_der(self.acts[idx], z)), jacobian)
+            jacobian = torch.matmul(
+                torch.diag_embed(activation_der(self.acts[idx], z)), jacobian
+            )
 
         numerical_v = torch.matmul(y, self.layers[-1].weight.T)
         jacobian = torch.matmul(self.layers[-1].weight, jacobian)
@@ -119,24 +131,32 @@ class NNContinuous(nn.Module, Learner):
                     # S - self.eq == [ x-x_eq, y-y_eq ]
                     # torch.power(S - self.eq, 2) == [ (x-x_eq)**2, (y-y_eq)**2 ]
                     # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
-                    factors[:, :, idx] = S-torch.tensor(self.eq[idx, :])
-                    E *= torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
+                    factors[:, :, idx] = S - torch.tensor(self.eq[idx, :])
+                    E *= torch.sum(
+                        torch.pow(S - torch.tensor(self.eq[idx, :]), 2), dim=1
+                    )
 
                 # derivative = 2*(x-eq)*E/E_i
                 grad_e = torch.zeros(S.shape[0], self.input_size)
                 for var in range(self.input_size):
                     for idx in range(self.eq.shape[0]):
-                        grad_e[:, var] += \
-                            E * factors[:, var, idx] / torch.sum(torch.pow(S-torch.tensor(self.eq[idx, :]), 2), dim=1)
-                derivative_e = 2*grad_e
+                        grad_e[:, var] += (
+                            E
+                            * factors[:, var, idx]
+                            / torch.sum(
+                                torch.pow(S - torch.tensor(self.eq[idx, :]), 2), dim=1
+                            )
+                        )
+                derivative_e = 2 * grad_e
             else:
                 E, derivative_e = torch.tensor(1.0), torch.tensor(0.0)
 
         return E, derivative_e
-    
+
     def get(self, **kw):
-        return self.learn(kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S],
-                          kw[CegisStateKeys.S_dot])
+        return self.learn(
+            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot]
+        )
 
     # backprop algo
     @timer(T)
@@ -150,7 +170,7 @@ class NNContinuous(nn.Module, Learner):
                 layer.weight.data = torch.diag(torch.diag(layer.weight))
 
     def find_closest_unsat(self, S, Sdot):
-        min_dist = float('inf')
+        min_dist = float("inf")
         V, Vdot, _ = self.forward(S[0], Sdot[0])
         for iii in range(S[0].shape[0]):
             v = V[iii]

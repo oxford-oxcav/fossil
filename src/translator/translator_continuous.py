@@ -6,13 +6,14 @@
  
 # pylint: disable=not-callable
 import torch
+import sympy as sp
+import numpy as np
+
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
 from src.shared.consts import LearningFactors
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import *
-import sympy as sp
-import numpy as np
 
 T = Timer()
 

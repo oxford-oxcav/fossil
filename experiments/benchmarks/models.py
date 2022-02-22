@@ -55,7 +55,6 @@ class CTModel:
         """
         return True
 
-
 class Eulerised:
     """
     Create discrete time model from continuous time model using the Euler method:
@@ -90,7 +89,6 @@ class NonPoly0(CTModel):
 
 
 class Hybrid2d(CTModel):
-    # Really this should be a separate class but its just to demonstrate the idea
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
 
@@ -101,12 +99,12 @@ class Hybrid2d(CTModel):
         return torch.stack([-x0, torch.where(_cond, _then, _else)]).T
 
     def f_smt(self, v):
-        _If = self.fncs["If"]
+        If = self.fncs["If"]
         x0, x1 = v
         _then = -x1 - 0.5 * x0 ** 3
         _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
         _cond = x1 >= 0
-        return [-x0, _If(_cond, _then, _else)]
+        return [-x0, If(_cond, _then, _else)]
 
 
 class Barr1(CTModel):
@@ -117,3 +115,160 @@ class Barr1(CTModel):
     def f_smt(self, v):
         x, y = v
         return [y + 2 * x * y, -x - y ** 2 + 2 * x ** 2]
+
+
+class Barr2(CTModel):
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([torch.exp(-x) + y - 1, -(torch.sin(x) ** 2)]).T
+
+    def f_smt(self, v):
+        sin = self.fncs["sin"]
+        exp = self.fncs["exp"]
+        x, y = v
+        return [exp(-x) + y - 1, -((sin(x)) ** 2)]
+
+
+class Barr3(CTModel):
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([y, -x - y + 1 / 3 * x ** 3]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [y, -x - y + 1 / 3 * x ** 3]
+
+
+class TwoD_Hybrid(CTModel):
+    def f_torch(self, v):
+        x0, x1 = v[:, 0], v[:, 1]
+        _then = -x0 - 0.5 * x0 ** 3
+        _else = x0 - 0.25 * x1 ** 2
+        _cond = x0 >= 0
+        return torch.stack([x1, torch.where(_cond, _then, _else)]).T
+
+    def f_smt(self, v):
+        x0, x1 = v
+        If = self.fncs["If"]
+        _then = -x0 - 0.5 * x0 ** 3
+        _else = x0 - 0.25 * x1 ** 2
+        _cond = x0 >= 0
+        return [x1, If(_cond, _then, _else)]
+
+
+class ObstacleAvoidance(CTModel):
+    def f_torch(self, v):
+        x, y, phi = v[:, 0], v[:, 1], v[:, 2]
+        velo = 1
+        return torch.stack(
+            [
+                velo * torch.sin(phi),
+                velo * torch.cos(phi),
+                -torch.sin(phi)
+                + 3
+                * (x * torch.sin(phi) + y * torch.cos(phi))
+                / (0.5 + x ** 2 + y ** 2),
+            ]
+        ).T
+
+    def f_smt(self, v):
+        x, y, phi = v
+        velo = 1
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        return [
+            velo * sin(phi),
+            velo * cos(phi),
+            -sin(phi) + 3 * (x * sin(phi) + y * cos(phi)) / (0.5 + x ** 2 + y ** 2),
+        ]
+
+
+class HighOrd4(CTModel):
+    def f_torch(self, v):
+        x0, x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
+        return torch.stack(
+            [x1, x2, x3, -3980 * x3 - 4180 * x2 - 2400 * x1 - 576 * x0]
+        ).T
+
+    def f_smt(self, v):
+        x0, x1, x2, x3 = v
+        return [x1, x2, x3, -3980 * x3 - 4180 * x2 - 2400 * x1 - 576 * x0]
+
+
+class HighOrd6(CTModel):
+    def f_torch(self, v):
+        x0, x1, x2, x3, x4, x5 = v[:, 0], v[:, 1], v[:, 2], v[:, 3], v[:, 4], v[:, 5]
+        return torch.stack(
+            [
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                -800 * x5 - 2273 * x4 - 3980 * x3 - 4180 * x2 - 2400 * x1 - 576 * x0,
+            ]
+        ).T
+
+    def f_smt(self, v):
+        x0, x1, x2, x3, x4, x5 = v
+        return [
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            -800 * x5 - 2273 * x4 - 3980 * x3 - 4180 * x2 - 2400 * x1 - 576 * x0,
+        ]
+
+
+class HighOrd8(CTModel):
+    def f_torch(self, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = (
+            v[:, 0],
+            v[:, 1],
+            v[:, 2],
+            v[:, 3],
+            v[:, 4],
+            v[:, 5],
+            v[:, 6],
+            v[:, 7],
+        )
+        return torch.stack(
+            [
+                x1,
+                x2,
+                x3,
+                x4,
+                x5,
+                x6,
+                x7,
+                -20 * x7
+                - 170 * x6
+                - 800 * x5
+                - 2273 * x4
+                - 3980 * x3
+                - 4180 * x2
+                - 2400 * x1
+                - 576 * x0,
+            ]
+        ).T
+
+    def f_smt(self, v):
+        x0, x1, x2, x3, x4, x5, x6, x7 = v
+        return [
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
+            x7,
+            -20 * x7
+            - 170 * x6
+            - 800 * x5
+            - 2273 * x4
+            - 3980 * x3
+            - 4180 * x2
+            - 2400 * x1
+            - 576 * x0,
+        ]

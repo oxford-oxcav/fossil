@@ -6,10 +6,9 @@
 
 # pylint: disable=not-callable
 
-from numpy import who
-from sympy.core.symbol import var
-from src.verifier.verifier import Verifier
 from typing import Literal
+
+from src.verifier.verifier import Verifier
 from src.verifier.drealverifier import DRealVerifier 
 from src.verifier.z3verifier import Z3Verifier
 from src.verifier.marabou_verifier import MarabouVerifier

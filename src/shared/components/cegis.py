@@ -4,15 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
  
-import logging
 from functools import partial
 
 import numpy as np
 import torch
-try:
-    import dreal as dr
-except Exception as e:
-    logging.exception('Exception while importing dReal')
 
 from src.certificate.certificate_utils import get_certificate
 from src.learner.learner_utils import get_learner

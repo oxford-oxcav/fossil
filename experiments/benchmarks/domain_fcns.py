@@ -249,7 +249,7 @@ class Union(Set):
 
     def generate_domain(self, x):
         f = self.set_functions(x)
-        return f["Or"](self.S1.generate_domain(x), self.S2.generate_data())
+        return f["Or"](self.S1.generate_domain(x), self.S2.generate_domain(x))
 
     def generate_data(self, batch_size):
         X1 = self.S1.generate_data(int(batch_size / 2))

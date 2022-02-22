@@ -1,9 +1,9 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 # pylint: disable=not-callable
 import torch
 
@@ -22,10 +22,11 @@ class Consolidator(Component):
 
     def get(self, **kw):
         for label, cex in kw[CegisStateKeys.cex].items():
-            if 'lie' in label and cex != []:   # Trying to 'generalise' when we use the trajectoriser
+            if (
+                "lie" in label and cex != []
+            ):  # Trying to 'generalise' when we use the trajectoriser
                 return self.compute_trajectory(kw[CegisStateKeys.net], cex[-1])
-            else:
-                return {CegisStateKeys.trajectory: []}
+        return {CegisStateKeys.trajectory: []}
 
     # computes the gradient of V, Vdot in point
     # computes a 20-step trajectory (20 is arbitrary) starting from point
@@ -50,9 +51,12 @@ class Consolidator(Component):
             # compute gradient of Vdot
             gradient, num_vdot_value = self.compute_Vdot_grad(net, point)
             # set break conditions
-            if num_vdot_value_old > num_vdot_value or \
-                    abs(num_vdot_value_old - num_vdot_value) < 1e-5 or \
-                    num_vdot_value > 1e6 or (abs(gradient) > 1e2).any():
+            if (
+                num_vdot_value_old > num_vdot_value
+                or abs(num_vdot_value_old - num_vdot_value) < 1e-5
+                or num_vdot_value > 1e6
+                or (abs(gradient) > 1e2).any()
+            ):
                 break
             else:
                 num_vdot_value_old = num_vdot_value
@@ -102,7 +106,9 @@ class Consolidator(Component):
             z = layer(y)
             y = activation(net.acts[idx], z)
             jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(torch.diag_embed(activation_der(net.acts[idx], z)), jacobian)
+            jacobian = torch.matmul(
+                torch.diag_embed(activation_der(net.acts[idx], z)), jacobian
+            )
 
         jacobian = torch.matmul(net.layers[-1].weight, jacobian)
 
@@ -145,9 +151,16 @@ class Consolidator(Component):
         for idx in range(3):
             if len(ces[idx]) != 0:
                 S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
-                Sdot[idx] = torch.cat([Sdot[idx], torch.stack(list(map(torch.tensor, map(self.f_learner, ces[idx]))))], dim=0)
+                Sdot[idx] = torch.cat(
+                    [
+                        Sdot[idx],
+                        torch.stack(
+                            list(map(torch.tensor, map(self.f_learner, ces[idx])))
+                        ),
+                    ],
+                    dim=0,
+                )
         return S, Sdot
-
 
     @staticmethod
     def get_timer():

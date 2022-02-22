@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree. 
  
 # pylint: disable=not-callable
-import traceback
-from functools import partial
 
 import torch
 import numpy as np
@@ -21,8 +19,7 @@ from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
-    batch_size = 500
-    system = partial(barr_3, batch_size)
+    system = barr_3
     activations = [
                     ActivationType.SIGMOID, ActivationType.SIGMOID
                    ]

@@ -25,7 +25,7 @@ class SimplifierTest(unittest.TestCase):
         domain = x*x + y*y + z*z <= 1
         return_value = 'result'
         t = 1
-        lc = LyapunovCertificate(domains=[domain])
+        lc = LyapunovCertificate(domains={"lie-&-pos":domain})
 
         with mock.patch.object(Verifier, '_solver_solve') as s:
             # setup

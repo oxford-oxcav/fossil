@@ -6,9 +6,9 @@
  
 from functools import partial
 
+from experiments.benchmarks.domain_fcns import * 
 from src.shared.components.primer import Primer
 from src.shared.system import NonlinearSystem
-from experiments.benchmarks.domain_fcns import * 
 from src.shared.components.cegis import Cegis
 from src.shared.consts import TimeDomain, CertificateType
 from src.shared.activations import ActivationType
