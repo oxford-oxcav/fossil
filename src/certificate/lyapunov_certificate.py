@@ -11,20 +11,19 @@ from torch.optim import Optimizer
 from src.certificate.certificate import Certificate
 from src.shared.cegis_values import CegisConfig
 from src.learner.learner import Learner
-from src.shared.consts import LearningFactors
 from src.shared.utils import vprint
 
 class LyapunovCertificate(Certificate):
     """
-    Certificate object for Lyapunov function synthesis
-    Keyword arguments:
+    Certificies stability for CT and DT models
     bool LLO: last layer of ones in network
     XD: Symbolic formula of domain
     
     """
+    XD = 'lie-&-pos'
     def __init__(self, domains, **kw) -> None:
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
-        self.domain = domains[0]
+        self.domain = domains['lie-&-pos']
         self.bias = False
 
     def learn(self, learner: Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
@@ -37,14 +36,14 @@ class LyapunovCertificate(Certificate):
         """
 
         assert (len(S) == len(Sdot))
-        batch_size = len(S[0])
+        batch_size = len(S['lie-&-pos'])
         learn_loops = 1000
         margin = 0*0.01
 
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            V, Vdot, circle = learner.forward(S[0], Sdot[0])
+            V, Vdot, circle = learner.forward(S['lie-&-pos'], Sdot['lie-&-pos'])
 
             slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
@@ -83,5 +82,5 @@ class LyapunovCertificate(Certificate):
 
         lyap_negated = _Or(V <= 0, Vdot > 0)
         lyap_condition = _And(self.domain, lyap_negated)
-        for cs in ({'lyapunov': lyap_condition}, ):
+        for cs in ({'lie-&-pos': lyap_condition}, ):
             yield cs

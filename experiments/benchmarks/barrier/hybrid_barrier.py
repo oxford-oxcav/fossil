@@ -19,8 +19,7 @@ import torch
 
 def main():
 
-    batch_size = 500
-    system = partial(twod_hybrid, batch_size)
+    system = twod_hybrid
     activations = [ActivationType.LIN_SQUARE]
     hidden_neurons = [3] * len(activations)
     start = timeit.default_timer()

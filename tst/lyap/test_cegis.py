@@ -112,7 +112,7 @@ class test_cegis(unittest.TestCase):
     def test_non_poly_0(self):
         torch.manual_seed(167)
         batch_size = 500
-        benchmark = nonpoly0
+        benchmark = nonpoly0_lyap
         n_vars = 2
         system = partial(benchmark, batch_size)
 

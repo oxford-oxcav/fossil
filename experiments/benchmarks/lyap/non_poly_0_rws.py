@@ -16,20 +16,20 @@ from src.plots.plot_lyap import plot_lyce
 
 
 def test_lnn():
-    benchmark = nonpoly0_lyap
+    benchmark = nonpoly0_rws
     n_vars = 2
     system = benchmark
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    activations = [ActivationType.TANH]
+    n_hidden_neurons = [10] * len(activations)
 
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
+        CegisConfig.CERTIFICATE.k: CertificateType.RWS,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
+        CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,

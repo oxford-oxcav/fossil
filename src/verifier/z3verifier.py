@@ -1,25 +1,36 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
+from typing import Dict, Callable
+
 from z3 import *
 
 from src.verifier.verifier import Verifier
+from src.shared.utils import contains_object
 
 
 class Z3Verifier(Verifier):
     @staticmethod
     def new_vars(n):
-        return [Real('x%d' % i) for i in range(n)]
+        return [Real("x%d" % i) for i in range(n)]
 
     def new_solver(self):
         return z3.Solver()
 
     @staticmethod
-    def solver_fncts() -> {}:
-        return {'And': And, 'Or': Or, 'If': If}
+    def check_type(x) -> bool:
+        """
+        :param x: any
+        :returns: True if Dreal compatible, else false
+        """
+        return contains_object(x, ArithRef)
+
+    @staticmethod
+    def solver_fncts() -> Dict[str, Callable]:
+        return {"And": And, "Or": Or, "If": If, "Check": Z3Verifier.check_type, "Not": Not}
 
     def is_sat(self, res) -> bool:
         return res == sat

@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree. 
  
 # pylint: disable=not-callable
-import traceback
-from functools import partial
 
 import torch
 import timeit
@@ -21,13 +19,12 @@ import numpy as np
 
 
 def main():
-    batch_size = 2000
-    system = partial(barr_2, batch_size)
-    activations = [ActivationType.SOFTPLUS]
-    hidden_neurons = [20]
+    system = barr_2
+    activations = [ActivationType.TANH]
+    hidden_neurons = [10]
     opts = {
         CegisConfig.N_VARS.k: 2,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER_ALTERNATE,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,

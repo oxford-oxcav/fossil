@@ -45,5 +45,6 @@ class PrimerMode(Enum):
 
 class CertificateType(Enum):
     BARRIER = auto()
-    BARRIER_ALTERNATE = auto()
+    BARRIER_LYAPUNOV = auto()
     LYAPUNOV = auto()
+    RWS = auto()

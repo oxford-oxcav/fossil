@@ -22,7 +22,7 @@ T = Timer()
 
 
 class _DiffNet(torch.nn.Module):
-    """ Private class to provide forward method of delta_V for Marabou
+    """Private class to provide forward method of delta_V for Marabou
 
     V (NNDiscrete): Candidate Lyapunov ReluNet
     f (EstimNet): Estimate of system dynamics ReluNet
@@ -40,7 +40,7 @@ class _DiffNet(torch.nn.Module):
 
 
 class MarabouTranslator(Component):
-    """ Takes an torch nn.module object and converts it to an onnx file to be read by marabou
+    """Takes an torch nn.module object and converts it to an onnx file to be read by marabou
 
     dimension (int): Dimension of dynamical system
     """
@@ -49,25 +49,35 @@ class MarabouTranslator(Component):
         self.dimension = dimension
 
     @timer(T)
-    def get(self, net: NNDiscrete = None, ENet=None, **kw) -> Tuple[MarabouNetworkONNX, MarabouNetworkONNX]:
+    def get(
+        self, net: NNDiscrete = None, ENet=None, **kw
+    ) -> Tuple[MarabouNetworkONNX, MarabouNetworkONNX]:
         """
         net (NNDiscrete): PyTorch candidate Lyapunov Neural Network
         ENet (EstimNet): dynamical system as PyTorch Neural Network
         """
-        tf_V = tempfile.NamedTemporaryFile(suffix='.onnx')
-        tf_DV = tempfile.NamedTemporaryFile(suffix='.onnx')
+        tf_V = tempfile.NamedTemporaryFile(suffix=".onnx")
+        tf_DV = tempfile.NamedTemporaryFile(suffix=".onnx")
         model = _DiffNet(net, ENet)
         self.export_net_to_file(net, tf_V, "V")
         self.export_net_to_file(model, tf_DV, "dV")
-        
-        V_net = read_onnx(tf_V.name, outputName='V')                  
-        dV_net = read_onnx(tf_DV.name, outputName='dV')
+
+        V_net = read_onnx(tf_V.name, outputName="V")
+        dV_net = read_onnx(tf_DV.name, outputName="dV")
         return {CegisStateKeys.V: V_net, CegisStateKeys.V_dot: dV_net}
 
-    def export_net_to_file(self, net: Union[_DiffNet, NNDiscrete],  tf,  output: str) -> None:
+    def export_net_to_file(
+        self, net: Union[_DiffNet, NNDiscrete], tf, output: str
+    ) -> None:
         dummy_input = (torch.rand([1, self.dimension]), torch.rand([1, self.dimension]))
-        torch.onnx.export(net, dummy_input, tf, input_names=['S', 'Sdot'],
-                          output_names=[output], opset_version=11)
+        torch.onnx.export(
+            net,
+            dummy_input,
+            tf,
+            input_names=["S", "Sdot"],
+            output_names=[output],
+            opset_version=11,
+        )
 
     @staticmethod
     def get_timer():

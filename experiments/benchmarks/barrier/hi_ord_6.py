@@ -17,8 +17,7 @@ import torch
 
 def main():
 
-    batch_size = 1000
-    system = partial(hi_ord_6, batch_size)
+    system = hi_ord_6
     activations = [ActivationType.LINEAR]
     hidden_neurons = [10]
     opts = {
@@ -30,8 +29,6 @@ def main():
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
         CegisConfig.SYMMETRIC_BELT.k: False,
-        CegisConfig.SP_HANDLE.k: True,
-        CegisConfig.SP_SIMPLIFY.k: True,
         CegisConfig.ROUNDING.k: 2
     }
 

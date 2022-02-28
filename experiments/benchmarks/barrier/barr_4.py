@@ -1,15 +1,12 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 # pylint: disable=not-callable
-import traceback
-from functools import partial
 
 import torch
-import numpy as np
 import timeit
 
 from experiments.benchmarks.benchmarks_bc import obstacle_avoidance as barr_4
@@ -20,12 +17,9 @@ from src.shared.cegis_values import CegisConfig, CegisStateKeys
 
 
 def main():
-    batch_size = 2000
-    system = partial(barr_4, batch_size)
-    activations = [
-                    ActivationType.LIN_TO_CUBIC,
-                   ]
-    hidden_neurons = [5]*len(activations)
+    system = barr_4
+    activations = [ActivationType.LIN_TO_CUBIC]
+    hidden_neurons = [10]
     opts = {
         CegisConfig.N_VARS.k: 3,
         CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
@@ -41,10 +35,10 @@ def main():
     state, vars, f, iters = c.solve()
     end = timeit.default_timer()
 
-    print('Elapsed Time: {}'.format(end - start))
+    print("Elapsed Time: {}".format(end - start))
     print("Found? {}".format(state[CegisStateKeys.found]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     torch.manual_seed(167)
     main()

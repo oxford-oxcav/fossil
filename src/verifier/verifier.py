@@ -36,7 +36,7 @@ class Verifier(Component):
         raise NotImplementedError('')
 
     @staticmethod
-    def solver_fncts() -> {}:
+    def solver_fncts():
         """Example: return {'And': z3.And}"""
         raise NotImplementedError('')
 
@@ -94,7 +94,7 @@ class Verifier(Component):
             if any(self.is_sat(res) for res in results.values()):
                 break
             
-        ces = [[] for res in results.keys()]
+        ces = {label:[] for label in results.keys()} #[[] for res in results.keys()]
 
         if all(self.is_unsat(res) for res in results.values()):
             vprint(['No counterexamples found!'], self.verbose)
@@ -105,7 +105,7 @@ class Verifier(Component):
                 if self.is_sat(res):
                     vprint([label + ": "], self.verbose)
                     original_point = self.compute_model(solvers[label], res)
-                    ces[index] = self.randomise_counterex(original_point)
+                    ces[label] = self.randomise_counterex(original_point)
                 else:
                     vprint([res], self.verbose)
 

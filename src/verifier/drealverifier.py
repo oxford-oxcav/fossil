@@ -13,7 +13,7 @@ except:
     print("No dreal")
 
 from src.verifier.verifier import Verifier
-from src.shared.utils import dreal_replacements
+from src.shared.utils import dreal_replacements, contains_object
 
 class DRealVerifier(Verifier):
     @staticmethod
@@ -24,10 +24,20 @@ class DRealVerifier(Verifier):
         return None
 
     @staticmethod
+    def check_type(x) -> bool:
+        """
+        :param x: any
+        :returns: True if Dreal compatible, else false
+        """
+        return contains_object(x, Variable)
+
+    @staticmethod
     def solver_fncts() -> Dict[str, Callable]:
         return {
             'sin': sin, 'cos': cos, 'exp': exp,
-            'And': And, 'Or': Or, 'If': if_then_else
+            'And': And, 'Or': Or, 'If': if_then_else,
+            'Check': DRealVerifier.check_type,
+            'Not': Not
         }
 
     def is_sat(self, res) -> bool:

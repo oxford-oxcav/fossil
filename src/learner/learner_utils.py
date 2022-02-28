@@ -6,8 +6,9 @@
 
 # pylint: disable=not-callable
 
-from src.learner.learner import Learner
 from typing import Literal
+
+from src.learner.learner import Learner
 from src.learner.net_continuous import NNContinuous
 from src.learner.net_discrete import NNDiscrete
 from src.shared.consts import TimeDomain

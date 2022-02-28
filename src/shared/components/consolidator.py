@@ -1,9 +1,9 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 # pylint: disable=not-callable
 import torch
 
@@ -21,13 +21,12 @@ class Consolidator(Component):
         self.f = f
 
     def get(self, **kw):
-        if all([c == [] for c in kw[CegisStateKeys.cex]]):  # not elegant but works
-            return {CegisStateKeys.trajectory: []}
-        elif len(kw[CegisStateKeys.cex]) == 2 :  # barrier case, S_d is empty, no traj needed
-                return {CegisStateKeys.trajectory: []}
-        else:
-            return self.compute_trajectory(kw[CegisStateKeys.net], kw[CegisStateKeys.cex][-1][-1])
-
+        for label, cex in kw[CegisStateKeys.cex].items():
+            if (
+                "lie" in label and cex != []
+            ):  # Trying to 'generalise' when we use the trajectoriser
+                return self.compute_trajectory(kw[CegisStateKeys.net], cex[-1])
+        return {CegisStateKeys.trajectory: []}
 
     # computes the gradient of V, Vdot in point
     # computes a 20-step trajectory (20 is arbitrary) starting from point
@@ -52,9 +51,12 @@ class Consolidator(Component):
             # compute gradient of Vdot
             gradient, num_vdot_value = self.compute_Vdot_grad(net, point)
             # set break conditions
-            if num_vdot_value_old > num_vdot_value or \
-                    abs(num_vdot_value_old - num_vdot_value) < 1e-5 or \
-                    num_vdot_value > 1e6 or (abs(gradient) > 1e2).any():
+            if (
+                num_vdot_value_old > num_vdot_value
+                or abs(num_vdot_value_old - num_vdot_value) < 1e-5
+                or num_vdot_value > 1e6
+                or (abs(gradient) > 1e2).any()
+            ):
                 break
             else:
                 num_vdot_value_old = num_vdot_value
@@ -97,14 +99,16 @@ class Consolidator(Component):
                 Vdot: tensor, evaluation of x in derivative net
         """
         y = x[None, :]
-        xdot = torch.stack(self.f(y.T))
+        xdot = self.f(y)
         jacobian = torch.diag_embed(torch.ones(x.shape[0], net.input_size))
 
         for idx, layer in enumerate(net.layers[:-1]):
             z = layer(y)
             y = activation(net.acts[idx], z)
             jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(torch.diag_embed(activation_der(net.acts[idx], z)), jacobian)
+            jacobian = torch.matmul(
+                torch.diag_embed(activation_der(net.acts[idx], z)), jacobian
+            )
 
         jacobian = torch.matmul(net.layers[-1].weight, jacobian)
 
@@ -147,9 +151,16 @@ class Consolidator(Component):
         for idx in range(3):
             if len(ces[idx]) != 0:
                 S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
-                Sdot[idx] = torch.cat([Sdot[idx], torch.stack(list(map(torch.tensor, map(self.f_learner, ces[idx]))))], dim=0)
+                Sdot[idx] = torch.cat(
+                    [
+                        Sdot[idx],
+                        torch.stack(
+                            list(map(torch.tensor, map(self.f_learner, ces[idx])))
+                        ),
+                    ],
+                    dim=0,
+                )
         return S, Sdot
-
 
     @staticmethod
     def get_timer():

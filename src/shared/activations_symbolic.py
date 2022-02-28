@@ -7,7 +7,6 @@
 # pylint: disable=no-member
 # definition of various activation fcns
 import numpy as np
-from sympy import Expr
 import z3
 import logging
 try:

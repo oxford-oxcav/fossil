@@ -3,12 +3,14 @@
 # 
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree. 
- 
+from typing import Any
+
 import sympy as sp
 import re
-import z3 as z3
+from matplotlib import pyplot as plt
+
 from experiments.benchmarks.domain_fcns import *
-import matplotlib.pyplot as plt
+import experiments.benchmarks.models as models
 
 
 ###############################
@@ -20,30 +22,33 @@ import matplotlib.pyplot as plt
 # Polynomial Systems through Darboux Polynomials.
 
 # also from CDC 2011, Parrillo, poly system w non-poly lyap
-def nonpoly0(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
 
-    def f(_, v):
-        x, y = v
-        return [
-            -x + x * y,
-            -y
-        ]
+def nonpoly0_lyap():
+    p = models.NonPoly0()
+    domain = Torus([0,0], 10, 0.1)
 
-    def XD(_, v):
-        x, y = v
-        return _And(x > 0, y > 0,
-                    inner ** 2 <= x ** 2 + y ** 2, x ** 2 + y ** 2 <= outer**2)
+    return p, {'lie-&-pos': domain.generate_domain}, {'lie-&-pos':domain.generate_data(1000)}, inf_bounds_n(2)
 
-    def SD():
-        return slice_init_data((0, 0), outer**2, batch_size)
+def nonpoly0_rws():
+    p = models.NonPoly0()
+    XD = Sphere([0,0], 10)
+    goal = Sphere([0,0], 0.1)
+    unsafe = Sphere([3,3], 0.5)
+    init = Sphere([-3, -3], 0.5)
+    batch_size = 500
+    domains = {'lie': XD.generate_domain,
+                'init': init.generate_domain,
+                'unsafe': unsafe.generate_boundary,
+                'goal':goal.generate_domain}
 
-    return f, [XD], [SD()], inf_bounds_n(2)
+    data = {'lie': SetMinus(XD, goal).generate_data(batch_size), 
+            'init': init.generate_data(batch_size),
+            'unsafe': unsafe.generate_data(batch_size)}
 
+    return p, domains, data, inf_bounds_n(2)
 
 def nonpoly1(batch_size, functions, inner=0.0, outer=10.0):
     _And = functions['And']
-
     def f(_, v):
         x, y = v
         return  [
@@ -211,28 +216,16 @@ def poly_4(batch_size, functions, inner=0.0, outer=10.0):
 
     return f, [XD], [SD()], inf_bounds_n(2)
 
-
-def twod_hybrid(batch_size, functions, inner, outer):
+ 
+def twod_hybrid():
     # example of 2-d hybrid sys
-    _And = functions['And']
 
-    def f(functions, v):
-        _If = functions['If']
-        x0, x1 = v
-        _then = - x1 - 0.5*x0**3
-        _else = - x1 - x0**2 - 0.25*x1**3
-        _cond = x1 >= 0
-        return [-x0, _If(_cond, _then, _else)]
+    f = models.Hybrid2d()
+    batch_size = 1000
 
-    def XD(_, v):
-        x0, x1 = v
-        return _And(inner**2 < x0**2 + x1**2,
-                               x0**2 + x1**2 <= outer**2)
+    XD = Torus([0,0], 10, 0.00001)
 
-    def SD():
-        return circle_init_data((0., 0.), outer**2, batch_size)
-
-    return f, [XD], [SD()], inf_bounds_n(2)
+    return f, {'lie-&-pos':XD.generate_domain}, {'lie-&-pos': XD.generate_data(batch_size)}, inf_bounds_n(2)
 
 def linear_discrete(batch_size, functions, inner, outer):
     _And = functions['And']
@@ -267,7 +260,7 @@ def max_degree_poly(p):
         return 0
 
 
-if __name__ == '__main__':
-    f, [XD], SD, _ = poly_1(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
-    plt.scatter(SD[0][:, 0].detach(), SD[0][:, 1].detach(), color='b')
-    plt.show()
+# if __name__ == '__main__':
+#     f, [XD], SD, _ = poly_1(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
+#     plt.scatter(SD[0][:, 0].detach(), SD[0][:, 1].detach(), color='b')
+#     plt.show()

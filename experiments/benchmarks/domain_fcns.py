@@ -1,11 +1,13 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import torch
 import numpy as np
+
+from src.verifier import drealverifier, z3verifier
 
 
 def square_init_data(domain, batch_size):
@@ -32,7 +34,7 @@ def round_init_data(centre, r, batch_size):
     """
     dim = len(centre)
     if dim == 1:
-        return segment([centre[0]-r, centre[0]+r], batch_size)
+        return segment([centre[0] - r, centre[0] + r], batch_size)
     elif dim == 2:
         return circle_init_data(centre, r, batch_size)
     elif dim == 3:
@@ -54,7 +56,7 @@ def slice_nd_init_data(centre, r, batch_size):
     elif dim == 3:
         return slice_3d_init_data(centre, r, batch_size)
     else:
-        raise ValueError('Positive orthant not supported for more than 3 dimensions.')
+        raise ValueError("Positive orthant not supported for more than 3 dimensions.")
 
 
 # generates data for x>0, y>0
@@ -66,7 +68,7 @@ def slice_init_data(centre, r, batch_size):
     :return:
     """
     r = np.sqrt(r)
-    angle = (np.pi/2) * torch.rand(batch_size, 1)
+    angle = (np.pi / 2) * torch.rand(batch_size, 1)
     radius = r * torch.rand(batch_size, 1)
     x_coord = radius * np.cos(angle)
     y_coord = radius * np.sin(angle)
@@ -83,10 +85,10 @@ def circle_init_data(centre, r, batch_size):
     :param batch_size: int
     :return:
     """
-    border_batch = int(batch_size/10)
-    internal_batch = batch_size-border_batch
+    border_batch = int(batch_size / 10)
+    internal_batch = batch_size - border_batch
     r = np.sqrt(r)
-    angle = (2*np.pi) * torch.rand(internal_batch, 1)
+    angle = (2 * np.pi) * torch.rand(internal_batch, 1)
     radius = r * torch.rand(internal_batch, 1)
     x_coord = radius * np.cos(angle)
     y_coord = radius * np.sin(angle)
@@ -113,7 +115,7 @@ def sphere_init_data(centre, r, batch_size):
     # x = r sin(theta) cos(phi)
     # y = r sin(theta) sin(phi)
     # z = r cos(theta)
-    theta = (2*np.pi) * torch.rand(batch_size, 1)
+    theta = (2 * np.pi) * torch.rand(batch_size, 1)
     phi = np.pi * torch.rand(batch_size, 1)
     r = np.sqrt(r)
     radius = r * torch.rand(batch_size, 1)
@@ -129,13 +131,16 @@ def sphere_init_data(centre, r, batch_size):
 # adapted from http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
 # method 20: Muller generalised
 
+
 def n_dim_sphere_init_data(centre, radius, batch_size):
 
     dim = len(centre)
-    u = torch.randn(batch_size, dim)  # an array of d normally distributed random variables
+    u = torch.randn(
+        batch_size, dim
+    )  # an array of d normally distributed random variables
     norm = torch.sum(u ** 2, dim=1) ** (0.5)
     r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
-    x = torch.div(r*u, norm[:, None]) + torch.tensor(centre)
+    x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)
 
     return x
 
@@ -152,8 +157,8 @@ def slice_3d_init_data(centre, r, batch_size):
     # x = r sin(theta) cos(phi)
     # y = r sin(theta) sin(phi)
     # z = r cos(theta)
-    theta = (np.pi/2) * torch.rand(batch_size, 1)
-    phi = np.pi/2 * torch.rand(batch_size, 1)
+    theta = (np.pi / 2) * torch.rand(batch_size, 1)
+    phi = np.pi / 2 * torch.rand(batch_size, 1)
     r = np.sqrt(r)
     radius = r * torch.rand(batch_size, 1)
     x_coord = radius * np.sin(theta) * np.cos(phi)
@@ -195,8 +200,10 @@ def remove_init_unsafe_from_d(data, initials, unsafes):
     new_data = []
     for idx in range(len(data)):
         # if data belongs to init or unsafe, remove it
-        if torch.norm(center_init - data[idx]) > initials[1]*1.2 and \
-                torch.norm(center_unsafe - data[idx]) > unsafes[1]*1.2:
+        if (
+            torch.norm(center_init - data[idx]) > initials[1] * 1.2
+            and torch.norm(center_unsafe - data[idx]) > unsafes[1] * 1.2
+        ):
             new_data.append(data[idx])
 
     new_data = torch.stack(new_data)
@@ -210,32 +217,104 @@ def inf_bounds_n(n):
     return [inf_bounds] * n
 
 
-if __name__ == '__main__':
-    X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
-    # print(X)
-    print(f'max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}')
-    print(f'min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}')
+class Set:
+    dreal_functions = drealverifier.DRealVerifier.solver_fncts()
+    z3_functions = z3verifier.Z3Verifier.solver_fncts()
+
+    def __init__(self) -> None:
+        pass
+
+    def generate_domain(self, x):
+        raise NotImplementedError
+
+    def generate_data(self, batch_size):
+        raise NotImplementedError
+
+    @staticmethod
+    def set_functions(x):
+        if drealverifier.DRealVerifier.check_type(x):
+            return Set.dreal_functions
+        if z3verifier.Z3Verifier.check_type(x):
+            return Set.z3_functions
 
 
-class Rectangle:
+class Union(Set):
+    """
+    Set formed by union of S1 and S2
+    """
 
-    # TODO: I want to extend this to unbounded cuboids, but not sure how to.
+    def __init__(self, S1: Set, S2: Set) -> None:
+        self.S1 = S1
+        self.S2 = S2
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["Or"](self.S1.generate_domain(x), self.S2.generate_domain(x))
+
+    def generate_data(self, batch_size):
+        X1 = self.S1.generate_data(int(batch_size / 2))
+        X2 = self.S2.generate_data(int(batch_size / 2))
+        return torch.cat([X1, X2])
+
+
+class Intersection(Set):
+    """
+    Set formed by intersection of S1 and S2
+    """
+
+    def __init__(self, S1: Set, S2: Set) -> None:
+        self.S1 = S1
+        self.S2 = S2
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["And"](self.S1.generate_domain(), self.S2.generate_domain())
+
+    def generate_data(self, batch_size):
+        s1 = self.S1.generate_data(batch_size)
+        s1 = s1[self.S2.check_containment(s1)]
+        s2 = self.S2.generate_data(batch_size)
+        s2 = s2[self.S1.check_containment(s2)]
+        return torch.cat([s1, s2])
+       
+
+
+class SetMinus(Set):
+    """
+    Set formed by S1 \ S2
+    """
+
+    def __init__(self, S1: Set, S2: Set) -> None:
+        self.S1 = S1
+        self.S2 = S2
+
+    def generate_domain(self, x, _And):
+        f = self.set_functions(x)
+        return f["And"](self.S1.generate_domain(), f["Not"](self.S2.generate_domain()))
+
+    def generate_data(self, batch_size):
+        data = self.S1.generate_data(batch_size)
+        data = data[~self.S2.check_containment(data)]
+        return data
+
+
+class Rectangle(Set):
     def __init__(self, lb, ub):
-        self.name = 'square'
+        self.name = "square"
         self.lower_bounds = lb
         self.upper_bounds = ub
         self.dimension = len(lb)
-    
-    def generate_domain(self, x, _And):
+
+    def generate_domain(self, x):
         """
         param x: data point x
-        param _And: And function for verifier
         returns: formula for domain
         """
-        lower = _And(*[self.lower_bounds[i] <= x[i] for i in range(self.dimension)])
-        upper = _And(*[x[i] <= self.upper_bounds[i] for i in range(self.dimension)])
-        return _And(lower, upper) 
-        
+        f = self.set_functions(x)
+        lower = f["And"](*[self.lower_bounds[i] <= x[i] for i in range(self.dimension)])
+        upper = f["And"](*[x[i] <= self.upper_bounds[i] for i in range(self.dimension)])
+        return f["And"](lower, upper)
+
     def generate_data(self, batch_size):
         """
         param x: data point x
@@ -244,24 +323,111 @@ class Rectangle:
         return square_init_data([self.lower_bounds, self.upper_bounds], batch_size)
 
 
-class Sphere:
+class Sphere(Set):
     def __init__(self, centre, radius):
-        self.name = 'sphere'
         self.centre = centre
         self.radius = radius
         self.dimension = len(centre)
 
-    def generate_domain(self, x, _And):
+    def generate_domain(self, x):
         """
         param x: data point x
-        param _And: And function for verifier
         returns: formula for domain
         """
-        return _And(sum([(x[i] - self.centre[i])**2 for i in range(self.dimension)]) <= self.radius ** 2)
-        
+        f = self.set_functions(x)
+        return f["And"](
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            <= self.radius ** 2
+        )
+
+    def generate_boundary(self, x):
+        """
+        param x: data point x
+        returns: formula for domain boundary
+        """
+        f = self.set_functions(x)
+        return f["And"](
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            == self.radius ** 2
+        )
+
     def generate_data(self, batch_size):
         """
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return round_init_data(self.centre, self.radius**2, batch_size)
+        return round_init_data(self.centre, self.radius ** 2, batch_size)
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        c = torch.tensor(self.centre).reshape(1, -1)
+        return (x-c).norm(2, dim=1) <= self.radius
+
+
+class Torus(Set):
+    """
+    Torus-shaped set characterised as a sphere of radius outer_radius \setminus a sphere of radius inner_radius
+    """
+
+    def __init__(self, centre, outer_radius, inner_radius):
+        self.centre = centre
+        self.outer_radius = outer_radius
+        self.inner_radius = inner_radius
+        self.dimension = len(centre)
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        returns: formula for domain of hyper torus
+        """
+        f = self.set_functions(x)
+        return f["And"](
+            self.inner_radius ** 2
+            <= sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)]),
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            <= self.outer_radius ** 2,
+        )
+
+    def generate_boundary(self, x):
+        """
+        param x: data point x
+        returns: formula for domain boundary
+        """
+        f = self.set_functions(x)
+        return f["Or"](
+            (
+                sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+                == self.inner_radius ** 2
+            ),
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            == self.outer_radius ** 2,
+        )
+
+    def generate_data(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        return round_init_data(self.centre, self.outer_radius ** 2, batch_size)
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        c = torch.tensor(self.centre).reshape(1, -1)
+        return torch.logical_and((self.inner_radius <= (x-c).norm(2, dim=1)), (x-c).norm(2, dim=1) <= self.outer_radius)
+
+
+if __name__ == "__main__":
+    # X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
+    # # print(X)
+    # print(f"max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}")
+    # print(f"min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}")
+
+    # t = SetMinus(Sphere([0, 0], 2), Sphere([1.5, 1.5], 1))
+    t = Torus([0,0], 3, 2)
+    t = Sphere([-3, -3], 1)
+    x = t.generate_data(5000)
+    
+
+    x2 = x[t.check_containment(x)]
+    from matplotlib import pyplot as plt
+    plt.plot(x2[:,0], x2[:, 1], 'x')
+    plt.show()
+

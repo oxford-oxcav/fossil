@@ -1,18 +1,19 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 # pylint: disable=not-callable
 import torch
+import sympy as sp
+import numpy as np
+
 from src.shared.cegis_values import CegisStateKeys
 from src.translator.translator_continuous import TranslatorContinuous
 from src.shared.consts import LearningFactors
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import *
-import sympy as sp
-import numpy as np
 
 T = Timer()
 
@@ -35,7 +36,7 @@ class TranslatorDiscrete(TranslatorContinuous):
             V = sympy_converter(x_map, V)
             Vdot = sympy_converter(x_map, Vdot)
 
-        vprint(['Candidate: {}'.format(V)], self.verbose)
+        vprint(["Candidate: {}".format(V)], self.verbose)
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 
@@ -47,7 +48,9 @@ class TranslatorDiscrete(TranslatorContinuous):
         :return:
         """
 
-        z, z_xdot = self.network_until_last_layer(x), self.network_until_last_layer(xdot)
+        z, z_xdot = self.network_until_last_layer(x), self.network_until_last_layer(
+            xdot
+        )
 
         if self.round < 0:
             last_layer = self.net.layers[-1].weight.data.numpy()
@@ -55,14 +58,14 @@ class TranslatorDiscrete(TranslatorContinuous):
             last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
-        z_xdot = last_layer @ z_xdot  
+        z_xdot = last_layer @ z_xdot
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)
-        E = self.compute_factors(np.array(x).reshape(1,-1), lf)
+        E = self.compute_factors(np.array(x).reshape(1, -1), lf)
 
         # gradV = der(NN) * E + dE/dx * NN
-        
+
         if isinstance(E, sp.Add):
             V = sp.expand(z[0, 0] * E)
             z_xdot = sp.expand(z_xdot[0, 0] * E)
@@ -106,10 +109,14 @@ class TranslatorDiscrete(TranslatorContinuous):
         """
         if lf == LearningFactors.QUADRATIC:  # quadratic terms
             E, temp = 1, []
-            factors = np.full(shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0)
+            factors = np.full(
+                shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0
+            )
             for idx in range(self.eq.shape[0]):  # number of equilibrium points
-                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[0, 0]
-                factors[idx] = (x.T - self.eq[idx, :].reshape(x.T.shape))
+                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[
+                    0, 0
+                ]
+                factors[idx] = x.T - self.eq[idx, :].reshape(x.T.shape)
             # derivative = 2*(x-eq)*E/E_i
         else:  # no factors
             E = 1.0
@@ -119,4 +126,3 @@ class TranslatorDiscrete(TranslatorContinuous):
     @staticmethod
     def get_timer():
         return T
-

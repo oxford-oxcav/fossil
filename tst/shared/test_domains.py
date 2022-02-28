@@ -29,10 +29,10 @@ class DomainsTest(unittest.TestCase):
         z3_s1 = z3.simplify(z3.And(x0 **2 + x1 **2 <= 100))
         z3_s2 = z3.simplify(z3.And((x0 + 1)**2 + (x1 -5)**2 + x2 ** 2 <= 16))
 
-        gen_r1 = self.rectangle1.generate_domain([x0, x1, x2], z3.And)
-        gen_r2 = self.rectangle2.generate_domain([x0, x1], z3.And)
-        gen_s1 = self.sphere1.generate_domain([x0, x1], z3.And)
-        gen_s2 = self.sphere2.generate_domain([x0, x1, x2], z3.And)
+        gen_r1 = self.rectangle1.generate_domain([x0, x1, x2])
+        gen_r2 = self.rectangle2.generate_domain([x0, x1])
+        gen_s1 = self.sphere1.generate_domain([x0, x1])
+        gen_s2 = self.sphere2.generate_domain([x0, x1, x2])
 
         self.assertTrue(z3_r1.eq(z3.simplify(gen_r1)))
         self.assertTrue(z3_r2.eq(z3.simplify(gen_r2)))
@@ -47,10 +47,10 @@ class DomainsTest(unittest.TestCase):
         dreal_s1 = dreal.And(x0 **2 + x1 **2 <= 100)
         dreal_s2 = dreal.And((x0 + 1)**2 + (x1 -5)**2 + x2 ** 2 <= 16)
 
-        gen_r1 = self.rectangle1.generate_domain([x0, x1, x2], dreal.And)
-        gen_r2 = self.rectangle2.generate_domain([x0, x1], dreal.And)
-        gen_s1 = self.sphere1.generate_domain([x0, x1], dreal.And)
-        gen_s2 = self.sphere2.generate_domain([x0, x1, x2], dreal.And)
+        gen_r1 = self.rectangle1.generate_domain([x0, x1, x2])
+        gen_r2 = self.rectangle2.generate_domain([x0, x1])
+        gen_s1 = self.sphere1.generate_domain([x0, x1])
+        gen_s2 = self.sphere2.generate_domain([x0, x1, x2])
 
         self.assertTrue(dreal_r1.EqualTo(gen_r1))
         self.assertTrue(dreal_r2.EqualTo(gen_r2))
