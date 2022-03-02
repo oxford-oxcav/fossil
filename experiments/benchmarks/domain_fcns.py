@@ -363,6 +363,34 @@ class Sphere(Set):
         return (x-c).norm(2, dim=1) <= self.radius
 
 
+class PositiveOrthantSphere(Set):
+    def __init__(self, centre, radius):
+        self.name = 'positive_sphere'
+        self.centre = centre
+        self.radius = radius
+        self.dimension = len(centre)
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        param _And: And function for verifier
+        returns: formula for domain
+        """
+        fcns = self.set_functions(x)
+        _And = fcns['And']
+        return _And(
+            _And([x_i > 0 for x_i in x]),
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)]) <= self.radius ** 2
+        )
+
+    def generate_data(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        return slice_nd_init_data(self.centre, self.radius ** 2, batch_size)
+
+
 class Torus(Set):
     """
     Torus-shaped set characterised as a sphere of radius outer_radius \setminus a sphere of radius inner_radius

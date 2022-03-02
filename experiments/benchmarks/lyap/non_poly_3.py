@@ -15,13 +15,11 @@ from src.shared.cegis_values import CegisConfig, CegisStateKeys
 
 
 def test_lnn():
-    batch_size = 500
-    benchmark = nonpoly3
+
     n_vars = 3
-    system = partial(benchmark, batch_size)
+    system = nonpoly3
 
     # define domain constraints
-    outer_radius = 10
     inner_radius = 0.01
 
     # define NN parameters
@@ -38,8 +36,6 @@ def test_lnn():
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
         CegisConfig.SP_HANDLE.k: True,
         CegisConfig.SP_SIMPLIFY.k: True,
-        CegisConfig.INNER_RADIUS.k: inner_radius,
-        CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
     start = timeit.default_timer()

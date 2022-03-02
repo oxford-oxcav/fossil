@@ -20,14 +20,8 @@ from src.plots.plot_lyap import plot_lyce_discrete
 
 def test_lnn():
 
-    batch_size = 500
-    benchmark = linear_discrete
     n_vars = 2
-    system = partial(benchmark, batch_size)
-
-    # define domain constraints
-    outer_radius = 10
-    inner_radius = 0.01
+    system = linear_discrete
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
@@ -43,8 +37,6 @@ def test_lnn():
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
         CegisConfig.SP_HANDLE.k: False,
         CegisConfig.SP_SIMPLIFY.k: False,
-        CegisConfig.INNER_RADIUS.k: inner_radius,
-        CegisConfig.OUTER_RADIUS.k: outer_radius,
         CegisConfig.LLO.k: True,
     }
 

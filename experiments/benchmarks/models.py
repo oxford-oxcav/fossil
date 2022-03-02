@@ -76,6 +76,10 @@ class Eulerised:
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.f(*args, **kwds)
 
+############################################
+# LYAPUNOV BENCHMARKS
+############################################
+
 
 class NonPoly0(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
@@ -86,6 +90,170 @@ class NonPoly0(CTModel):
     def f_smt(self, v):
         x, y = v
         return [-x + x * y, -y]
+
+
+class NonPoly1(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-x + 2 * x ** 2 * y, -y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x + 2 * x ** 2 * y, -y]
+
+
+class NonPoly2(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y, z = v[:, 0], v[:, 1], v[:, 2]
+        return torch.stack([-x, -2 * y + 0.1 * x * y ** 2 + z, -z - 1.5 * y]).T
+
+    def f_smt(self, v):
+        x, y, z = v
+        return [-x, -2 * y + 0.1 * x * y ** 2 + z, -z - 1.5 * y]
+
+
+class NonPoly3(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y, z = v[:, 0], v[:, 1], v[:, 2]
+        return torch.stack([-3 * x - 0.1 * x * y ** 3, -y + z, -z]).T
+
+    def f_smt(self, v):
+        x, y, z = v
+        return [-3 * x - 0.1 * x * y ** 3, -y + z, -z]
+
+
+# POLY benchmarks
+# this series comes from
+# https://www.cs.colorado.edu/~srirams/papers/nolcos13.pdf
+# srirams paper from 2013 (old-ish) but plenty of lyap fcns
+
+
+class Benchmark0(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-x, -y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x, -y]
+
+
+class Poly1(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y, z = v[:, 0], v[:, 1], v[:, 2]
+        return torch.stack([-x ** 3 - x * z ** 2,
+                            -y - x ** 2 * y,
+                            -z + 3 * x ** 2 * z - (3 * z)]).T
+
+    def f_smt(self, v):
+        x, y, z = v
+        return [-x ** 3 - x * z ** 2,
+                -y - x ** 2 * y,
+                -z + 3 * x ** 2 * z - (3 * z)]
+
+
+class Poly2(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([- x ** 3 + y, - x - y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [- x ** 3 + y, - x - y]
+
+
+class Poly3(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-x ** 3 - y ** 2, x * y - y ** 3]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x ** 3 - y ** 2, x * y - y ** 3]
+
+
+class Poly4(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-x - 1.5 * x ** 2 * y ** 3, -y ** 3 + 0.5 * x ** 3 * y ** 2]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x - 1.5 * x ** 2 * y ** 3, -y ** 3 + 0.5 * x ** 3 * y ** 2]
+
+
+class TwoDHybrid(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x0, x1 = v[:, 0], v[:, 1]
+        _condition = x1 >= 0
+        _negated_cond = x1 < 0
+        _then = - x1 - 0.5 * x0 ** 3
+        _else = - x1 - x0 ** 2 - 0.25 * x1 ** 3
+        # _condition and _negated _condition are tensors of bool, act like 0 and 1
+        x1dot = _condition * _then + _negated_cond * _else
+
+        return torch.stack([-x0, x1dot]).T
+
+    def f_smt(self, v):
+        _If = self.fncs['If']
+        x0, x1 = v
+        _then = - x1 - 0.5 * x0 ** 3
+        _else = - x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _cond = x1 >= 0
+        return [-x0, _If(_cond, _then, _else)]
+
+
+class LinearDiscrete(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([0.5 * x - 0.5 * y, 0.5 * x]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.5 * x - 0.5 * y, 0.5 * x]
+
+
+class DoubleLinearDiscrete(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x1, x2, x3, x4 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
+        return torch.stack([0.5 * x1 - 0.5 * x2, 0.5 * x1, 0.5 * x3 - 0.5 * x4, 0.5 * x3]).T
+
+    def f_smt(self, v):
+        x1, x2, x3, x4 = v
+        return [0.5 * x1 - 0.5 * x2, 0.5 * x1, 0.5 * x3 - 0.5 * x4, 0.5 * x3]
+
+
+class LinearDiscreteNVars(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([0.5 * v[i] for i in range(len(v))]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.5 * v[i] for i in range(len(v))]
+
+
+class NonLinearDiscrete(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([0.5 * x - 0.000001 * y ** 2, 0.5 * x * y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.5 * x - 0.000001 * y ** 2, 0.5 * x * y]
 
 
 class Hybrid2d(CTModel):
@@ -105,6 +273,11 @@ class Hybrid2d(CTModel):
         _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
         _cond = x1 >= 0
         return [-x0, If(_cond, _then, _else)]
+
+
+############################################
+# BARRIER BENCHMARKS
+############################################
 
 
 class Barr1(CTModel):

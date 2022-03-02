@@ -6,7 +6,7 @@
  
 import numpy as np
 from numpy import *
-import random
+import torch
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from mpl_toolkits.mplot3d import axes3d
@@ -27,7 +27,11 @@ def plotting_3d(X, Y, B):
 
 def vector_field(f, Xd, Yd, t):
     # Plot phase plane
-    DX, DY = f([Xd, Yd])
+    DX, DY = np.split(
+        f(torch.tensor([[Xd, Yd]])).reshape(Xd.shape[0], Yd.shape[0], -1).detach().numpy(),
+        2, axis=2)
+    DX = DX.reshape(Xd.shape)
+    DY = DY.reshape(Yd.shape)
     DX = DX / np.linalg.norm(DX, ord=2, axis=1, keepdims=True)
     DY = DY / np.linalg.norm(DY, ord=2, axis=1, keepdims=True)
     plt.streamplot(Xd, Yd, DX, DY, linewidth=0.5,

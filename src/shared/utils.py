@@ -23,9 +23,9 @@ from src.shared.consts import LearningFactors
 def check_sympy_expression(state, system):
     V, Vdot = state[CegisStateKeys.V], state[CegisStateKeys.V_dot]
     if z3.is_expr(V):
-        f, _, __, _ = system(functions={"And": None})
+        f, _, __, _ = system()
         x = [sp.Symbol("x%d" % i, real=True) for i in range(2)]
-        xdot = f({"sin": sp.sin, "cos": sp.cos, "exp": sp.exp}, x)
+        xdot = f(x)
         V, Vdot = get_symbolic_formula(
             state[CegisStateKeys.net], sp.Matrix(x), sp.Matrix(xdot)
         )
