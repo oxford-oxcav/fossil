@@ -14,7 +14,7 @@ except:
     print('No dreal')
 
 # adapted from https://stackoverflow.com/questions/22488553/how-to-use-z3py-and-sympy-together
-from src.verifier.z3verifier import Z3Verifier
+import src.verifier as verifier
 
 
 def sympy_converter(syms: {}, exp: sp.Expr, to_number=lambda x: float(x), expand_pow=True):

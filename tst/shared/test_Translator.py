@@ -6,16 +6,11 @@
  
 import unittest
 from unittest import mock
-from functools import partial
-import numpy as np
-import sympy as sp
-from src.learner.net_continuous import NNContinuous
-from src.learner.net_discrete import NNDiscrete
-from src.translator.translator_continuous import TranslatorContinuous
-from src.translator.translator_discrete import TranslatorDiscrete
+import z3
+import src.learner as learner
+import src.translator as translator
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisStateKeys
-from src.verifier.z3verifier import Z3Verifier
 from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 
@@ -23,14 +18,14 @@ import torch
 class TranslatorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
-        system = partial(poly_2, batch_size=500)
-        self.f, _, self.S_d, _ = system(functions={'And': 0})
-        self.f_learner = partial(self.f, {'And': 0})
-        self.f_verifier = partial(self.f, {'And': 0})
+        system = poly_2
+        self.f, _, self.S_d, _ = system()
+        self.f_learner = self.f
+        self.f_verifier = self.f
         self.hidden = [3]
         self.activate = [ActivationType.SQUARE]
-        self.x = [sp.Symbol('x'), sp.Symbol('y')]
-        self.xdot = self.f(Z3Verifier.solver_fncts(), self.x)
+        self.x = [z3.Real('x'), z3.Real('y')]
+        self.xdot = self.f(self.x)
 
     # given a point, the consolidator returns a list of points - trajectory -
     # that lead towards the max of Vdot
@@ -41,51 +36,51 @@ class TranslatorTest(unittest.TestCase):
         point.requires_grad = True
 
         # def neural learner
-        with mock.patch.object(NNContinuous, 'learn') as learner:
-            # setup learner
-            learner.input_size = 2
-            learner.acts = [ActivationType.SQUARE]
-            learner.layers = [
+        with mock.patch.object(learner.LearnerCT, 'learn') as lrner:
+            # setup lrner
+            lrner.input_size = 2
+            lrner.acts = [ActivationType.SQUARE]
+            lrner.layers = [
                 torch.nn.Linear(2, 3, bias=False),
                 torch.nn.Linear(3, 1, bias=False)
             ]
-            learner.layers[0].weight = torch.nn.Parameter(torch.tensor(
+            lrner.layers[0].weight = torch.nn.Parameter(torch.tensor(
                 [[1.234, 0.0],
                  [0.0, 1.234],
                  [0.0, 0.0]
             ]))
-            learner.layers[1].weight = torch.nn.Parameter(
+            lrner.layers[1].weight = torch.nn.Parameter(
                 torch.tensor([1.0, 1.0, 1.0]).reshape(1, 3)
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = TranslatorContinuous(learner, np.array(self.x).reshape(-1, 1), np.array(self.xdot).reshape(-1, 1), None, 1)
+            regolo = translator.TranslatorCT(lrner, self.x, self.xdot, None, 1)
             res = regolo.get(**{'factors': None})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
             # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are
             # V = (1.2*x)**2 + (1.2*y)**2 = 1.44 * x**2 + 1.44 * y**2
             # Vdot = 2 * 1.44 * x * (- x**3 + y) + 2 * 1.44 * y * (- x - y)
-            desired_V = 1.44 * self.x[0]**2 + 1.44 * self.x[1]**2
+            desired_V = (1.2 * self.x[0])**2 + (1.2 * self.x[1])**2
             desired_Vdot = 2 * 1.44 * self.x[0] * self.xdot[0] \
                            + 2 * 1.44 * self.x[1] * self.xdot[1]
 
-            self.assertEqual(V, desired_V)
-            self.assertEqual(Vdot, desired_Vdot)
+            self.assertEqual(z3.simplify(V), z3.simplify(desired_V))
+            self.assertEqual(z3.simplify(Vdot), z3.simplify(desired_Vdot))
 
             # check that Vdot(trajectory) is an increasing sequence
 
 class TranslatorDiscreteTest(unittest.TestCase):
     def setUp(self) -> None:
         self.n_vars = 2
-        system = partial(poly_2, batch_size=500)
-        self.f, _, self.S_d, _ = system(functions={'And': 0})
-        self.f_learner = partial(self.f, {'And': 0})
-        self.f_verifier = partial(self.f, {'And': 0})
+        system = poly_2
+        self.f, _, self.S_d, _ = system()
+        self.f_learner = self.f
+        self.f_verifier = self.f
         self.hidden = [3]
         self.activate = [ActivationType.SQUARE]
-        self.x = [sp.Symbol('x'), sp.Symbol('y')]
-        self.xdot = self.f(Z3Verifier.solver_fncts(), self.x)
+        self.x = [z3.Real('x'), z3.Real('y')]
+        self.xdot = self.f(self.x)
 
     # given a point, the consolidator returns a list of points - trajectory -
     # that lead towards the max of Vdot
@@ -96,35 +91,35 @@ class TranslatorDiscreteTest(unittest.TestCase):
         point.requires_grad = True
 
         # def neural learner
-        with mock.patch.object(NNDiscrete, 'learn') as learner:
-            # setup learner
-            learner.input_size = 2
-            learner.acts = [ActivationType.SQUARE]
-            learner.layers = [
+        with mock.patch.object(learner.LearnerDT, 'learn') as lrner:
+            # setup lrner
+            lrner.input_size = 2
+            lrner.acts = [ActivationType.SQUARE]
+            lrner.layers = [
                 torch.nn.Linear(2, 3, bias=False),
                 torch.nn.Linear(3, 1, bias=False)
             ]
-            learner.layers[0].weight = torch.nn.Parameter(torch.tensor(
+            lrner.layers[0].weight = torch.nn.Parameter(torch.tensor(
                 [[1.234, 0.0],
                  [0.0, 1.234],
                  [0.0, 0.0]
             ]))
-            learner.layers[1].weight = torch.nn.Parameter(
+            lrner.layers[1].weight = torch.nn.Parameter(
                 torch.tensor([1.0, 1.0, 1.0]).reshape(1, 3)
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = TranslatorDiscrete(learner, np.array(self.x).reshape(-1,1), np.array(self.xdot).reshape(-1, 1), None, 1)
+            regolo = translator.TranslatorDT(lrner, self.x, self.xdot, None, 1)
             res = regolo.get(**{'factors': None})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
             # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are
             # V = (1.2*x)**2 + (1.2*y)**2 = 1.44 * x**2 + 1.44 * y**2
             # Vdot = 2 * 1.44 * x * (- x**3 + y) + 2 * 1.44 * y * (- x - y)
-            desired_V = 1.44 * self.x[0]**2 + 1.44 * self.x[1]**2
-            desired_Vdot = 1.44 * self.xdot[0]**2 + 1.44 * self.xdot[1]**2 - desired_V
-            self.assertEqual(V, desired_V)
-            self.assertEqual(Vdot, desired_Vdot)
+            desired_V = (1.2 * self.x[0])**2 + (1.2 * self.x[1])**2
+            desired_Vdot = (1.2 * self.xdot[0])**2 + (1.2 * self.xdot[1])**2 - desired_V
+            self.assertEqual(z3.simplify(V), z3.simplify(desired_V))
+            self.assertEqual(z3.simplify(Vdot), z3.simplify(desired_Vdot))
 
 
 

@@ -13,9 +13,7 @@ import torch
 from maraboupy import Marabou
 
 from experiments.benchmarks.domain_fcns import inf_bounds_n
-from src.learner.net_discrete import NNDiscrete
-from src.certificate.lyapunov_certificate import LyapunovCertificate
-from src.verifier.marabou_verifier import MarabouVerifier
+import src.verifier as verifier
 
 
 class ReluNet(torch.nn.Module):
@@ -48,17 +46,17 @@ class MarabouVerifierTest(unittest.TestCase):
         return super().setUp()
 
     def test_Verification_unsat(self):
-        verifier = MarabouVerifier(1, None, inf_bounds_n(1), range(1), INNER_RADIUS=0.1)
+        ver = verifier.VerifierMarabou(1, None, inf_bounds_n(1), range(1), INNER_RADIUS=0.1)
         V = Marabou.read_onnx(self.net_pos_file.name,)
         Vdot = Marabou.read_onnx(self.net_neg_file.name)
-        res = verifier.verify(V, Vdot) 
+        res = ver.verify(V, Vdot) 
         self.assertTrue(res['found'])
 
     def test_Verification_sat(self):
-        verifier = MarabouVerifier(1, None, inf_bounds_n(1), range(1), INNER_RADIUS=0.1)
+        ver = verifier.VerifierMarabou(1, None, inf_bounds_n(1), range(1), INNER_RADIUS=0.1)
         V = Marabou.read_onnx(self.net_neg_file.name)
         Vdot = Marabou.read_onnx(self.net_pos_file.name)
-        res = verifier.verify(V, Vdot)
+        res = ver.verify(V, Vdot)
         self.assertFalse(res['found'])
  
 

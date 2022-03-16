@@ -16,7 +16,7 @@ except Exception as e:
 from src.shared.activations import ActivationType
 
 
-def activation_z3(select, p):
+def activation_sym(select, p):
     if select == ActivationType.IDENTITY:
         return p
     elif select == ActivationType.RELU:
@@ -55,7 +55,7 @@ def activation_z3(select, p):
         return sd(p)
 
 
-def activation_der_z3(select, p):
+def activation_der_sym(select, p):
     if select == ActivationType.IDENTITY:
         return np.ones((p.shape))
     elif select == ActivationType.RELU:

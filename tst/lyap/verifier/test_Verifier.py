@@ -10,8 +10,8 @@ import unittest
 
 from z3 import Reals
 
-from src.verifier.verifier import Verifier
-from src.certificate.lyapunov_certificate import LyapunovCertificate
+import src.verifier as verifier
+import src.certificate as certificate
 
 
 class SimplifierTest(unittest.TestCase):
@@ -25,12 +25,12 @@ class SimplifierTest(unittest.TestCase):
         domain = x*x + y*y + z*z <= 1
         return_value = 'result'
         t = 1
-        lc = LyapunovCertificate(domains={"lie-&-pos":domain})
+        lc = certificate.Lyapunov(domains={"lie-&-pos":domain})
 
-        with mock.patch.object(Verifier, '_solver_solve') as s:
+        with mock.patch.object(verifier.Verifier, '_solver_solve') as s:
             # setup
             s.return_value = return_value
-            v = Verifier(3, lc.get_constraints, 0, self.z3_vars)
+            v = verifier.Verifier(3, lc.get_constraints, 0, self.z3_vars)
             v.timeout = t
 
             # call tested function

@@ -12,9 +12,8 @@ from experiments.benchmarks.benchmarks_lyap import *
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
-from functools import partial
 from z3 import *
-from src.translator.translator_continuous import TranslatorContinuous
+import src.translator as translator
 from src.shared.cegis_values import CegisStateKeys
 
 
@@ -50,12 +49,11 @@ class test_cegis(unittest.TestCase):
 
     def assertLyapunovOverPositiveOrthant(self, system, c):
 
-        f, domain, _, _ = system(functions=c.verifier.solver_fncts(),
-                              inner=c.inner, outer=c.outer)
-        domain = domain[0]({}, list(c.x_map.values()))
-        translator = TranslatorContinuous(c.learner, np.array(c.x).reshape(-1,1), np.array(c.xdot).reshape(-1,1),
+        f, domain, _, _ = system()
+        domain = domain['lie-&-pos'](list(c.x_map.values()))
+        tr = translator.TranslatorCT(c.learner, c.x, c.xdot,
                                   None, 3)
-        res = translator.get(**{'factors': None})
+        res = tr.get(**{'factors': None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         s = Solver()
@@ -68,8 +66,8 @@ class test_cegis(unittest.TestCase):
             model = ""
         self.assertEqual(res, z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model))
 
-        Sdot = c.f_learner(c.S[0].T)
-        S, Sdot = c.S[0], torch.stack(Sdot).T
+        Sdot = f(c.S['lie-&-pos'])
+        S = c.S['lie-&-pos']
         self.assertNumericallyLyapunov(c.learner, S, Sdot)
 
     def test_poly_2(self):
@@ -78,7 +76,7 @@ class test_cegis(unittest.TestCase):
         batch_size = 500
         benchmark = poly_2
         n_vars = 2
-        system = partial(benchmark, batch_size)
+        system = benchmark
 
         # define domain constraints
         outer_radius = 10
@@ -114,7 +112,7 @@ class test_cegis(unittest.TestCase):
         batch_size = 500
         benchmark = nonpoly0_lyap
         n_vars = 2
-        system = partial(benchmark, batch_size)
+        system = benchmark
 
         # define domain constraints
         outer_radius = 10
@@ -150,7 +148,7 @@ class test_cegis(unittest.TestCase):
         batch_size = 500
         benchmark = nonpoly1
         n_vars = 2
-        system = partial(benchmark, batch_size)
+        system = benchmark
 
         # define domain constraints
         outer_radius = 10
@@ -185,7 +183,7 @@ class test_cegis(unittest.TestCase):
         batch_size = 750
         benchmark = nonpoly2
         n_vars = 3
-        system = partial(benchmark, batch_size)
+        system = benchmark
 
         # define domain constraints
         outer_radius = 10

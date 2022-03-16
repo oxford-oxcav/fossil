@@ -15,7 +15,7 @@ import dreal
 import torch
 
 from src.shared.activations import activation, activation_der
-from src.shared.activations_symbolic import activation_z3, activation_der_z3
+from src.shared.activations_symbolic import activation_sym, activation_der_sym
 from src.shared.cegis_values import CegisStateKeys
 from src.shared.consts import LearningFactors
 
@@ -106,10 +106,10 @@ def network_until_last_layer_sympy(net, x, rounding):
         # b = sp.Matrix(sp.nsimplify(b, rational=True))
 
         zhat = w @ z + b
-        z = activation_z3(net.acts[idx], zhat)
+        z = activation_sym(net.acts[idx], zhat)
         # Vdot
         jacobian = w @ jacobian
-        jacobian = np.diagflat(activation_der_z3(net.acts[idx], zhat)) @ jacobian
+        jacobian = np.diagflat(activation_der_sym(net.acts[idx], zhat)) @ jacobian
 
     return z, jacobian
 
@@ -142,10 +142,10 @@ def network_until_last_layer(net, x, rounding):
         # b = sp.Matrix(sp.nsimplify(b, rational=True))
 
         zhat = w @ z + b
-        z = activation_z3(net.acts[idx], zhat)
+        z = activation_sym(net.acts[idx], zhat)
         # Vdot
         jacobian = w @ jacobian
-        jacobian = np.diagflat(activation_der_z3(net.acts[idx], zhat)) @ jacobian
+        jacobian = np.diagflat(activation_der_sym(net.acts[idx], zhat)) @ jacobian
 
     return z, jacobian
 

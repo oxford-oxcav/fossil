@@ -6,6 +6,7 @@ import dreal
 import numpy as np
 
 from src.shared.utils import contains_object
+from src.shared import control
 
 
 class CTModel:
@@ -55,6 +56,22 @@ class CTModel:
         """
         return True
 
+
+class ClosedLoopModel(CTModel):
+    def __init__(self, f_open: CTModel, controller: control.StabilityCT) -> None:
+        super().__init__()
+        self.open_loop = f_open
+        self.controller = controller
+
+    def f_torch(self, v):
+        return self.open_loop(v) + self.controller(v).detach()
+
+    def f_smt(self, v):
+        fo = self.open_loop(v)
+        fc = self.controller.to_symbolic(v).tolist()
+        return [fo[i] + fc[i] for i in range(len(fo))]
+
+
 class Eulerised:
     """
     Create discrete time model from continuous time model using the Euler method:
@@ -75,6 +92,7 @@ class Eulerised:
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.f(*args, **kwds)
+
 
 ############################################
 # LYAPUNOV BENCHMARKS
@@ -146,48 +164,48 @@ class Poly1(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
-        return torch.stack([-x ** 3 - x * z ** 2,
-                            -y - x ** 2 * y,
-                            -z + 3 * x ** 2 * z - (3 * z)]).T
+        return torch.stack(
+            [-(x ** 3) - x * z ** 2, -y - x ** 2 * y, -z + 3 * x ** 2 * z - (3 * z)]
+        ).T
 
     def f_smt(self, v):
         x, y, z = v
-        return [-x ** 3 - x * z ** 2,
-                -y - x ** 2 * y,
-                -z + 3 * x ** 2 * z - (3 * z)]
+        return [-(x ** 3) - x * z ** 2, -y - x ** 2 * y, -z + 3 * x ** 2 * z - (3 * z)]
 
 
 class Poly2(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([- x ** 3 + y, - x - y]).T
+        return torch.stack([-(x ** 3) + y, -x - y]).T
 
     def f_smt(self, v):
         x, y = v
-        return [- x ** 3 + y, - x - y]
+        return [-(x ** 3) + y, -x - y]
 
 
 class Poly3(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([-x ** 3 - y ** 2, x * y - y ** 3]).T
+        return torch.stack([-(x ** 3) - y ** 2, x * y - y ** 3]).T
 
     def f_smt(self, v):
         x, y = v
-        return [-x ** 3 - y ** 2, x * y - y ** 3]
+        return [-(x ** 3) - y ** 2, x * y - y ** 3]
 
 
 class Poly4(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([-x - 1.5 * x ** 2 * y ** 3, -y ** 3 + 0.5 * x ** 3 * y ** 2]).T
+        return torch.stack(
+            [-x - 1.5 * x ** 2 * y ** 3, -(y ** 3) + 0.5 * x ** 3 * y ** 2]
+        ).T
 
     def f_smt(self, v):
         x, y = v
-        return [-x - 1.5 * x ** 2 * y ** 3, -y ** 3 + 0.5 * x ** 3 * y ** 2]
+        return [-x - 1.5 * x ** 2 * y ** 3, -(y ** 3) + 0.5 * x ** 3 * y ** 2]
 
 
 class TwoDHybrid(CTModel):
@@ -196,18 +214,18 @@ class TwoDHybrid(CTModel):
         x0, x1 = v[:, 0], v[:, 1]
         _condition = x1 >= 0
         _negated_cond = x1 < 0
-        _then = - x1 - 0.5 * x0 ** 3
-        _else = - x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0 ** 3
+        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
         # _condition and _negated _condition are tensors of bool, act like 0 and 1
         x1dot = _condition * _then + _negated_cond * _else
 
         return torch.stack([-x0, x1dot]).T
 
     def f_smt(self, v):
-        _If = self.fncs['If']
+        _If = self.fncs["If"]
         x0, x1 = v
-        _then = - x1 - 0.5 * x0 ** 3
-        _else = - x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0 ** 3
+        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
         _cond = x1 >= 0
         return [-x0, _If(_cond, _then, _else)]
 
@@ -227,7 +245,9 @@ class DoubleLinearDiscrete(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x1, x2, x3, x4 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
-        return torch.stack([0.5 * x1 - 0.5 * x2, 0.5 * x1, 0.5 * x3 - 0.5 * x4, 0.5 * x3]).T
+        return torch.stack(
+            [0.5 * x1 - 0.5 * x2, 0.5 * x1, 0.5 * x3 - 0.5 * x4, 0.5 * x3]
+        ).T
 
     def f_smt(self, v):
         x1, x2, x3, x4 = v
@@ -445,3 +465,13 @@ class HighOrd8(CTModel):
             - 2400 * x1
             - 576 * x0,
         ]
+
+
+class UnstableLinear(CTModel):
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-2 * x - y, 0.6 * y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-2 * x - y, 0.6 * y]

@@ -27,13 +27,10 @@ def plotting_3d(X, Y, B):
 
 def vector_field(f, Xd, Yd, t):
     # Plot phase plane
-    DX, DY = np.split(
-        f(torch.tensor([[Xd, Yd]])).reshape(Xd.shape[0], Yd.shape[0], -1).detach().numpy(),
-        2, axis=2)
-    DX = DX.reshape(Xd.shape)
-    DY = DY.reshape(Yd.shape)
-    DX = DX / np.linalg.norm(DX, ord=2, axis=1, keepdims=True)
-    DY = DY / np.linalg.norm(DY, ord=2, axis=1, keepdims=True)
+    gg = np.vstack([Xd.ravel(), Yd.ravel()]).T
+    DF = f(torch.tensor(gg).float()).detach().numpy()
+    DX = DF[:,0].reshape(Xd.shape)
+    DY = DF[:, 1].reshape(Xd.shape)
     plt.streamplot(Xd, Yd, DX, DY, linewidth=0.5,
                    density=0.5, arrowstyle='-|>', arrowsize=1.5)
 

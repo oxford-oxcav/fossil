@@ -13,12 +13,12 @@ from maraboupy import Marabou
 from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
 
 from experiments.benchmarks.domain_fcns import inf_bounds_n
-from src.certificate.lyapunov_certificate import LyapunovCertificate
-from src.learner.net_discrete import NNDiscrete
+import src.certificate as certificate
+import src.learner as learner
 from src.shared.activations import ActivationType
 from src.shared.components.estimation import EstimNet
-from src.translator.translator_marabou import MarabouTranslator, _DiffNet
-from src.verifier.marabou_verifier import MarabouVerifier
+import src.translator as translator
+import src.verifier as verifier
 
 
 class DiffNetTest(unittest.TestCase):

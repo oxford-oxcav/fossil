@@ -7,7 +7,7 @@
 import unittest
 from unittest import mock
 from functools import partial
-from src.learner.net_continuous import NNContinuous
+import src.learner as learner
 from src.shared.components.consolidator import Consolidator
 from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import nonpoly0_lyap
@@ -31,25 +31,25 @@ class ConsolidatorTest(unittest.TestCase):
         point = torch.tensor([1.0, 2.0]).reshape(1, -1)
 
         # def neural learner
-        with mock.patch.object(NNContinuous, "learn") as learner:
-            # setup learner
-            learner.input_size = 2
-            learner.acts = [ActivationType.SQUARE]
-            learner.layers = [
+        with mock.patch.object(learner.LearnerCT, "learn") as lrner:
+            # setup lrner
+            lrner.input_size = 2
+            lrner.acts = [ActivationType.SQUARE]
+            lrner.layers = [
                 torch.nn.Linear(2, 3, bias=False),
                 torch.nn.Linear(3, 1, bias=False),
             ]
-            learner.layers[0].weight = torch.nn.Parameter(
+            lrner.layers[0].weight = torch.nn.Parameter(
                 torch.tensor([[1.0, 2.0], [2.0, 1.0], [5.0, 4.0]])
             )
-            learner.layers[1].weight = torch.nn.Parameter(
+            lrner.layers[1].weight = torch.nn.Parameter(
                 torch.tensor([-1.0, 1.0, -2.0]).reshape(1, 3)
             )
 
             # create a 'real' consolidator
             traj = Consolidator(self.f_learner)
             state = {
-                CegisStateKeys.net: learner,
+                CegisStateKeys.net: lrner,
                 CegisStateKeys.cex: {"lie": point},
                 CegisStateKeys.trajectory: None,
             }
@@ -60,7 +60,7 @@ class ConsolidatorTest(unittest.TestCase):
             v_dots = []
             for idx in range(len(trajectory)):
                 v_dots.append(
-                    traj.forward_Vdot(learner, trajectory[idx].detach()).item()
+                    traj.forward_Vdot(lrner, trajectory[idx].detach()).item()
                 )
 
             # check that Vdot(trajectory) is an increasing sequence

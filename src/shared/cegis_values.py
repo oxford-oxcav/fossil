@@ -81,6 +81,7 @@ class CegisStateKeys:
     equilibrium = 'equilibrium'
     components_times = 'components_times'
     ENet = "ENet"
+    xdot = 'xdot'
 
 
 class CegisComponentsState:

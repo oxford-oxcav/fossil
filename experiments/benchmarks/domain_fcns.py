@@ -7,7 +7,7 @@
 import torch
 import numpy as np
 
-from src.verifier import drealverifier, z3verifier
+import src.verifier as verifier
 
 
 def square_init_data(domain, batch_size):
@@ -218,8 +218,8 @@ def inf_bounds_n(n):
 
 
 class Set:
-    dreal_functions = drealverifier.DRealVerifier.solver_fncts()
-    z3_functions = z3verifier.Z3Verifier.solver_fncts()
+    dreal_functions = verifier.VerifierDReal.solver_fncts()
+    z3_functions = verifier.VerifierZ3.solver_fncts()
 
     def __init__(self) -> None:
         pass
@@ -232,9 +232,9 @@ class Set:
 
     @staticmethod
     def set_functions(x):
-        if drealverifier.DRealVerifier.check_type(x):
+        if verifier.VerifierDReal.check_type(x):
             return Set.dreal_functions
-        if z3verifier.Z3Verifier.check_type(x):
+        if verifier.VerifierZ3.check_type(x):
             return Set.z3_functions
 
 
@@ -379,7 +379,7 @@ class PositiveOrthantSphere(Set):
         fcns = self.set_functions(x)
         _And = fcns['And']
         return _And(
-            _And([x_i > 0 for x_i in x]),
+            *[x_i > 0 for x_i in x],
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)]) <= self.radius ** 2
         )
 
