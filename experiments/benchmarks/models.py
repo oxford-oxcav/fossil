@@ -68,8 +68,8 @@ class ClosedLoopModel(CTModel):
 
     def f_smt(self, v):
         fo = self.open_loop(v)
-        fc = self.controller.to_symbolic(v).tolist()
-        return [fo[i] + fc[i] for i in range(len(fo))]
+        fc = self.controller.to_symbolic(v)
+        return [fo[i] + fc[i, 0] for i in range(len(fo))]
 
 
 class Eulerised:

@@ -16,7 +16,7 @@ from src.plots.plot_lyap import plot_lyce
 
 
 def test_lnn():
-    benchmark = control_ct
+    benchmark = control_dt
     n_vars = 2
     system = benchmark
 
@@ -28,7 +28,7 @@ def test_lnn():
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,

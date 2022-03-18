@@ -335,13 +335,35 @@ def non_linear_discrete():
     return f, domains, data, inf_bounds_n(2)
 
 
-def controlled_model():
-    outer = 1
+def control_ct():
+    outer = 10
     batch_size = 1000
 
     open_loop = models.UnstableLinear()
     XD = Torus([0.0, 0.0], outer, 0.1)
-    ctrler = control.StabilityCT(2, [1], [ActivationType.LINEAR])
+    ctrler = control.StabilityCT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models.ClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        "lie-&-pos": XD.generate_domain,
+    }
+
+    data = {
+        "lie-&-pos": XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def control_dt():
+    outer = 10
+    batch_size = 1000
+
+    open_loop = models.UnstableLinear()
+    XD = Torus([0.0, 0.0], outer, 0.1)
+    ctrler = control.StabilityDT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.ClosedLoopModel(open_loop, ctrler)

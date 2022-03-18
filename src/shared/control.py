@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from src.shared.activations import activation
 from src.shared.activations_symbolic import activation_sym
@@ -48,7 +49,7 @@ class StabilityCT(torch.nn.Module):
         for act, layer in zip(self.acts, self.layers):
             W = layer.weight.detach().numpy().round(rounding)
             # b = layer.bias.detach().numpy().round(rounding)
-            z = W @ y #+ b
+            z = np.atleast_2d(W @ y).T #+ b
             y = activation_sym(act, z)
         W = self.layers[-1].weight.detach().numpy().round(rounding)
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
@@ -87,8 +88,8 @@ class StabilityDT(torch.nn.Module):
 
         for i in range(2000):
             Sdot = f_open(S) + self(S)
-            # Minimise delta S
-            loss = (S - Sdot).sum()
+            # Sdot should be smaller (in norm) than S
+            loss = (torch.norm(Sdot, p=2, dim=1) - torch.norm(S, p=2, dim=1)).sum()
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -99,7 +100,7 @@ class StabilityDT(torch.nn.Module):
         for act, layer in zip(self.acts, self.layers):
             W = layer.weight.detach().numpy().round(rounding)
             # b = layer.bias.detach().numpy().round(rounding)
-            z = W @ y #+ b
+            z = np.atleast_2d(W @ y).T #+ b
             y = activation_sym(act, z)
         W = self.layers[-1].weight.detach().numpy().round(rounding)
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
