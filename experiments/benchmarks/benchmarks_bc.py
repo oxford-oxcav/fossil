@@ -13,6 +13,9 @@ import dreal
 
 from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
+from src.shared.activations import ActivationType
+import src.shared.control as control
+from src.certificate import Barrier, BarrierLyapunov
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
@@ -338,9 +341,65 @@ def hi_ord_8():
     return f, domains, data, inf_bounds_n(8)
 
 
+def safe_control_ct():
+    outer = 1
+    batch_size = 1000
+
+    open_loop = models.UnstableLinear()
+    XD = Torus([0.0, 0.0], outer, 0.1)
+    XI = Sphere([0.7, 0.7], 0.2)
+    XU = Sphere([-0.7, -0.7], 0.2)
+    ctrler = control.SafeStableCT(2, [1], [ActivationType.LINEAR], XU)
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models.ClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        "lie": XD.generate_domain,
+        "init": XI.generate_domain,
+        "unsafe": XU.generate_domain,
+    }
+    data = {
+        "lie": XD.generate_data(batch_size),
+        "init": XI.generate_data(batch_size),
+        "unsafe": XU.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def car_control():
+    outer = 1
+    batch_size = 1000
+    open_loop = models.Car()
+    XD = Torus([0.0, 0.0, 0.0], outer, 0.1)
+    XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
+    XU = Sphere([-0.7, -0.7, -0.7], 0.2)
+    ctrler = control.SafeStableCT(3, [1], [ActivationType.LINEAR], XU)
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models.ClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        "lie": XD.generate_domain,
+        "init": XI.generate_domain,
+        "unsafe": XU.generate_domain,
+    }
+    data = {
+        "lie": XD.generate_data(batch_size),
+        "init": XI.generate_data(batch_size),
+        "unsafe": XU.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
 if __name__ == "__main__":
-    f, XD, XI, XU, SD, SI, SU, bonds = hi_ord_8(500, {"And": z3.And, "Or": None})
-    plt.scatter(SI[:, 0], SI[:, 1], color="g", marker="x")
-    plt.scatter(SU[:, 0], SU[:, 1], color="r", marker="x")
-    plt.scatter(SD[:, 0], SD[:, 1], color="b")
+    f, X, S,  bounds = safe_control_ct()
+    from src.plots.plot_fcns import vector_field
+    from matplotlib import pyplot as plt
+    torch.manual_seed(169)
+    xx = np.linspace(-10, 10, 20)
+    yy = np.linspace(-10, 10, 20)
+    XX, YY = np.meshgrid(xx, yy)
+    ax = vector_field(f, XX, YY, None)
     plt.show()

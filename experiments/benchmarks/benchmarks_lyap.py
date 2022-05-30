@@ -13,7 +13,7 @@ from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
-import src.certificate as certificate
+from src.certificate import Lyapunov
 
 ###############################
 # NON POLY BENCHMARKS
@@ -32,8 +32,8 @@ def nonpoly0_lyap():
 
     return (
         p,
-        {"lie-&-pos": domain.generate_domain},
-        {"lie-&-pos": domain.generate_data(1000)},
+        {Lyapunov.XD: domain.generate_domain},
+        {Lyapunov.SD: domain.generate_data(1000)},
         inf_bounds_n(2),
     )
 
@@ -71,11 +71,11 @@ def nonpoly1():
     XD = PositiveOrthantSphere([0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -91,11 +91,11 @@ def nonpoly2():
     XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
@@ -111,11 +111,11 @@ def nonpoly3():
     XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
@@ -134,11 +134,11 @@ def benchmark_0():
     XD = Sphere([0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -156,11 +156,11 @@ def poly_1():
     XD = Torus([0.0, 0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
@@ -180,11 +180,11 @@ def poly_2():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -201,11 +201,11 @@ def poly_3():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -222,11 +222,11 @@ def poly_4():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -243,11 +243,11 @@ def twod_hybrid():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -264,11 +264,11 @@ def linear_discrete():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -283,11 +283,11 @@ def double_linear_discrete():
     XD = Sphere([0.0, 0.0, 0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(4)
@@ -302,15 +302,15 @@ def linear_discrete_n_vars(smt_verification, n_vars):
 
     XD = Sphere([0.0] * n_vars, outer)
 
-    data = {"lie-&-pos": XD.generate_data(batch_size)}
+    data = {Lyapunov.SD: XD.generate_data(batch_size)}
 
     if smt_verification:
-        domains = {"lie-&-pos": XD.generate_domain}
+        domains = {Lyapunov.XD: XD.generate_domain}
     else:
         lower_inputs = -outer * np.ones((1, n_vars))
         upper_inputs = outer * np.ones((1, n_vars))
         initial_bound = jax_verify.IntervalBound(lower_inputs, upper_inputs)
-        domains = {"lie-&-pos": initial_bound}
+        domains = {Lyapunov.XD: initial_bound}
 
     return f, domains, data, inf_bounds_n(n_vars)
 
@@ -325,11 +325,11 @@ def non_linear_discrete():
     XD = Sphere([0.0, 0.0], outer)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -347,11 +347,11 @@ def control_ct():
     f = models.ClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -369,11 +369,11 @@ def control_dt():
     f = models.ClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        "lie-&-pos": XD.generate_domain,
+        Lyapunov.XD: XD.generate_domain,
     }
 
     data = {
-        "lie-&-pos": XD.generate_data(batch_size),
+        Lyapunov.SD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
