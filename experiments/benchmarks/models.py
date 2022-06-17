@@ -475,3 +475,14 @@ class UnstableLinear(CTModel):
     def f_smt(self, v):
         x, y = v
         return [-2 * x - y, 0.6 * y]
+
+class Car(CTModel):
+    def f_torch(self, v):
+        x, y, omega =  v[:, 0], v[:, 1], v[:, 2]
+        return torch.stack([torch.cos(omega), torch.sin(omega), omega]).T
+
+    def f_smt(self, v):
+        x, y, omega =  v
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        return [cos(omega), sin(omega), omega]

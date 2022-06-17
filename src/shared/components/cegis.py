@@ -216,7 +216,7 @@ class Cegis:
                     # It might be better to have a CONTROLLED param to cegis, but there's 
                     # already a lot of those so tried to avoid that. 
                     optim = torch.optim.AdamW(self.f.controller.parameters())
-                    self.f.controller.learn(state[CegisStateKeys.S]['lie-&-pos'], self.f.open_loop, optim)
+                    self.f.controller.learn(state[CegisStateKeys.S][self.certificate.XD], self.f.open_loop, optim)
                     state.update({CegisStateKeys.xdot: self.f(self.x)})
 
         state[CegisStateKeys.components_times] = [
