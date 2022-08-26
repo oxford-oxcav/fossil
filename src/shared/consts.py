@@ -48,3 +48,4 @@ class CertificateType(Enum):
     BARRIER_LYAPUNOV = auto()
     LYAPUNOV = auto()
     RWS = auto()
+    RSWS = auto()

@@ -283,7 +283,7 @@ class Barrier(Certificate):
 
 class BarrierLyapunov(Certificate):
     """
-    Certifies Safety and Stability of a model
+    Certifies Safety of a model
 
     Arguments:
     domains {dict}: dictionary of string: domains pairs for a initial set, unsafe set and domain
@@ -345,10 +345,8 @@ class BarrierLyapunov(Certificate):
                 / (len(S[BarrierLyapunov.SU]) + len(S[BarrierLyapunov.SD]))
             )
             slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(slope)
             relu6 = torch.nn.ReLU6()
             p = 1
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
             init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
             # init_loss = (init_loss / init_loss.detach().norm(p=p)).mean()
             unsafe_loss = (
@@ -565,25 +563,201 @@ class ReachWhileStay(Certificate):
         ):
             yield cs
 
-
 class RSWS(Certificate):
-    """
+    """ Reach and Stay While Stay Certificate
+
+    Firstly satisfies reach while stay conditions, given by:
+        forall x in XI, V <= 0,
+        forall x in boundary of XS, V > 0,
+        forall x in A \ XG, dV/dt <= 0
+        A = {x \in XS| V <=0 }
+
     http://arxiv.org/abs/1812.02711
     In addition to the RWS properties, to satisfy RSWS:
-    \forall x in border XG: V > \beta
-    \forall x in XG \ int(B): dV/dt <= 0
+    forall x in border XG: V > \beta
+    forall x in XG \ int(B): dV/dt <= 0
     B = {x in XS | V <= \beta}
-    Best to ask SMT solver if a beta exists such that the above holds - but how to train for it
+    Best to ask SMT solver if a beta exists such that the above holds -
+    but currently we don't train for this condition.
+
+    Crucially, this relies only on the border of the safe set, 
+    rather than the safe set itself.
+    Since the border must be positive (and the safe invariant negative), this is inline
+    with making the complement (the unsafe set) positive. Therefore, the implementation 
+    requires an unsafe set to be passed in, and assumes its border is the same of the border of the safe set.
     """
 
     XD = "lie"
     XI = "init"
+    XU = "unsafe_border"
     XS = "safe"
     XG = "goal"
+    dXG = "goal_border"
     SD = XD
     SI = XI
-    SS = XS
+    SU = "unsafe"
     SG = XG
+
+    def __init__(self, domains, **kw) -> None:
+        """initialise the RSWS certificate
+
+        Args:
+            domains (Dict): contains symbolic formula of the domains
+        """
+        self.domain = domains[RSWS.XD]
+        self.initial_s = domains[RSWS.XI]
+        self.unsafe_border = domains[RSWS.XU]
+        self.safe = domains[RSWS.XS]
+        self.goal = domains[RSWS.XG]
+        self.goal_border = domains[RSWS.dXG]
+        self.bias = True
+
+    def learn(
+        self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list
+    ) -> dict:
+        """_summary_
+
+        Args:
+            learner (learner.Learner): learner object
+            optimizer (Optimizer): torch optimizer 
+            S (list): list of tensors of the state
+            Sdot (list): list of tensors of the state derivative
+
+        Returns:
+            dict: empty dict
+        """    
+        assert len(S) == len(Sdot)
+
+        learn_loops = 1000
+        margin = 0.1
+        condition_old = False
+        i1 = S[RSWS.XD].shape[0]
+        i2 = S[RSWS.XI].shape[0]
+        S_cat, Sdot_cat = torch.cat(
+            (S[RSWS.XD], S[RSWS.XI], S[RSWS.SU])
+        ), torch.cat(
+            (Sdot[RSWS.XD], Sdot[RSWS.XI], Sdot[RSWS.SU])
+        )
+        for t in range(learn_loops):
+            optimizer.zero_grad()
+
+            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B_d, Bdot_d, = (
+                B[:i1],
+                Bdot[:i1],
+            )
+            B_i = B[i1 : i1 + i2]
+            B_s = B[i1 + i2 :]
+
+            learn_accuracy = sum(B_i <= -margin).item() + sum(B_s >= margin).item()
+            percent_accuracy_init_unsafe = (
+                learn_accuracy
+                * 100
+                / (len(S[RSWS.XI]) + len(S[RSWS.SU]))
+            )
+            slope = 1 / 10 ** 4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+            relu6 = torch.nn.ReLU6()
+            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
+            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
+                torch.relu(B_s + margin) - slope * relu6(-B_s + margin)
+            ).mean()
+
+            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
+
+            loss = loss - (relu6(-Bdot_d + margin)).mean()
+
+            # loss = loss + (100-percent_accuracy)
+
+            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
+                vprint(
+                    (
+                        t,
+                        "- loss:",
+                        loss.item(),
+                        "- accuracy init-safe:",
+                        percent_accuracy_init_unsafe,
+                        "- accuracy belt:",
+                        lie_accuracy,
+                    ),
+                    learner.verbose,
+                )
+
+            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
+                condition = True
+            else:
+                condition = False
+
+            if condition and condition_old:
+                break
+            condition_old = condition
+
+            loss.backward()
+            optimizer.step()
+
+        return {}
+
+    def get_constraints(self, verifier, C, Cdot) -> Generator:
+        """returns the constraints of the certificate
+
+        Args:
+            verifier (Verifier): verifier object
+            C: SMT formula of certificate function
+            Cdot: SMT formula of certificate lie derivative
+
+        Yields:
+            Generator: tuple of dictionaries of certificate conditons
+        """        
+        _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        # Cdot <= 0 in C == 0
+        # C <= 0 if x \in initial
+        initial_constr = _And(C > 0, self.initial_s)
+        # C > 0 if x \in safe border
+        safe_constr = _And(C <= 0, self.unsafe_border)
+
+        # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
+        gamma = 0
+        lie_constr = _And(_And(C >= 0, _Not(self.goal)), Cdot > gamma)
+
+        # add domain constraints
+        inital_constr = _And(initial_constr, self.domain)
+        safe_constr = _And(safe_constr, self.domain)
+        lie_constr = _And(lie_constr, self.domain)
+
+        for cs in (
+            {RSWS.XI: inital_constr, RSWS.XU: safe_constr},
+            {RSWS.XD: lie_constr},
+        ):
+            yield cs
+    
+    def stay_in_goal_check(self, verifier, C, Cdot):
+        """Checks if the system stays in the goal region. True if it stays in the goal region, False otherwise.
+
+        This check involves finding a beta such that:
+
+        \forall x in border XG: V > \beta
+        \forall x in XG \ int(B): dV/dt <= 0
+        B = {x in XS | V <= \beta}
+
+        Args:
+            verifier (Verifier): verifier object
+            C: SMT formula of certificate function
+            Cdot: SMT formula of certificate lie derivative
+
+        Returns:
+            bool: True if sat
+        """
+        _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        beta = verifier.new_vars(1, base='b')[0]
+        B = _And(C <= beta, _And(self.domain, self.safe)) # This definition is incorrect - it should And with safe set.
+        dG = self.goal_border # Border of goal set
+        border_condition = _And( C > beta, dG )
+        lie_condition = _And(_And(self.goal, _Not(B)), Cdot <=0)
+        F = _And(border_condition, lie_condition)
+        s = verifier.new_solver()
+        res, timedout = verifier.solve_with_timeout(s, F)
+        return verifier.is_sat(res)
 
 
 class ReachAvoidStay(Certificate):
@@ -599,13 +773,34 @@ class ReachAvoidStay(Certificate):
     (4) \forall x \in D: dB/dt >= 0
     """
 
+    XD = 'lie'
+    XI = 'init'
+    XU = 'unsafe'
+    XG = 'goal'
+
+    def __init__(self, domains, **kw) -> None:
+        self.lyap_cert = Lyapunov(domains, **kw)
+        self.barr_cert = Barrier(domains, **kw)
+    
+    def learn(self, optimizer: Optimizer, S: list, Sdot: list) -> dict:
+        self.lyap_cert.learn(optimizer, S, Sdot)
+        self.barr_cert.learn(optimizer, S, Sdot)
+
+    def verify(self, verifier, S: list, Sdot: list) -> dict:
+        d1 =  self.lyap_cert.verify(verifier, S, Sdot)
+        d2 = self.barr_cert.verify(verifier, S, Sdot)
+        return {**d1, **d2}
 
 def get_certificate(certificate: CertificateType):
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov
-    if certificate == CertificateType.BARRIER:
+    elif certificate == CertificateType.BARRIER:
         return Barrier
-    if certificate == CertificateType.BARRIER_LYAPUNOV:
+    elif certificate == CertificateType.BARRIER_LYAPUNOV:
         return BarrierLyapunov
-    if certificate == CertificateType.RWS:
+    elif certificate == CertificateType.RWS:
         return ReachWhileStay
+    elif certificate == CertificateType.RSWS:
+        return RSWS
+    else:
+        raise ValueError("Unknown certificate type {}".format(certificate))

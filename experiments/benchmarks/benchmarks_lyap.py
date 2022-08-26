@@ -13,7 +13,7 @@ from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
-from src.certificate import Lyapunov
+from src.certificate import Lyapunov, RSWS
 
 ###############################
 # NON POLY BENCHMARKS
@@ -332,6 +332,32 @@ def non_linear_discrete():
         Lyapunov.SD: XD.generate_data(batch_size),
     }
 
+    return f, domains, data, inf_bounds_n(2)
+
+
+def rsws_demo():
+    outer = 5.0
+    batch_size = 1000
+    f = models.NonPoly0()
+
+    XD = Sphere([0.0, 0.0], outer)
+    XI = Sphere([3.0, -3.0], 1)
+    XU = Rectangle([-1, -5], [5, 1])
+    XG = Sphere([0.0, 0.0], 0.01)
+    domains = {
+        RSWS.XD: XD.generate_domain,
+        RSWS.XI: XI.generate_domain,
+        RSWS.XU: XU.generate_boundary,
+        RSWS.XS: XU.generate_completement,
+        RSWS.XG: XG.generate_domain,
+        RSWS.dXG: XG.generate_boundary
+    }
+    data = {
+        RSWS.SD: XD.generate_data(batch_size),
+        RSWS.SI: XI.generate_data(batch_size),
+        RSWS.SU: XU.generate_data(batch_size),
+        RSWS.SG: XG.generate_data(batch_size),
+    }
     return f, domains, data, inf_bounds_n(2)
 
 
