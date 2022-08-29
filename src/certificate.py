@@ -760,37 +760,6 @@ class RSWS(Certificate):
         return verifier.is_sat(res)
 
 
-class ReachAvoidStay(Certificate):
-    """
-    A reach avoid stay criterion relies on an open set D, compact sets XI, XG and a closed set XU.
-    http://arxiv.org/abs/2009.04432, https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9483376.
-
-    Necessarily there exists A \subset G. Goal is to synth two smooth functions V, B such that:
-
-    (1) V is positive definite wrt A (V(x) = 0 iff x \in A)
-    (2) \forall x in D \ A: dV/dt < 0
-    (3) \forall x \in XI, B(x) >= 0; \forall x in XU: B(x) <0
-    (4) \forall x \in D: dB/dt >= 0
-    """
-
-    XD = 'lie'
-    XI = 'init'
-    XU = 'unsafe'
-    XG = 'goal'
-
-    def __init__(self, domains, **kw) -> None:
-        self.lyap_cert = Lyapunov(domains, **kw)
-        self.barr_cert = Barrier(domains, **kw)
-    
-    def learn(self, optimizer: Optimizer, S: list, Sdot: list) -> dict:
-        self.lyap_cert.learn(optimizer, S, Sdot)
-        self.barr_cert.learn(optimizer, S, Sdot)
-
-    def verify(self, verifier, S: list, Sdot: list) -> dict:
-        d1 =  self.lyap_cert.verify(verifier, S, Sdot)
-        d2 = self.barr_cert.verify(verifier, S, Sdot)
-        return {**d1, **d2}
-
 def get_certificate(certificate: CertificateType):
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov

@@ -295,3 +295,35 @@ class Cegis:
         assert self.batch_size > 0
         assert self.learning_rate > 0
         assert self.max_cegis_time > 0
+
+
+class RASCegis:
+    """Convenience class for ReachAvoidStay Synthesis
+    
+    This class is a wrapper for the Cegis class. It is used to run the Cegis algorithm twice,
+    once for a Lyapunov function (stability) and once for a Barrier function (safety).
+    
+    A reach avoid stay criterion relies on an open set D, compact sets XI, XG and a closed set XU.
+    http://arxiv.org/abs/2009.04432, https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9483376.
+
+    Necessarily there exists A \subset G. Goal is to synth two smooth functions V, B such that:
+
+    (1) V is positive definite wrt A (V(x) = 0 iff x \in A)
+    (2) \forall x in D \ A: dV/dt < 0
+    (3) \forall x \in XI, B(x) >= 0; \forall x in XU: B(x) <0
+    (4) \forall x \in D: dB/dt >= 0"""
+
+    def __init__(self, lyap, barr):
+        """_summary_
+
+        Args:
+            lyap (dict): dictionary of options for Cegis for Lyapunov synthesis
+            barr (dict): dictionary of options for Cegis for Barrier synthesis
+        """
+        self.c_lyap = Cegis(**lyap)
+        self.c_barr = Cegis(**barr)
+
+    def solve(self):
+        res_lyap = self.c_lyap.solve()
+        res_barr = self.c_lyap.solve()
+        return res_lyap, res_barr

@@ -13,7 +13,7 @@ from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
-from src.certificate import Lyapunov, RSWS
+from src.certificate import Lyapunov, RSWS, Barrier
 
 ###############################
 # NON POLY BENCHMARKS
@@ -350,7 +350,7 @@ def rsws_demo():
         RSWS.XU: XU.generate_boundary,
         RSWS.XS: XU.generate_completement,
         RSWS.XG: XG.generate_domain,
-        RSWS.dXG: XG.generate_boundary
+        RSWS.dXG: XG.generate_boundary,
     }
     data = {
         RSWS.SD: XD.generate_data(batch_size),
@@ -359,6 +359,49 @@ def rsws_demo():
         RSWS.SG: XG.generate_data(batch_size),
     }
     return f, domains, data, inf_bounds_n(2)
+
+
+def ras_demo_lyap():
+    outer = 5.0
+    inner = 0.01
+    batch_size = 1000
+    f = models.NonPoly0()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+    XI = Sphere([3.0, -3.0], 1)
+    XU = Rectangle([-1, -5], [5, 1])
+    XG = Sphere([0.0, 0.0], 0.01)
+    domains_lyap = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data_lyap = {
+        Lyapunov.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains_lyap, data_lyap, inf_bounds_n(2)
+
+
+def ras_demo_barr():
+    outer = 5.0
+    inner = 0.01
+    batch_size = 1000
+    f = models.NonPoly0()
+    XD = Torus([0.0, 0.0], outer, inner)
+    XI = Sphere([3.0, -3.0], 1)
+    XU = Rectangle([-1, -5], [5, 1])
+    XG = Sphere([0.0, 0.0], 0.01)
+    domains_barr = {
+        Barrier.XD: XD.generate_domain,
+        Barrier.XI: XI.generate_domain,
+        Barrier.XU: XU.generate_domain,
+    }
+    data_barr = {
+        Barrier.XD: XD.generate_data(batch_size),
+        Barrier.XI: XI.generate_data(batch_size),
+        Barrier.XU: XU.generate_data(batch_size),
+    }
+
+    return f, domains_barr, data_barr, inf_bounds_n(2)
 
 
 def control_ct():
