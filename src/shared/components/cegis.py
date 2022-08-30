@@ -13,7 +13,12 @@ import src.certificate as certificate
 import src.learner as learner
 from src.shared.cegis_values import CegisComponentsState, CegisConfig, CegisStateKeys
 from src.shared.components.consolidator import Consolidator
-from src.shared.consts import ConsolidatorType, LearnerType, VerifierType
+from src.shared.consts import (
+    ConsolidatorType,
+    LearnerType,
+    VerifierType,
+    CertificateType,
+)
 from src.shared.utils import print_section, vprint
 import src.translator as translator
 import src.verifier as verifier
@@ -32,7 +37,9 @@ class Cegis:
         )
         self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
         self.learner_type = learner.get_learner(self.time_domain)
-        self.translator_type = translator.get_translator_type(self.time_domain, self.verifier_type)
+        self.translator_type = translator.get_translator_type(
+            self.time_domain, self.verifier_type
+        )
         # benchmark opts
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.activations = kw[CegisConfig.ACTIVATION.k]
@@ -188,8 +195,18 @@ class Cegis:
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    print("Found a Lyapunov function")
-                    stop = True
+                    if self.certificate_type == CertificateType.RSWS:
+                        stop = self.certificate.stay_in_goal_check(
+                            self.verifier,
+                            state[CegisStateKeys.V],
+                            state[CegisStateKeys.V_dot],
+                        )
+                        if stop:
+                            print("Found a valid certificate")
+                    else:
+                        print("Found a valid certificate")
+                        stop = True
+
                 if state[CegisStateKeys.verification_timed_out]:
                     print("Verification Timed Out")
                     stop = True
@@ -211,12 +228,23 @@ class Cegis:
                             state[CegisStateKeys.trajectory],
                         ]
                     )
-                state[CegisStateKeys.S], state[CegisStateKeys.S_dot] = self.add_ces_to_data(state[CegisStateKeys.S], state[CegisStateKeys.S_dot], state[CegisStateKeys.cex])
+                (
+                    state[CegisStateKeys.S],
+                    state[CegisStateKeys.S_dot],
+                ) = self.add_ces_to_data(
+                    state[CegisStateKeys.S],
+                    state[CegisStateKeys.S_dot],
+                    state[CegisStateKeys.cex],
+                )
                 if isinstance(self.f, ClosedLoopModel):
-                    # It might be better to have a CONTROLLED param to cegis, but there's 
-                    # already a lot of those so tried to avoid that. 
+                    # It might be better to have a CONTROLLED param to cegis, but there's
+                    # already a lot of those so tried to avoid that.
                     optim = torch.optim.AdamW(self.f.controller.parameters())
-                    self.f.controller.learn(state[CegisStateKeys.S][self.certificate.XD], self.f.open_loop, optim)
+                    self.f.controller.learn(
+                        state[CegisStateKeys.S][self.certificate.XD],
+                        self.f.open_loop,
+                        optim,
+                    )
                     state.update({CegisStateKeys.xdot: self.f(self.x)})
 
         state[CegisStateKeys.components_times] = [
@@ -235,7 +263,7 @@ class Cegis:
             self.verbose,
         )
 
-        self._result = state, np.array(self.x).reshape(-1,1), self.f, iters
+        self._result = state, np.array(self.x).reshape(-1, 1), self.f, iters
         return self._result
 
     @property
@@ -267,3 +295,35 @@ class Cegis:
         assert self.batch_size > 0
         assert self.learning_rate > 0
         assert self.max_cegis_time > 0
+
+
+class RASCegis:
+    """Convenience class for ReachAvoidStay Synthesis
+    
+    This class is a wrapper for the Cegis class. It is used to run the Cegis algorithm twice,
+    once for a Lyapunov function (stability) and once for a Barrier function (safety).
+    
+    A reach avoid stay criterion relies on an open set D, compact sets XI, XG and a closed set XU.
+    http://arxiv.org/abs/2009.04432, https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9483376.
+
+    Necessarily there exists A \subset G. Goal is to synth two smooth functions V, B such that:
+
+    (1) V is positive definite wrt A (V(x) = 0 iff x \in A)
+    (2) \forall x in D \ A: dV/dt < 0
+    (3) \forall x \in XI, B(x) >= 0; \forall x in XU: B(x) <0
+    (4) \forall x \in D: dB/dt >= 0"""
+
+    def __init__(self, lyap, barr):
+        """_summary_
+
+        Args:
+            lyap (dict): dictionary of options for Cegis for Lyapunov synthesis
+            barr (dict): dictionary of options for Cegis for Barrier synthesis
+        """
+        self.c_lyap = Cegis(**lyap)
+        self.c_barr = Cegis(**barr)
+
+    def solve(self):
+        res_lyap = self.c_lyap.solve()
+        res_barr = self.c_lyap.solve()
+        return res_lyap, res_barr

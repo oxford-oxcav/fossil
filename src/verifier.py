@@ -271,8 +271,8 @@ class Verifier(Component):
 
 class VerifierDReal(Verifier):
     @staticmethod
-    def new_vars(n):
-        return [dr.Variable("x%d" % i) for i in range(n)]
+    def new_vars(n, base='x'):
+        return [dr.Variable(base + str(i)) for i in range(n)]
 
     def new_solver(self):
         return None
@@ -340,8 +340,8 @@ class VerifierDReal(Verifier):
 
 class VerifierZ3(Verifier):
     @staticmethod
-    def new_vars(n):
-        return [z3.Real("x%d" % i) for i in range(n)]
+    def new_vars(n, base='x'):
+        return [z3.Real(base + str(i)) for i in range(n)]
 
     def new_solver(self):
         return z3.Solver()

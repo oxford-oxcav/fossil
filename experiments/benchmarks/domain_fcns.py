@@ -315,6 +315,44 @@ class Rectangle(Set):
         upper = f["And"](*[x[i] <= self.upper_bounds[i] for i in range(self.dimension)])
         return f["And"](lower, upper)
 
+    def generate_boundary(self, x):
+        """Returns boundary of the rectangle
+
+        Args:
+            x (List): symbolic data point
+
+        Returns:
+            Formula for boundary of the rectangle
+        """
+
+        f = self.set_functions(x)
+        lower = f["And"](*[self.lower_bounds[i] == x[i] for i in range(self.dimension)])
+        upper = f["And"](*[x[i] == self.upper_bounds[i] for i in range(self.dimension)])
+        return f["And"](lower, upper)
+
+    def generate_interior(self, x):
+        """Returns interior of the rectangle
+
+        Args:
+            x (List): symbolic data point
+        """
+        f = self.set_functions(x)
+        lower = f["And"](*[self.lower_bounds[i] < x[i] for i in range(self.dimension)])
+        upper = f["And"](*[x[i] < self.upper_bounds[i] for i in range(self.dimension)])
+        return f["And"](lower, upper)
+
+    def generate_completement(self, x):
+        """Generates completement of the set as a formulas 
+
+        Args:
+            x (list): symbolic data point
+
+        Returns:
+            SMT variable: symbolic representation of completement of the rectangle
+        """        
+        f = self.set_functions(x)
+        return f["Not"](self.generate_domain(x))
+
     def generate_data(self, batch_size):
         """
         param x: data point x
@@ -324,16 +362,19 @@ class Rectangle(Set):
 
 
 class Sphere(Set):
-    def __init__(self, centre, radius):
+    def __init__(self, centre, radius, dim_select=None):
         self.centre = centre
         self.radius = radius
         self.dimension = len(centre)
+        self.dim_select= dim_select
 
     def generate_domain(self, x):
         """
         param x: data point x
         returns: formula for domain
         """
+        if self.dim_select:
+            x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return f["And"](
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
@@ -346,10 +387,41 @@ class Sphere(Set):
         returns: formula for domain boundary
         """
         f = self.set_functions(x)
+        if self.dim_select:
+            x = [x[i] for i in self.dim_select]
         return f["And"](
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
             == self.radius ** 2
         )
+
+    def generate_interior(self, x):
+        """Returns interior of the sphere
+
+        Args:
+            x (List): symbolic data point x
+
+        Returns: 
+            Formula for interior of the sphere
+        """
+        f = self.set_functions(x)
+        if self.dim_select:
+            x = [x[i] for i in self.dim_select]
+        return f["And"](
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            < self.radius ** 2
+        )
+    
+    def generate_completement(self, x):
+        """Generates completement of the set as a formulas 
+
+        Args:
+            x (list): symbolic data point
+
+        Returns:
+            SMT variable: symbolic representation of completement of the sphere
+        """        
+        f = self.set_functions(x)
+        return f["Not"](self.generate_domain(x))
 
     def generate_data(self, batch_size):
         """
@@ -359,6 +431,8 @@ class Sphere(Set):
         return round_init_data(self.centre, self.radius ** 2, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
         return (x-c).norm(2, dim=1) <= self.radius
 
