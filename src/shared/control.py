@@ -3,6 +3,7 @@ import numpy as np
 
 from src.shared.activations import activation
 from src.shared.activations_symbolic import activation_sym
+from src.shared.consts import TimeDomain
 
 
 class BaseController(torch.nn.Module):
@@ -95,4 +96,59 @@ class SafeStableCT(BaseController):
     
     def loss_enter_unsafe(self, S, Sdot, tau=0.05):
         S_tau = S + tau * Sdot
-        return self.XU.check_containment(S_tau).int().sum() 
+        return self.XU.check_containment(S_tau).int().sum()
+
+
+class TrajectorySafeStableCT(BaseController):
+    def __init__(self, dim, layers, activations, time_domain,  goal, unsafe, steps=10) -> None:
+        super().__init__(dim, layers, activations)
+        self.XU = unsafe
+        self.XG = goal
+        self.tau = 0.05
+        self.steps = steps
+        self.time_dom = time_domain
+        if time_domain == TimeDomain.DISCRETE:
+            self.tau = 1
+
+    def learn(self, S: torch.Tensor, f_open, optimizer):
+        old_loss = 0
+        for i in range(2000):
+            # Sdot = f_open(S) + self(S)
+            traj = self.trajectory_compute(f_open, S)
+            loss = self.loss_enter_goal(traj) - 0.1 * self.loss_enter_unsafe(traj)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            if abs(old_loss - loss.item()) < 1e-5:
+                print(f'Learning Converged')
+                break
+            old_loss = loss.item()
+
+    def trajectory_compute(self, f_open, S):
+
+        Sdot = torch.zeros((self.steps, S.shape[0], S.shape[1]))
+        for s in range(self.steps):
+            # compute f(x)
+            tmp = f_open(S) + self(S)
+            # x_next = x + tau*f(x)
+            nextS = S + self.tau * tmp
+            Sdot[s, :, :] = nextS
+            # update
+            S = tmp
+        return Sdot
+
+    def loss_enter_goal(self, traj, lamb=0.7):
+        steps = traj.shape[0]
+        # weight is a forgetting factor, so trajectory is weighted-sum
+        weight = torch.flipud(torch.tensor([lamb ** i for i in range(steps)]))
+        return (weight @ self.XG.check_containment_grad(traj)).sum()
+
+    def loss_onestep(self, S, Sdot, tau=0.05):
+        return (torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)).sum()
+
+    def loss_enter_unsafe(self, traj, lamb=0.7):
+        steps = traj.shape[0]
+        # weight is a forgetting factor, so trajectory is weighted-sum
+        weight = torch.flipud(torch.tensor([lamb**i for i in range(steps)]))
+        return (weight @ self.XU.check_containment_grad(traj)).sum()
+

@@ -434,7 +434,15 @@ class Sphere(Set):
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
-        return (x-c).norm(2, dim=1) <= self.radius
+        return (x-c).norm(2, dim=-1) <= self.radius
+
+    def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
+        # check containment and return a tensor with gradient
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+        c = torch.tensor(self.centre).reshape(1, -1)
+        # returns 0 if it IS contained, a positive number otherwise
+        return torch.relu((x-c).norm(2, dim=-1) - self.radius)
 
 
 class PositiveOrthantSphere(Set):

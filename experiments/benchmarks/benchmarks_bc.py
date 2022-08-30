@@ -16,6 +16,7 @@ import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
 from src.certificate import Barrier, BarrierLyapunov
+from src.shared.consts import TimeDomain
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
@@ -376,6 +377,36 @@ def car_control():
     XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
     XU = Sphere([-0.7, -0.7, -0.7], 0.2)
     ctrler = control.SafeStableCT(3, [1], [ActivationType.LINEAR], XU)
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models.ClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        "lie": XD.generate_domain,
+        "init": XI.generate_domain,
+        "unsafe": XU.generate_domain,
+    }
+    data = {
+        "lie": XD.generate_data(batch_size),
+        "init": XI.generate_data(batch_size),
+        "unsafe": XU.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
+def car_traj_control():
+    outer = 1
+    batch_size = 1000
+    open_loop = models.Car()
+
+    XD = Torus([0.0, 0.0, 0.0], outer, 0.1)
+    XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
+    XU = Sphere([-0.7, -0.7, -0.7], 0.2)
+    XG = Sphere([0.3, 0.3, 0.3], 0.05)
+
+    ctrler = control.TrajectorySafeStableCT(dim=3, layers=[3], activations=[ActivationType.LINEAR],
+                                            time_domain=TimeDomain.CONTINUOUS,
+                                            goal=XG, unsafe=XU, steps=20)
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.ClosedLoopModel(open_loop, ctrler)

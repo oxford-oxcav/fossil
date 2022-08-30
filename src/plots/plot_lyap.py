@@ -18,7 +18,7 @@ def set_title_and_label_3d(ax, x_label, y_label, z_label, title):
     plt.title(title)
 
 
-def plot_lyce(x, V, Vdot, f):
+def plot_lyce(x, V, Vdot, f, title=None):
     plot_limit = 10
     X = np.linspace(-plot_limit, plot_limit, 100)
     Y = np.linspace(-plot_limit, plot_limit, 100)
@@ -26,14 +26,28 @@ def plot_lyce(x, V, Vdot, f):
     lambda_v = sp.lambdify(x, str(V), modules=['numpy'])
     plot_v = lambda_v([x0], [x1])
 
+    # if no title, assume Lyapunov
+    shorthand = 'V'
+    longhand = 'Lyapunov'
+
+    if title == 'barrier' or title == 'b':
+        shorthand = 'B'
+        longhand = 'Barrier'
+    elif title == 'lyapunov' or title == 'l':
+        shorthand = 'V'
+        longhand = 'Lyapunov'
+    elif title == 'barrier-lyapunov' or title == 'bl':
+        shorthand = 'C'
+        longhand = 'Barrier-Lyapunov'
+
     ax = plotting_3d(x0, x1, plot_v)
-    set_title_and_label_3d(ax, '$x$', '$y$', 'V', 'Lyapunov function')
+    set_title_and_label_3d(ax, '$x$', '$y$', shorthand, longhand + ' function')
 
     lambda_vdot = sp.lambdify(x, str(Vdot), modules=['numpy'])
     plot_vdot = lambda_vdot([x0], [x1])
 
     ax = plotting_3d(x0, x1, plot_vdot)
-    set_title_and_label_3d(ax, '$x$', '$y$', '$\dot{V}$', 'Lyapunov derivative')
+    set_title_and_label_3d(ax, '$x$', '$y$', f'$\dot{shorthand}$', longhand + ' derivative')
     ################################
     # PLOT 2D -- CONTOUR
     ################################
@@ -49,7 +63,7 @@ def plot_lyce(x, V, Vdot, f):
     vector_field(f, Xv, Yv, t)
 
     ax.contour(X, Y, plot_v, 5, linewidths=2, colors='k')
-    plt.title('Lyapunov Border')
+    plt.title(longhand + ' Border')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
 

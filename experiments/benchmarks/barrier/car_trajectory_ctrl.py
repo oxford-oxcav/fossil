@@ -5,51 +5,49 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
+import numpy
 import torch
 import timeit
-from src.shared.components.cegis import RASCegis
-from experiments.benchmarks.benchmarks_lyap import *
+from src.shared.components.cegis import Cegis
+from experiments.benchmarks.benchmarks_bc import car_traj_control
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
 from src.plots.plot_lyap import plot_lyce
+import numpy as np
 
 
 def test_lnn():
-    benchmark_lyap = ras_demo_lyap
-    benchmark_barr = ras_demo_barr
-    n_vars = 2
+    benchmark = car_traj_control
+    n_vars = 3
+    system = benchmark
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [10] * len(activations)
+    activations = [ActivationType.TANH]
+    n_hidden_neurons = [8] * len(activations)
 
     start = timeit.default_timer()
-    opts_lyap = {
+    opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER_LYAPUNOV,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: benchmark_lyap,
+        CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
     }
-    opts_barr = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: benchmark_barr,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-    }
-
-    c = RASCegis(opts_lyap, opts_barr)
-    res = c.solve()
+    c = Cegis(**opts)
+    state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
+    # plotting -- only for 2-d systems
+    if len(vars) == 2 and state[CegisStateKeys.found]:
+        plot_lyce(
+            np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
+        )
+
 
 if __name__ == "__main__":
-    torch.manual_seed(167)
+    torch.manual_seed(169)
     test_lnn()

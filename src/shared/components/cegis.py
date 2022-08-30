@@ -202,9 +202,9 @@ class Cegis:
                             state[CegisStateKeys.V_dot],
                         )
                         if stop:
-                            print("Found a valid certificate")
+                            print(f"Found a valid {self.certificate_type.name} certificate")
                     else:
-                        print("Found a valid certificate")
+                        print(f"Found a valid {self.certificate_type.name} certificate")
                         stop = True
 
                 if state[CegisStateKeys.verification_timed_out]:
@@ -325,5 +325,5 @@ class RASCegis:
 
     def solve(self):
         res_lyap = self.c_lyap.solve()
-        res_barr = self.c_lyap.solve()
+        res_barr = self.c_barr.solve()
         return res_lyap, res_barr
