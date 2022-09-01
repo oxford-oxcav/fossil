@@ -647,9 +647,9 @@ class RSWS(Certificate):
                 Bdot[:i1],
             )
             B_i = B[i1 : i1 + i2]
-            B_s = B[i1 + i2 :]
+            B_u = B[i1 + i2 :]
 
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_s >= margin).item()
+            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
             percent_accuracy_init_unsafe = (
                 learn_accuracy
                 * 100
@@ -659,7 +659,7 @@ class RSWS(Certificate):
             relu6 = torch.nn.ReLU6()
             # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
             loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(B_s + margin) - slope * relu6(-B_s + margin)
+                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
             ).mean()
 
             lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
@@ -750,7 +750,7 @@ class RSWS(Certificate):
         _And = verifier.solver_fncts()["And"]
         _Not = verifier.solver_fncts()["Not"]
         beta = verifier.new_vars(1, base='b')[0]
-        B = _And(C <= beta, _And(self.domain, self.safe)) # This definition is incorrect - it should And with safe set.
+        B = _And(C <= beta, _And(self.domain, self.safe)) 
         dG = self.goal_border # Border of goal set
         border_condition = _And( C > beta, dG )
         lie_condition = _And(_And(self.goal, _Not(B)), Cdot <=0)

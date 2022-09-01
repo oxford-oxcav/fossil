@@ -341,14 +341,14 @@ class Rectangle(Set):
         upper = f["And"](*[x[i] < self.upper_bounds[i] for i in range(self.dimension)])
         return f["And"](lower, upper)
 
-    def generate_completement(self, x):
-        """Generates completement of the set as a formulas 
+    def generate_complement(self, x):
+        """Generates complement of the set as a formulas 
 
         Args:
             x (list): symbolic data point
 
         Returns:
-            SMT variable: symbolic representation of completement of the rectangle
+            SMT variable: symbolic representation of complement of the rectangle
         """        
         f = self.set_functions(x)
         return f["Not"](self.generate_domain(x))
@@ -411,14 +411,14 @@ class Sphere(Set):
             < self.radius ** 2
         )
     
-    def generate_completement(self, x):
-        """Generates completement of the set as a formulas 
+    def generate_complement(self, x):
+        """Generates complement of the set as a formulas 
 
         Args:
             x (list): symbolic data point
 
         Returns:
-            SMT variable: symbolic representation of completement of the sphere
+            SMT variable: symbolic representation of complement of the sphere
         """        
         f = self.set_functions(x)
         return f["Not"](self.generate_domain(x))

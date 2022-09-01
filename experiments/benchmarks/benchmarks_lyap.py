@@ -342,13 +342,13 @@ def rsws_demo():
 
     XD = Sphere([0.0, 0.0], outer)
     XI = Sphere([3.0, -3.0], 1)
-    XU = Rectangle([-1, -5], [5, 1])
+    XU = Rectangle([2, 2], [3, 3])
     XG = Sphere([0.0, 0.0], 0.01)
     domains = {
         RSWS.XD: XD.generate_domain,
         RSWS.XI: XI.generate_domain,
         RSWS.XU: XU.generate_boundary,
-        RSWS.XS: XU.generate_completement,
+        RSWS.XS: XU.generate_complement,
         RSWS.XG: XG.generate_domain,
         RSWS.dXG: XG.generate_boundary,
     }
@@ -388,7 +388,7 @@ def ras_demo_barr():
     f = models.NonPoly0()
     XD = Torus([0.0, 0.0], outer, inner)
     XI = Sphere([3.0, -3.0], 1)
-    XU = Rectangle([-1, -5], [5, 1])
+    XU = Rectangle([1, 1], [2, 2])
     XG = Sphere([0.0, 0.0], 0.01)
     domains_barr = {
         Barrier.XD: XD.generate_domain,
