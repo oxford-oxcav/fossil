@@ -47,6 +47,7 @@ class CegisConfig(Enum, settings=NoAlias):
     XU                      = 0
     VERBOSE                 = True
     ENET                    = None
+    CTRLAYER                = None
 
     @property
     def k(self):

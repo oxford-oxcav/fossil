@@ -394,6 +394,7 @@ def car_control():
 
     return f, domains, data, inf_bounds_n(3)
 
+
 def car_traj_control():
     outer = 1
     batch_size = 1000

@@ -49,3 +49,4 @@ class CertificateType(Enum):
     LYAPUNOV = auto()
     RWS = auto()
     RSWS = auto()
+    CTRLLYAP = auto()

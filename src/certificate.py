@@ -760,6 +760,106 @@ class RSWS(Certificate):
         return verifier.is_sat(res)
 
 
+# TODO: in devel
+class CtrlLyapunov(Certificate):
+    """
+    Certifies stability and computes the control for CT models
+    bool LLO: last layer of ones in network
+    XD: Symbolic formula of domain
+
+    """
+
+    XD = "lie-&-pos"
+    SD = XD
+
+    def __init__(self, domains, **kw) -> None:
+        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
+        self.domain = domains[Lyapunov.XD]
+        self.bias = False
+        self.closed_loop, self.f_domains, self.S, vars_bounds = kw.get(CegisConfig.SYSTEM.k, CegisConfig.SYSTEM.v)()
+        self.f_torch = self.closed_loop.f_torch
+
+    # the Lyapunov certificate use a static Sdot, whereas we need to recompute Sdot at every iteration, since it
+    # comes from another network
+    def learn(self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
+        """
+        :param learner: learner object
+        :param optimizer: torch optimiser
+        :param S: list of tensors of data
+        :param Sdot: list of tensors containing f(data) -- actually NOT used, just for compatibility
+        :return: --
+        """
+
+        samples = S[Lyapunov.SD]
+        samples_dot = self.f_torch(samples)
+        assert len(samples) == len(samples_dot)
+        batch_size = len(samples)
+        learn_loops = 1000
+        margin = 0 * 0.01
+
+        for t in range(learn_loops):
+            optimizer.zero_grad()
+
+            # recompute Sdot with new controller
+            samples_dot = self.f_torch(samples)
+            
+            V, Vdot, circle = learner.forward(samples, samples_dot)
+
+            slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
+            leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
+            # compute loss function. if last layer of ones (llo), can drop parts with V
+            if self.llo:
+                learn_accuracy = sum(Vdot <= -margin).item()
+                loss = (leaky_relu(Vdot + margin * circle)).mean()
+            else:
+                learn_accuracy = 0.5 * (
+                    sum(Vdot <= -margin).item() + sum(V >= margin).item()
+                )
+                loss = (leaky_relu(Vdot + margin * circle)).mean() + (
+                    leaky_relu(-V + margin * circle)
+                ).mean()
+
+            if t % 100 == 0 or t == learn_loops - 1:
+                vprint(
+                    (
+                        t,
+                        "- loss:",
+                        loss.item(),
+                        "- acc:",
+                        learn_accuracy * 100 / batch_size,
+                        "%",
+                    ),
+                    learner.verbose,
+                )
+
+            # t>=1 ensures we always have at least 1 optimisation step
+            if learn_accuracy == batch_size and t >= 1:
+                break
+
+            loss.backward()
+            optimizer.step()
+
+            if learner._diagonalise:
+                learner.diagonalisation()
+
+        return {}
+
+    def get_constraints(self, verifier, V, Vdot) -> Generator:
+        """
+        :param verifier: verifier object
+        :param V: SMT formula of Lyapunov Function
+        :param Vdot: SMT formula of Lyapunov lie derivative
+        :return: tuple of dictionaries of lyapunov conditons
+        """
+        _Or = verifier.solver_fncts()["Or"]
+        _And = verifier.solver_fncts()["And"]
+
+        lyap_negated = _Or(V <= 0, Vdot > 0)
+        lyap_condition = _And(self.domain, lyap_negated)
+        for cs in ({Lyapunov.SD: lyap_condition},):
+            yield cs
+
+
 def get_certificate(certificate: CertificateType):
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov
@@ -771,5 +871,7 @@ def get_certificate(certificate: CertificateType):
         return ReachWhileStay
     elif certificate == CertificateType.RSWS:
         return RSWS
+    elif certificate == CertificateType.CTRLLYAP:
+        return CtrlLyapunov
     else:
         raise ValueError("Unknown certificate type {}".format(certificate))

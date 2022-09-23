@@ -19,7 +19,7 @@ from src.shared.cegis_values import CegisConfig, CegisStateKeys
 def main():
     system = barr_4
     activations = [ActivationType.LIN_TO_CUBIC]
-    hidden_neurons = [10]
+    hidden_neurons = [25]
     opts = {
         CegisConfig.N_VARS.k: 3,
         CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,

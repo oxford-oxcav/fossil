@@ -8,7 +8,7 @@
 import numpy as np
 import torch
 
-from experiments.benchmarks.models import ClosedLoopModel
+from experiments.benchmarks.models import ClosedLoopModel, GeneralClosedLoopModel
 import src.certificate as certificate
 import src.learner as learner
 from src.shared.cegis_values import CegisComponentsState, CegisConfig, CegisStateKeys
@@ -28,6 +28,8 @@ class Cegis:
     # todo: set params for NN and avoid useless definitions
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
+        # control layers
+        self.ctrl = kw[CegisConfig.CTRLAYER.k]
         # components type
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
         self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
@@ -36,7 +38,7 @@ class Cegis:
             CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v
         )
         self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.learner_type = learner.get_learner(self.time_domain)
+        self.learner_type = learner.get_learner(self.time_domain, self.ctrl)
         self.translator_type = translator.get_translator_type(
             self.time_domain, self.verifier_type
         )
@@ -236,7 +238,7 @@ class Cegis:
                     state[CegisStateKeys.S_dot],
                     state[CegisStateKeys.cex],
                 )
-                if isinstance(self.f, ClosedLoopModel):
+                if isinstance(self.f, ClosedLoopModel) or isinstance(self.f, GeneralClosedLoopModel):
                     # It might be better to have a CONTROLLED param to cegis, but there's
                     # already a lot of those so tried to avoid that.
                     optim = torch.optim.AdamW(self.f.controller.parameters())

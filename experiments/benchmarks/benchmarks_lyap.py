@@ -131,7 +131,7 @@ def benchmark_0():
     # test function, not to be included
     f = models.Benchmark0()
 
-    XD = Sphere([0.0, 0.0], outer)
+    XD = Torus([0.0, 0.0], outer, inner_radius=0.1)
 
     domains = {
         Lyapunov.XD: XD.generate_domain,

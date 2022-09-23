@@ -21,7 +21,7 @@ import numpy as np
 def main():
     system = barr_2
     activations = [ActivationType.TANH]
-    hidden_neurons = [10]
+    hidden_neurons = [8]
     opts = {
         CegisConfig.N_VARS.k: 2,
         CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,

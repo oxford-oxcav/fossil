@@ -57,6 +57,54 @@ class CTModel:
         return True
 
 
+class GeneralCTModel:
+    def __init__(self) -> None:
+        if not self.check_similarity():
+            raise RuntimeError("Model functions not properly defined")
+        self.z3_fncs = {
+            "And": z3.And,
+            "Or": z3.Or,
+            "If": z3.If,
+        }
+        self.dreal_fncs = {
+            "sin": dreal.sin,
+            "cos": dreal.cos,
+            "exp": dreal.exp,
+            "And": dreal.And,
+            "Or": dreal.Or,
+            "If": dreal.if_then_else,
+            "Not": dreal.Not,
+        }
+        self.fncs = None
+
+    def f(self, v, u):
+        if torch.is_tensor(v) or isinstance(v, np.ndarray):
+            return self.f_torch(v, u)
+        elif contains_object(v, dreal.Variable):
+            self.fncs = self.dreal_fncs
+            return self.f_smt(v, u)
+        elif contains_object(v, z3.ArithRef):
+            self.fncs = self.z3_fncs
+            return self.f_smt(v, u)
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.f(*args, **kwds)
+
+    def f_torch(self, v):
+        raise NotImplementedError
+
+    def f_smt(self, v):
+        raise NotImplementedError
+
+    def check_similarity(self):
+        """
+        Checks over a small number of data points that the learner & verifier funcs are the same.
+        If false, does not create the object
+        Not implemented yet
+        """
+        return True
+
+
 class ClosedLoopModel(CTModel):
     def __init__(self, f_open: CTModel, controller: control.StabilityCT) -> None:
         super().__init__()
@@ -70,6 +118,23 @@ class ClosedLoopModel(CTModel):
         fo = self.open_loop(v)
         fc = self.controller.to_symbolic(v)
         return [fo[i] + fc[i, 0] for i in range(len(fo))]
+
+
+# supports not-full-rank-affine and not-affine systems
+class GeneralClosedLoopModel(CTModel):
+    def __init__(self, f_open: CTModel, controller: control.StabilityCT) -> None:
+        super().__init__()
+        self.open_loop = f_open
+        self.controller = controller
+
+    def f_torch(self, v):
+        u = self.controller(v)
+        return self.open_loop(v, u)
+
+    def f_smt(self, v):
+        fc = self.controller.to_symbolic(v)
+        fo = self.open_loop(v, fc)
+        return [fo[i] for i in range(len(fo))]
 
 
 class Eulerised:
@@ -158,6 +223,43 @@ class Benchmark0(CTModel):
     def f_smt(self, v):
         x, y = v
         return [-x, -y]
+
+
+class Benchmark1(GeneralCTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([x+y+u1, y+2.*x+u2]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u
+        return [x+y+u1, y+2.*x+u2]
+
+
+class Benchmark2(GeneralCTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
+        return torch.stack([x+y + u1 - u2, y+2.*x + u3]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2, u3 = u
+        return [x+y+u1 - u2, y+2.*x + u3]
+
+
+class BenchmarkDT1(CTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([2.*x, 2.*y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [2.*x, 2.*y]
 
 
 class Poly1(CTModel):
@@ -476,13 +578,160 @@ class UnstableLinear(CTModel):
         x, y = v
         return [-2 * x - y, 0.6 * y]
 
+
 class Car(CTModel):
     def f_torch(self, v):
-        x, y, omega =  v[:, 0], v[:, 1], v[:, 2]
+        x, y, omega = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack([torch.cos(omega), torch.sin(omega), omega]).T
 
     def f_smt(self, v):
-        x, y, omega =  v
+        x, y, omega = v
         sin = self.fncs["sin"]
         cos = self.fncs["cos"]
         return [cos(omega), sin(omega), omega]
+
+
+class InvertedPendulum(GeneralCTModel):
+    def f_torch(self, v, u):
+        x, y =  v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+
+        G = 9.81  # gravity
+        L = 0.5  # length of the pole
+        m = 0.15  # ball mass
+        b = 0.1  # friction
+
+        return torch.stack([y+u1, u2+(m * G * L * torch.sin(x) - b * y) / (m * L ** 2)]).T
+
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        # Dynamics
+        G = 9.81  # gravity
+        L = 0.5  # length of the pole
+        m = 0.15  # ball mass
+        b = 0.1  # friction
+
+        return [y+u1, u2+(m * G * L * sin(x) - b * y) / (m * L ** 2)]
+
+
+# from Tedrake's lecture notes
+class Quadrotor2d(GeneralCTModel):
+    def __init__(self):
+        super().__init__()
+        # parameters based on [Bouadi, Bouchoucha, Tadjine, 2007]
+        self.length = 0.25  # length of rotor arm
+        self.mass = 0.486  # mass of quadrotor
+        self.inertia = 0.00383  # moment of inertia
+        self.gravity = 9.81  # gravity
+
+    def f_torch(self, v, u):
+
+        u1, u2 = u[:, 0], u[:, 1]
+        # with respect to the original paper, we define
+        # w1 = u1+u2
+        # w2 = u1-u2
+        q = v[:, :3]
+        qdot = v[:, 3:]
+        qddot = torch.vstack([
+            -torch.sin(q[:, 2]) / self.mass * u1,
+            torch.cos(q[:, 2]) / self.mass * u1 - self.gravity,
+            self.length / self.inertia * u2
+        ]).T
+
+        return torch.hstack([qdot, qddot])
+
+    def f_smt(self, v, u):
+
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        u1, u2 = u[0], u[1]
+        # with respect to the original paper, we define
+        # w1 = u1+u2
+        # w2 = u1-u2
+        q = v[:3]
+        qdot = np.array(v[3:])
+        qddot = np.array([
+            -sin(q[2]) / self.mass * u1,
+            cos(q[2]) / self.mass * u1 - self.gravity,
+            self.length / self.inertia * u2
+        ])
+
+        return np.hstack([qdot, qddot[:, 0]])
+
+
+# from Tedrake's lecture notes
+class LinearSatellite(GeneralCTModel):
+    def __init__(self):
+        super().__init__()
+        # parameters based on [Bouadi, Bouchoucha, Tadjine, 2007]
+        self.mass = 1.  # mass of quadrotor
+        self.gravity = 9.81  # gravity
+        # data taken from
+        # https://github.com/MIT-REALM/neural_clbf/
+        MU = 3.986e14
+        a = 42164e3
+        self.n = MU / (a**3)
+
+    def f_torch(self, v, u):
+
+        u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
+        # with respect to the original paper, we define
+        # w1 = u1+u2
+        # w2 = u1-u2
+        q = v[:, :3]
+        qdot = v[:, 3:]
+        qddot = torch.vstack([
+            3. *self.n**2 * q[:, 0] - 2.*self.n * qdot[:, 1] + u1/self.mass,
+            -2. * self.n * qdot[:, 0] + u2/self.mass,
+            -self.n**2 * q[:, 2] + u3/self.mass
+        ]).T
+
+        return torch.hstack([qdot, qddot])
+
+    def f_smt(self, v, u):
+
+        u1, u2, u3 = u[0], u[1], u[2]
+        # with respect to the original paper, we define
+        # w1 = u1+u2
+        # w2 = u1-u2
+        q = v[:3]
+        qdot = np.array(v[3:])
+        qddot = np.array([
+            3. * self.n ** 2 * q[0] - 2. * self.n * qdot[1] + u1 / self.mass,
+            -2. * self.n * qdot[0] + u2 / self.mass,
+            -self.n ** 2 * q[2] + u3 / self.mass
+        ])
+
+        return np.hstack([qdot, qddot[:, 0]])
+
+
+class CtrlObstacleAvoidance(GeneralCTModel):
+
+    def f_torch(self, v, u):
+        x, y, phi = v[:, 0], v[:, 1], v[:, 2]
+        u1 = u[:, 0]
+        velo = 1
+        return torch.stack(
+            [
+                velo * torch.sin(phi),
+                velo * torch.cos(phi),
+                -torch.sin(phi) + u1,
+            ]
+        ).T
+
+    def f_smt(self, v, u):
+        x, y, phi = v
+        u1 = u[0][0]
+        velo = 1
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        return [
+            velo * sin(phi),
+            velo * cos(phi),
+            -sin(phi) + u1,
+        ]
+

@@ -288,9 +288,9 @@ class SetMinus(Set):
         self.S1 = S1
         self.S2 = S2
 
-    def generate_domain(self, x, _And):
+    def generate_domain(self, x):
         f = self.set_functions(x)
-        return f["And"](self.S1.generate_domain(), f["Not"](self.S2.generate_domain()))
+        return f["And"](self.S1.generate_domain(x), f["Not"](self.S2.generate_domain(x)))
 
     def generate_data(self, batch_size):
         data = self.S1.generate_data(batch_size)
@@ -299,11 +299,12 @@ class SetMinus(Set):
 
 
 class Rectangle(Set):
-    def __init__(self, lb, ub):
+    def __init__(self, lb, ub, dim_select=None):
         self.name = "square"
         self.lower_bounds = lb
         self.upper_bounds = ub
         self.dimension = len(lb)
+        self.dim_select= dim_select
 
     def generate_domain(self, x):
         """
@@ -360,6 +361,27 @@ class Rectangle(Set):
         """
         return square_init_data([self.lower_bounds, self.upper_bounds], batch_size)
 
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+        all_constr = torch.logical_and(torch.tensor(self.upper_bounds) >= x, torch.tensor(self.lower_bounds) <= x)
+        ans = torch.zeros((x.shape[0]))
+        for idx in range(all_constr.shape[0]):
+            ans[idx] = all_constr[idx, :].all()
+
+        return ans.bool()
+
+    def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
+        # check containment and return a tensor with gradient
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+
+        # returns 0 if it IS contained, a positive number otherwise
+        return torch.relu(
+            torch.sum(x - torch.tensor(self.upper_bounds), dim=1)) + \
+               torch.relu(
+                   torch.sum(torch.tensor(self.lower_bounds) - x, dim=1))
+
 
 class Sphere(Set):
     def __init__(self, centre, radius, dim_select=None):
@@ -377,7 +399,7 @@ class Sphere(Set):
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return f["And"](
-            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
             <= self.radius ** 2
         )
 
@@ -438,9 +460,11 @@ class Sphere(Set):
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
         # check containment and return a tensor with gradient
-        if self.dim_select:
-            x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
+        if self.dim_select:
+            x = x[:, :, self.dim_select]
+            c = [self.centre[i] for i in self.dim_select]
+            c = torch.tensor(c).reshape(1, -1)
         # returns 0 if it IS contained, a positive number otherwise
         return torch.relu((x-c).norm(2, dim=-1) - self.radius)
 
@@ -478,22 +502,25 @@ class Torus(Set):
     Torus-shaped set characterised as a sphere of radius outer_radius \setminus a sphere of radius inner_radius
     """
 
-    def __init__(self, centre, outer_radius, inner_radius):
+    def __init__(self, centre, outer_radius, inner_radius, dim_select=None):
         self.centre = centre
         self.outer_radius = outer_radius
         self.inner_radius = inner_radius
         self.dimension = len(centre)
+        self.dim_select=dim_select
 
     def generate_domain(self, x):
         """
         param x: data point x
         returns: formula for domain of hyper torus
         """
+        if self.dim_select:
+            x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return f["And"](
             self.inner_radius ** 2
-            <= sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)]),
-            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            <= sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))]),
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
             <= self.outer_radius ** 2,
         )
 
@@ -520,8 +547,22 @@ class Torus(Set):
         return round_init_data(self.centre, self.outer_radius ** 2, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
         return torch.logical_and((self.inner_radius <= (x-c).norm(2, dim=1)), (x-c).norm(2, dim=1) <= self.outer_radius)
+
+    def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
+        # check containment and return a tensor with gradient
+        c = torch.tensor(self.centre).reshape(1, -1)
+        if self.dim_select:
+            x = x[:, :, self.dim_select]
+            c = [self.centre[i] for i in self.dim_select]
+            c = torch.tensor(c).reshape(1, -1)
+
+        # returns 0 if it IS contained, a positive number otherwise
+        return torch.relu(self.inner_radius - (x-c).norm(2, dim=-1)) \
+               + torch.relu((x-c).norm(2, dim=-1) - self.outer_radius)
 
 
 if __name__ == "__main__":
