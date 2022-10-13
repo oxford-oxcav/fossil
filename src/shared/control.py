@@ -92,7 +92,7 @@ class GeneralController(torch.nn.Module):
 
     def to_symbolic(self, x):
         y = np.atleast_2d(x).T
-        rounding = 2
+        rounding = 5
 
         for act, layer in zip(self.acts, self.layers):
             W = layer.weight.detach().numpy().round(rounding)

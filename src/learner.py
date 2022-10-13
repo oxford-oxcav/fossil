@@ -515,13 +515,13 @@ class CtrlLearnerCT(nn.Module, Learner):
 
     def get(self, **kw):
         return self.learn(
-            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot]
+            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.xdot_func]
         )
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot):
-        return self.learn_method(self, optimizer, S, Sdot)
+    def learn(self, optimizer, S, Sdot, xdot_func):
+        return self.learn_method(self, optimizer, S, Sdot, xdot_func)
 
     def diagonalisation(self):
         # makes the weight matrices diagonal. works iff intermediate layers are square matrices

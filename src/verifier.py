@@ -143,6 +143,9 @@ class Verifier(Component):
                 if self.is_sat(res):
                     vprint([label + ": "], self.verbose)
                     original_point = self.compute_model(solvers[label], res)
+                    V_ctx, Vdot_ctx = self.replace_point(C, self.xs, original_point.numpy().T), self.replace_point(dC, self.xs, original_point.numpy().T)
+                    print("\nV_ctx: ", V_ctx)
+                    print("\nVdot_ctx: ", Vdot_ctx)
                     ces[label] = self.randomise_counterex(original_point)
                 else:
                     vprint([res], self.verbose)

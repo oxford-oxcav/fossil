@@ -28,6 +28,7 @@ class CTModel:
             "Not": dreal.Not,
         }
         self.fncs = None
+        self.parameters = ()
 
     def f(self, v):
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
@@ -76,6 +77,7 @@ class GeneralCTModel:
             "Not": dreal.Not,
         }
         self.fncs = None
+        self.parameters = ()
 
     def f(self, v, u):
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
@@ -110,6 +112,7 @@ class ClosedLoopModel(CTModel):
         super().__init__()
         self.open_loop = f_open
         self.controller = controller
+        self.parameters = ()
 
     def f_torch(self, v):
         return self.open_loop(v) + self.controller(v).detach()
@@ -122,10 +125,13 @@ class ClosedLoopModel(CTModel):
 
 # supports not-full-rank-affine and not-affine systems
 class GeneralClosedLoopModel(CTModel):
-    def __init__(self, f_open: CTModel, controller: control.StabilityCT) -> None:
+    def __init__(
+        self, f_open: GeneralCTModel, controller: control.GeneralController
+    ) -> None:
         super().__init__()
         self.open_loop = f_open
         self.controller = controller
+        self.parameters = controller.parameters()
 
     def f_torch(self, v):
         u = self.controller(v)
@@ -230,12 +236,12 @@ class Benchmark1(GeneralCTModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([x+y+u1, y+2.*x+u2]).T
+        return torch.stack([x + y + u1, - y - x + u2]).T
 
     def f_smt(self, v, u):
         x, y = v
         u1, u2 = u
-        return [x+y+u1, y+2.*x+u2]
+        return [x + y + u1, - y - x + u2]
 
 
 class Benchmark2(GeneralCTModel):
@@ -243,23 +249,23 @@ class Benchmark2(GeneralCTModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
-        return torch.stack([x+y + u1 - u2, y+2.*x + u3]).T
+        return torch.stack([x + y + u1 - u2, y + 2.0 * x + u3]).T
 
     def f_smt(self, v, u):
         x, y = v
         u1, u2, u3 = u
-        return [x+y+u1 - u2, y+2.*x + u3]
+        return [x + y + u1 - u2, y + 2.0 * x + u3]
 
 
 class BenchmarkDT1(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([2.*x, 2.*y]).T
+        return torch.stack([2.0 * x, 2.0 * y]).T
 
     def f_smt(self, v):
         x, y = v
-        return [2.*x, 2.*y]
+        return [2.0 * x, 2.0 * y]
 
 
 class Poly1(CTModel):
@@ -593,7 +599,7 @@ class Car(CTModel):
 
 class InvertedPendulum(GeneralCTModel):
     def f_torch(self, v, u):
-        x, y =  v[:, 0], v[:, 1]
+        x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
 
         G = 9.81  # gravity
@@ -601,8 +607,9 @@ class InvertedPendulum(GeneralCTModel):
         m = 0.15  # ball mass
         b = 0.1  # friction
 
-        return torch.stack([y+u1, u2+(m * G * L * torch.sin(x) - b * y) / (m * L ** 2)]).T
-
+        return torch.stack(
+            [y + u1, u2 + (m * G * L * torch.sin(x) - b * y) / (m * L ** 2)]
+        ).T
 
     def f_smt(self, v, u):
         x, y = v
@@ -615,7 +622,7 @@ class InvertedPendulum(GeneralCTModel):
         m = 0.15  # ball mass
         b = 0.1  # friction
 
-        return [y+u1, u2+(m * G * L * sin(x) - b * y) / (m * L ** 2)]
+        return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L ** 2)]
 
 
 # from Tedrake's lecture notes
@@ -636,11 +643,13 @@ class Quadrotor2d(GeneralCTModel):
         # w2 = u1-u2
         q = v[:, :3]
         qdot = v[:, 3:]
-        qddot = torch.vstack([
-            -torch.sin(q[:, 2]) / self.mass * u1,
-            torch.cos(q[:, 2]) / self.mass * u1 - self.gravity,
-            self.length / self.inertia * u2
-        ]).T
+        qddot = torch.vstack(
+            [
+                -torch.sin(q[:, 2]) / self.mass * u1,
+                torch.cos(q[:, 2]) / self.mass * u1 - self.gravity,
+                self.length / self.inertia * u2,
+            ]
+        ).T
 
         return torch.hstack([qdot, qddot])
 
@@ -654,11 +663,13 @@ class Quadrotor2d(GeneralCTModel):
         # w2 = u1-u2
         q = v[:3]
         qdot = np.array(v[3:])
-        qddot = np.array([
-            -sin(q[2]) / self.mass * u1,
-            cos(q[2]) / self.mass * u1 - self.gravity,
-            self.length / self.inertia * u2
-        ])
+        qddot = np.array(
+            [
+                -sin(q[2]) / self.mass * u1,
+                cos(q[2]) / self.mass * u1 - self.gravity,
+                self.length / self.inertia * u2,
+            ]
+        )
 
         return np.hstack([qdot, qddot[:, 0]])
 
@@ -668,13 +679,13 @@ class LinearSatellite(GeneralCTModel):
     def __init__(self):
         super().__init__()
         # parameters based on [Bouadi, Bouchoucha, Tadjine, 2007]
-        self.mass = 1.  # mass of quadrotor
+        self.mass = 1.0  # mass of quadrotor
         self.gravity = 9.81  # gravity
         # data taken from
         # https://github.com/MIT-REALM/neural_clbf/
         MU = 3.986e14
         a = 42164e3
-        self.n = MU / (a**3)
+        self.n = MU / (a ** 3)
 
     def f_torch(self, v, u):
 
@@ -684,11 +695,15 @@ class LinearSatellite(GeneralCTModel):
         # w2 = u1-u2
         q = v[:, :3]
         qdot = v[:, 3:]
-        qddot = torch.vstack([
-            3. *self.n**2 * q[:, 0] - 2.*self.n * qdot[:, 1] + u1/self.mass,
-            -2. * self.n * qdot[:, 0] + u2/self.mass,
-            -self.n**2 * q[:, 2] + u3/self.mass
-        ]).T
+        qddot = torch.vstack(
+            [
+                3.0 * self.n ** 2 * q[:, 0]
+                - 2.0 * self.n * qdot[:, 1]
+                + u1 / self.mass,
+                -2.0 * self.n * qdot[:, 0] + u2 / self.mass,
+                -self.n ** 2 * q[:, 2] + u3 / self.mass,
+            ]
+        ).T
 
         return torch.hstack([qdot, qddot])
 
@@ -700,17 +715,18 @@ class LinearSatellite(GeneralCTModel):
         # w2 = u1-u2
         q = v[:3]
         qdot = np.array(v[3:])
-        qddot = np.array([
-            3. * self.n ** 2 * q[0] - 2. * self.n * qdot[1] + u1 / self.mass,
-            -2. * self.n * qdot[0] + u2 / self.mass,
-            -self.n ** 2 * q[2] + u3 / self.mass
-        ])
+        qddot = np.array(
+            [
+                3.0 * self.n ** 2 * q[0] - 2.0 * self.n * qdot[1] + u1 / self.mass,
+                -2.0 * self.n * qdot[0] + u2 / self.mass,
+                -self.n ** 2 * q[2] + u3 / self.mass,
+            ]
+        )
 
         return np.hstack([qdot, qddot[:, 0]])
 
 
 class CtrlObstacleAvoidance(GeneralCTModel):
-
     def f_torch(self, v, u):
         x, y, phi = v[:, 0], v[:, 1], v[:, 2]
         u1 = u[:, 0]
@@ -734,4 +750,3 @@ class CtrlObstacleAvoidance(GeneralCTModel):
             velo * cos(phi),
             -sin(phi) + u1,
         ]
-

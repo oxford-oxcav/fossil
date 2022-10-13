@@ -7,15 +7,12 @@
 import math
 
 import matplotlib.pyplot as plt
-from pyrsistent import b
-from z3 import z3
 import dreal
 
 from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
-from src.certificate import Barrier, BarrierLyapunov
 from src.shared.consts import TimeDomain
 
 # this series comes from

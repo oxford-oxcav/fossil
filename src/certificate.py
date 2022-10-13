@@ -776,12 +776,10 @@ class CtrlLyapunov(Certificate):
         self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
         self.domain = domains[Lyapunov.XD]
         self.bias = False
-        self.closed_loop, self.f_domains, self.S, vars_bounds = kw.get(CegisConfig.SYSTEM.k, CegisConfig.SYSTEM.v)()
-        self.f_torch = self.closed_loop.f_torch
 
     # the Lyapunov certificate use a static Sdot, whereas we need to recompute Sdot at every iteration, since it
     # comes from another network
-    def learn(self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list) -> dict:
+    def learn(self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list, f_torch: callable) -> dict:
         """
         :param learner: learner object
         :param optimizer: torch optimiser
@@ -791,7 +789,7 @@ class CtrlLyapunov(Certificate):
         """
 
         samples = S[Lyapunov.SD]
-        samples_dot = self.f_torch(samples)
+        samples_dot = f_torch(samples)
         assert len(samples) == len(samples_dot)
         batch_size = len(samples)
         learn_loops = 1000
@@ -801,7 +799,8 @@ class CtrlLyapunov(Certificate):
             optimizer.zero_grad()
 
             # recompute Sdot with new controller
-            samples_dot = self.f_torch(samples)
+            samples_dot = f_torch(samples)
+            # print(samples_dot[0])
             
             V, Vdot, circle = learner.forward(samples, samples_dot)
 

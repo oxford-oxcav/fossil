@@ -3,7 +3,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
+from itertools import chain
 
 import numpy as np
 import torch
@@ -71,7 +71,7 @@ class Cegis:
 
         self.f, self.f_domains, self.S, vars_bounds = self.system()
 
-        self.domains = {lab: dom(self.x) for lab, dom in self.f_domains.items()}
+        self.domains = {label: domain(self.x) for label, domain in self.f_domains.items()}
         certificate_type = certificate.get_certificate(self.certificate_type)
         self.certificate = certificate_type(domains=self.domains, **kw)
 
@@ -99,7 +99,7 @@ class Cegis:
         )
 
         self.optimizer = torch.optim.AdamW(
-            self.learner.parameters(), lr=self.learning_rate
+            chain(self.learner.parameters(), self.f.parameters), lr=self.learning_rate
         )
 
         if self.consolidator_type == ConsolidatorType.DEFAULT:
@@ -161,6 +161,7 @@ class Cegis:
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
             CegisStateKeys.xdot: self.xdot,
+            CegisStateKeys.xdot_func: self.f.f_torch,
             CegisStateKeys.found: False,
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
@@ -176,6 +177,9 @@ class Cegis:
 
         while not stop:
             for component_idx in range(len(components)):
+                if component_idx == 1:
+                    # Update controller before translation
+                    state.update({CegisStateKeys.xdot: self.f(self.x)})
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
@@ -239,15 +243,16 @@ class Cegis:
                     state[CegisStateKeys.cex],
                 )
                 if isinstance(self.f, ClosedLoopModel) or isinstance(self.f, GeneralClosedLoopModel):
+                    pass
                     # It might be better to have a CONTROLLED param to cegis, but there's
                     # already a lot of those so tried to avoid that.
-                    optim = torch.optim.AdamW(self.f.controller.parameters())
-                    self.f.controller.learn(
-                        state[CegisStateKeys.S][self.certificate.XD],
-                        self.f.open_loop,
-                        optim,
-                    )
-                    state.update({CegisStateKeys.xdot: self.f(self.x)})
+                    # optim = torch.optim.AdamW(self.f.controller.parameters())
+                    # self.f.controller.learn(
+                    #     state[CegisStateKeys.S][self.certificate.XD],
+                    #     self.f.open_loop,
+                    #     optim,
+                    # )
+                    # state.update({CegisStateKeys.xdot: self.f(self.x)})
 
         state[CegisStateKeys.components_times] = [
             self.learner.get_timer().sum,

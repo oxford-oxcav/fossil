@@ -83,6 +83,7 @@ class CegisStateKeys:
     components_times = 'components_times'
     ENet = "ENet"
     xdot = 'xdot'
+    xdot_func = 'xdot_func'
 
 
 class CegisComponentsState:

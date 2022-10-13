@@ -241,9 +241,9 @@ def dreal_replacements(expr, dr_vars, ctx):
     :return: value of V, Vdot in ctx
     """
     try:
-        replacements = {dr_vars[i, 0]: ctx[i, 0] for i in range(len(dr_vars))}
+        replacements = {dr_vars[i, 0]: float(ctx[i, 0]) for i in range(len(dr_vars))}
     except TypeError:
-        replacements = {dr_vars[i]: ctx[i, 0] for i in range(len(dr_vars))}
+        replacements = {dr_vars[i]: float(ctx[i, 0]) for i in range(len(dr_vars))}
 
     return expr.Substitute(replacements)
 

@@ -26,19 +26,19 @@ def test_lnn():
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [7] * len(activations)
+    n_hidden_neurons = [4] * len(activations)
 
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
-        CegisConfig.LLO.k: True,
+        CegisConfig.LLO.k: False,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.CTRLAYER.k : [3, 2],
+        CegisConfig.CTRLAYER.k : [1, 2],
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()
@@ -46,7 +46,7 @@ def test_lnn():
     print("Elapsed Time: {}".format(stop - start))
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
+    if len(vars) == 2:
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )

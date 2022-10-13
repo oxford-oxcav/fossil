@@ -5,7 +5,6 @@ from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 from src.shared.activations import ActivationType
 import src.shared.control as control
-from src.certificate import Barrier, BarrierLyapunov
 from src.shared.consts import TimeDomain
 from src.certificate import Lyapunov, RSWS, Barrier
 
@@ -37,7 +36,7 @@ def trivial0():
 
 
 def trivial_ctrllyap():
-    outer = 1
+    outer = 0.1
     inner = 0.01
     batch_size = 500
     open_loop = models.Benchmark1()
@@ -47,7 +46,6 @@ def trivial_ctrllyap():
 
     ctrler = control.GeneralController(inputs=2, output=2, layers=[3], activations=[ActivationType.LINEAR])
 
-    optim = torch.optim.AdamW(ctrler.parameters())
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
