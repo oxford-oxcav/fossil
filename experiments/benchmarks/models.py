@@ -4,6 +4,7 @@ import torch
 import z3
 import dreal
 import numpy as np
+from matplotlib import pyplot as plt
 
 from src.shared.utils import contains_object
 from src.shared import control
@@ -56,6 +57,42 @@ class CTModel:
         Not implemented yet
         """
         return True
+
+    def plot(self):
+        xrange = [-3, 3]
+        yrange = [-3, 3]
+        ax = plt.gca()
+        xx = np.linspace(xrange[0], xrange[1], 50)
+        yy = np.linspace(yrange[0], yrange[1], 50)
+        XX, YY = np.meshgrid(xx, yy)
+        dx, dy = (
+            self.f_torch(
+                torch.stack(
+                    [torch.tensor(XX).ravel(), torch.tensor(YY).ravel()]
+                ).T.float()
+            )
+            .detach()
+            .numpy()
+            .T
+        )
+        color = np.sqrt((np.hypot(dx, dy)))
+        dx = dx.reshape(XX.shape)
+        dy = dy.reshape(YY.shape)
+        color = color.reshape(XX.shape)
+        ax.set_ylim(xrange)
+        ax.set_xlim(yrange)
+        plt.streamplot(
+            XX,
+            YY,
+            dx,
+            dy,
+            linewidth=0.8,
+            density=1.5,
+            arrowstyle="fancy",
+            arrowsize=1.5,
+            color=color,
+        )
+        plt.show()
 
 
 class GeneralCTModel:
@@ -236,12 +273,12 @@ class Benchmark1(GeneralCTModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([x + y + u1, - y - x + u2]).T
+        return torch.stack([x + y + u1, -y - x + u2]).T
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u
-        return [x + y + u1, - y - x + u2]
+        u1, u2 = u[0, 0], u[1, 0]
+        return [x + y + u1, -y - x + u2]
 
 
 class Benchmark2(GeneralCTModel):

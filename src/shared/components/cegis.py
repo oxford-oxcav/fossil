@@ -29,7 +29,7 @@ class Cegis:
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
         # control layers
-        self.ctrl = kw[CegisConfig.CTRLAYER.k]
+        self.ctrl = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
         # components type
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
         self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
@@ -243,7 +243,7 @@ class Cegis:
                     state[CegisStateKeys.cex],
                 )
                 if isinstance(self.f, ClosedLoopModel) or isinstance(self.f, GeneralClosedLoopModel):
-                    pass
+                    self.f.plot()
                     # It might be better to have a CONTROLLED param to cegis, but there's
                     # already a lot of those so tried to avoid that.
                     # optim = torch.optim.AdamW(self.f.controller.parameters())

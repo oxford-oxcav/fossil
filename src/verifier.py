@@ -30,7 +30,7 @@ from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
 from src.shared.consts import VerifierType
 from src.shared.utils import (Timer, contains_object, dreal_replacements,
-                              timer, vprint)
+                              timer, vprint, z3_replacements)
 
 T = Timer()
 
@@ -367,6 +367,10 @@ class VerifierZ3(Verifier):
             "Check": VerifierZ3.check_type,
             "Not": z3.Not,
         }
+
+    @staticmethod
+    def replace_point(expr, ver_vars, point):
+        return z3_replacements(expr, ver_vars, point)
 
     def is_sat(self, res) -> bool:
         return res == z3.sat
