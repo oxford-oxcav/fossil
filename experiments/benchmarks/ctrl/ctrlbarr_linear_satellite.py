@@ -9,7 +9,7 @@ import numpy
 import torch
 import timeit
 from src.shared.components.cegis import Cegis
-from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
+from experiments.benchmarks.benchmark_ctrl import linear_satellite
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
@@ -18,28 +18,33 @@ import numpy as np
 
 
 def test_lnn():
-    # TEST for Control Lyapunov
-    # pass the ctrl parameters from here (i.e. the main)
-    benchmark = trivial_ctrllyap
-    n_vars = 2
+    ##################################
+    #  DOESNT CONVERGE (yet)
+    ##################################
+
+    benchmark = linear_satellite
+    n_vars = 6
     system = benchmark
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [4] * len(activations)
+    barr_activations = [ActivationType.TANH]
+    barr_hidden_neurons = [30] * len(barr_activations)
+
+    # ctrl params
+    n_ctrl_inputs = 3
 
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
-        CegisConfig.LLO.k: False,
+        CegisConfig.CERTIFICATE.k: CertificateType.CTRLBARR,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
+        CegisConfig.ACTIVATION.k: barr_activations,
         CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.CTRLAYER.k: [15, 2],
-        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
+        CegisConfig.N_HIDDEN_NEURONS.k: barr_hidden_neurons,
+        CegisConfig.SYMMETRIC_BELT.k: True,
+        CegisConfig.CTRLAYER.k: [5, n_ctrl_inputs],
+        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()
@@ -47,12 +52,12 @@ def test_lnn():
     print("Elapsed Time: {}".format(stop - start))
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2:
+    if len(vars) == 2 and state[CegisStateKeys.found]:
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )
 
 
 if __name__ == "__main__":
-    torch.manual_seed(169)
+    torch.manual_seed(167)
     test_lnn()

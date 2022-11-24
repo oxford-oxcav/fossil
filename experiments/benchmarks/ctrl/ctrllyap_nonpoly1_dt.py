@@ -9,7 +9,7 @@ import numpy
 import torch
 import timeit
 from src.shared.components.cegis import Cegis
-from experiments.benchmarks.benchmark_ctrl import inv_pendulum_ctrl
+from experiments.benchmarks.benchmark_ctrl import ctrllyap_nonpolylyap
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
@@ -18,24 +18,32 @@ import numpy as np
 
 
 def test_lnn():
-    # using trajectory control
-    benchmark = inv_pendulum_ctrl
+    # TEST for Control Lyapunov
+    # pass the ctrl parameters from here (i.e. the main)
+    benchmark = ctrllyap_nonpolylyap
     n_vars = 2
     system = benchmark
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [20] * len(activations)
+    lyap_activations = [ActivationType.SQUARE]
+    lyap_hidden_neurons = [2] * len(lyap_activations)
+
+    # control params
+    control_inputs = 2
+    control_neurons = 3
 
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
+        CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
+        CegisConfig.LLO.k: True,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
+        CegisConfig.ACTIVATION.k: lyap_activations,
         CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
+        CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
+        CegisConfig.CTRLAYER.k: [control_neurons, control_inputs],
+        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()
@@ -43,12 +51,12 @@ def test_lnn():
     print("Elapsed Time: {}".format(stop - start))
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
+    if len(vars) == 2:
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )
 
 
 if __name__ == "__main__":
-    torch.manual_seed(169)
+    torch.manual_seed(167)
     test_lnn()

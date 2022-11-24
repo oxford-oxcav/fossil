@@ -17,7 +17,7 @@ from matplotlib import cm
 def plotting_3d(X, Y, B):
     # Plot Barrier functions
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
     suf = ax.plot_surface(X, Y, B, rstride=5, cstride=5, alpha=0.5, cmap=cm.jet)
     zero = ax.contour(X, Y, B, 5, zdir='z', offset=0, colors='k')
     # plt.legend(zero.levels, 'B', loc='upper right')

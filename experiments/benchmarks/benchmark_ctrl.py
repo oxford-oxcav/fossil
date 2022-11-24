@@ -9,42 +9,14 @@ from src.shared.consts import TimeDomain
 from src.certificate import Lyapunov, RSWS, Barrier
 
 
-def trivial0():
-    outer = 1
-    inner=0.01
-    batch_size = 500
-    open_loop = models.Benchmark0()
-
-    XD = Torus([0.0, 0.0], outer, inner)
-    equilibrium = torch.zeros((1, 2))
-
-    ctrler = control.TrajectoryStable(dim=2, layers=[3], activations=[ActivationType.LINEAR],
-                                            time_domain=TimeDomain.CONTINUOUS,
-                                            equilibrium=equilibrium, steps=10)
-    optim = torch.optim.AdamW(ctrler.parameters())
-    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
-
-    domains = {
-        Lyapunov.XD: XD.generate_domain,
-    }
-    data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
-    }
-
-    return f, domains, data, inf_bounds_n(2)
-
-
-def trivial_ctrllyap():
-    outer = 0.1
-    inner = 0.01
-    batch_size = 500
+def trivial_ctrllyap(ctrler):
+    outer = 10.
+    inner = 0.1
+    batch_size = 5000
     open_loop = models.Benchmark1()
 
     XD = Torus([0.0, 0.0], outer, inner)
     equilibrium = torch.zeros((1, 2))
-
-    ctrler = control.GeneralController(inputs=2, output=2, layers=[3], activations=[ActivationType.LINEAR])
 
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
@@ -58,7 +30,135 @@ def trivial_ctrllyap():
     return f, domains, data, inf_bounds_n(2)
 
 
-def linear_unstable():
+def ctrllyap_identity(ctrler):
+    outer = 10.
+    inner = 0.1
+    batch_size = 5000
+    open_loop = models.Identity()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+    equilibrium = torch.zeros((1, 2))
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data = {
+        Lyapunov.SD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+def ctrllyap_nonpolylyap(ctrler):
+    outer = 10.
+    inner = 0.1
+    batch_size = 1000
+    open_loop = models.DTAhmadi()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data = {
+        Lyapunov.SD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def ctrllyap_unstable(ctrler):
+    outer = 10.
+    inner = 0.1
+    batch_size = 5000
+    open_loop = models.Benchmark2()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+    equilibrium = torch.zeros((1, 2))
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data = {
+        Lyapunov.SD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+def ctrllyap_inv_pendulum(ctrler):
+
+    outer = 1
+    inner = 0.1
+    batch_size = 1500
+    open_loop = models.InvertedPendulum()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+    equilibrium = torch.zeros((1, 2))
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data = {
+        Lyapunov.SD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+def ctrllyap_lorenz_sys(ctrler):
+
+    outer = 5.
+    inner = 0.1
+    batch_size = 6000
+    open_loop = models.LorenzSystem()
+
+    XD = Torus([0.0, 0.0, 0.0], outer, inner)
+    equilibrium = torch.zeros((1, 3))
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        Lyapunov.XD: XD.generate_domain,
+    }
+    data = {
+        Lyapunov.SD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
+def ctrlbarr_car(ctrler):
+    outer = 1
+    batch_size = 1000
+    open_loop = models.CtrlCar()
+
+    XD = Torus([0.0, 0.0, 0.0], outer, 0.1)
+    XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
+    XU = Sphere([-0.7, -0.7, -0.7], 0.2)
+    XG = Sphere([0.3, 0.3, 0.3], 0.05)
+
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
+
+    domains = {
+        "lie": XD.generate_domain,
+        "init": XI.generate_domain,
+        "unsafe": XU.generate_domain,
+    }
+    data = {
+        "lie": XD.generate_data(batch_size),
+        "init": XI.generate_data(batch_size),
+        "unsafe": XU.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
+
+def linear_unstable_trajectory():
     outer = 2
     inner = 0.01
     batch_size = 1000
@@ -84,7 +184,7 @@ def linear_unstable():
     return f, domains, data, inf_bounds_n(2)
 
 
-def general_linear_unstable():
+def general_linear_unstable_trajectory():
     outer = 2
     inner = 0.01
     batch_size = 1000
@@ -110,21 +210,15 @@ def general_linear_unstable():
     return f, domains, data, inf_bounds_n(2)
 
 
-def linear_dt_unstable():
+def ctrllyap_linear_dt(ctrler):
     outer = 2
     inner = 0.01
     batch_size = 1000
     open_loop = models.BenchmarkDT1()
 
     XD = Torus([0.0, 0.0], outer, inner)
-    equilibrium = torch.zeros((1, 2))
 
-    ctrler = control.TrajectoryStable(inputs=2, outputs=2, layers=[3], activations=[ActivationType.LINEAR],
-                                      time_domain=TimeDomain.DISCRETE,
-                                      equilibrium=equilibrium, steps=5)
-    optim = torch.optim.AdamW(ctrler.parameters())
-    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
         Lyapunov.XD: XD.generate_domain,
@@ -134,6 +228,7 @@ def linear_dt_unstable():
     }
 
     return f, domains, data, inf_bounds_n(2)
+
 
 def car_traj_control():
     outer = 1
@@ -192,9 +287,9 @@ def inv_pendulum_ctrl():
     return f, domains, data, inf_bounds_n(2)
 
 
-# this taken from Tedrake's lecture notes and the code at
+# taken from Tedrake's lecture notes and the code at
 # https://github.com/RussTedrake/underactuated/blob/master/underactuated/quadrotor2d.py
-def quadrotor2d_ctrl():
+def quadrotor2d_ctrl(ctrler):
 
     batch_size = 5000
     ins = 6
@@ -208,14 +303,14 @@ def quadrotor2d_ctrl():
     XU = Sphere([-2.5]*ins, 0.2)
     XG = Sphere([0., 0., 0., 0., 0., 0.], 0.5)
 
-    ctrler = control.TrajectorySafeStableCT(inputs=ins, outputs=2,
-                                            layers=[4],
-                                            activations=[ActivationType.LINEAR],
-                                            time_domain=TimeDomain.CONTINUOUS,
-                                            goal=XG, unsafe=XU,
-                                            steps=10)
-    optim = torch.optim.AdamW(ctrler.parameters())
-    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    # ctrler = control.TrajectorySafeStableCT(inputs=ins, outputs=2,
+    #                                         layers=[4],
+    #                                         activations=[ActivationType.LINEAR],
+    #                                         time_domain=TimeDomain.CONTINUOUS,
+    #                                         goal=XG, unsafe=XU,
+    #                                         steps=10)
+    # optim = torch.optim.AdamW(ctrler.parameters())
+    # ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
@@ -232,9 +327,9 @@ def quadrotor2d_ctrl():
     return f, domains, data, inf_bounds_n(ins)
 
 
-def linear_satellite():
+def linear_satellite(ctrler):
 
-    batch_size = 10000
+    batch_size = 1500
     ins = 6
 
     open_loop = models.LinearSatellite()
@@ -265,14 +360,14 @@ def linear_satellite():
         def generate_data(self, batch_size):
             n0 = int(batch_size / 2)
             n1 = batch_size - n0
-            # there is no method to generate data OUTSIDE of a sphere,
-            # so we generate data in a rectangle and check if they are outside of a sphere
+            # there is no method to generate data OUTSIDE a sphere,
+            # so we generate data in a rectangle and check if they are outside a sphere
             # not the nicest solution, but it works
             outsphere = torch.zeros((n1, 6))
             lb, ub = lowers, uppers
             dom = square_init_data([lb, ub], 10*n1)
             k = 0
-            # check if outside of a sphere
+            # check if outside a sphere
             for idx in range(10*n1):
                 sample = dom[idx, :]
                 if sample[0]**2 + sample[1]**2 + sample[2]**2 >= self.outer_radius**2:
@@ -303,14 +398,6 @@ def linear_satellite():
 
     XG = Torus([0., 0., 0., 0., 0., 0.], outer_radius=0.9, inner_radius=0.65, dim_select=[0, 1, 2])
 
-    ctrler = control.TrajectorySafeStableCT(inputs=ins, outputs=3,
-                                            layers=[4],
-                                            activations=[ActivationType.LINEAR],
-                                            time_domain=TimeDomain.CONTINUOUS,
-                                            goal=XG, unsafe=XU,
-                                            steps=15)
-    optim = torch.optim.AdamW(ctrler.parameters())
-    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
@@ -327,25 +414,18 @@ def linear_satellite():
     return f, domains, data, inf_bounds_n(ins)
 
 
-def ctrl_obstacle_avoidance():
-    batch_size = 10000
+def ctrl_obstacle_avoidance(ctrler):
+
+    batch_size = 1000
     open_loop = models.CtrlObstacleAvoidance()
 
     XD = Rectangle(lb=[-10., -10., -np.pi], ub=[10., 10., np.pi])
-    XI = Rectangle(lb=[4., 4., -np.pi/2], ub = [6., 6., np.pi/2])
+    XI = Rectangle(lb=[4., 4., -np.pi/2], ub=[6., 6., np.pi/2])
     XU = Rectangle(lb=[-9, -9, -np.pi/2], ub=[-7., -6., np.pi/2])
     lowers = [-0.05, -0.05, -0.05]
     uppers = [0.05, 0.05, 0.05]
     XG = Rectangle(lb=lowers, ub=uppers)
 
-    ctrler = control.TrajectorySafeStableCT(inputs=3, outputs=1,
-                                            layers=[7],
-                                            activations=[ActivationType.LINEAR],
-                                            time_domain=TimeDomain.CONTINUOUS,
-                                            goal=XG, unsafe=XU,
-                                            steps=15)
-    optim = torch.optim.AdamW(ctrler.parameters())
-    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {

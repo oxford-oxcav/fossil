@@ -47,7 +47,7 @@ def plot_lyce(x, V, Vdot, f, title=None):
     plot_vdot = lambda_vdot([x0], [x1])
 
     ax = plotting_3d(x0, x1, plot_vdot)
-    set_title_and_label_3d(ax, '$x$', '$y$', f'$\dot{shorthand}$', longhand + ' derivative')
+    set_title_and_label_3d(ax, '$x$', '$y$', r'$\dot{%s}$' % shorthand, longhand + ' derivative')
     ################################
     # PLOT 2D -- CONTOUR
     ################################

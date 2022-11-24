@@ -13,6 +13,7 @@ import src.certificate as certificate
 import src.learner as learner
 from src.shared.cegis_values import CegisComponentsState, CegisConfig, CegisStateKeys
 from src.shared.components.consolidator import Consolidator
+import src.shared.control as control
 from src.shared.consts import (
     ConsolidatorType,
     LearnerType,
@@ -29,7 +30,7 @@ class Cegis:
     def __init__(self, **kw):
         self.n = kw[CegisConfig.N_VARS.k]
         # control layers
-        self.ctrl = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
+        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
         # components type
         self.verifier_type = kw[CegisConfig.VERIFIER.k]
         self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
@@ -38,7 +39,7 @@ class Cegis:
             CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v
         )
         self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.learner_type = learner.get_learner(self.time_domain, self.ctrl)
+        self.learner_type = learner.get_learner(self.time_domain, self.ctrl_layers)
         self.translator_type = translator.get_translator_type(
             self.time_domain, self.verifier_type
         )
@@ -69,7 +70,17 @@ class Cegis:
         self.x = verifier_type.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
-        self.f, self.f_domains, self.S, vars_bounds = self.system()
+        # if controller, initialise system with the controller
+        if self.ctrl_layers:
+            # todo
+            # ctrler = GeneralController(ctrl_layers)  --> pass to self.system
+            ctrl_activ = kw[CegisConfig.CTRLACTIVATION.k]
+            self.ctrler = control.GeneralController(inputs=self.n, output=self.ctrl_layers[-1],
+                                                    layers=self.ctrl_layers[:-1],
+                                                    activations=ctrl_activ)
+            self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
+        else:
+            self.f, self.f_domains, self.S, vars_bounds = self.system()
 
         self.domains = {label: domain(self.x) for label, domain in self.f_domains.items()}
         certificate_type = certificate.get_certificate(self.certificate_type)
@@ -243,7 +254,8 @@ class Cegis:
                     state[CegisStateKeys.cex],
                 )
                 if isinstance(self.f, ClosedLoopModel) or isinstance(self.f, GeneralClosedLoopModel):
-                    self.f.plot()
+                    pass
+                    # self.f.plot()
                     # It might be better to have a CONTROLLED param to cegis, but there's
                     # already a lot of those so tried to avoid that.
                     # optim = torch.optim.AdamW(self.f.controller.parameters())

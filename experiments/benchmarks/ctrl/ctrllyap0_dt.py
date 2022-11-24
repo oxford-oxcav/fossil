@@ -33,7 +33,7 @@ def test_lnn():
         CegisConfig.N_VARS.k: n_vars,
         CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
         CegisConfig.LLO.k: False,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
+        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,

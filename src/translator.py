@@ -177,7 +177,8 @@ class TranslatorDT(TranslatorCT):
         # to disable rounded numbers, set rounding=-1
         sp_handle = kw.get(CegisStateKeys.sp_handle, False)
         fcts = kw.get(CegisStateKeys.factors)
-
+        # this updates the contents of f_smt when the controller is updated
+        self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
 
         if sp_handle:

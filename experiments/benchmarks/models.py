@@ -270,6 +270,10 @@ class Benchmark0(CTModel):
 
 class Benchmark1(GeneralCTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def __init__(self):
+        GeneralCTModel.__init__(self)
+        self.n_vars = 2
+
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
@@ -294,15 +298,17 @@ class Benchmark2(GeneralCTModel):
         return [x + y + u1 - u2, y + 2.0 * x + u3]
 
 
-class BenchmarkDT1(CTModel):
+class BenchmarkDT1(GeneralCTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
-    def f_torch(self, v):
+    def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([2.0 * x, 2.0 * y]).T
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([2.0 * x + u1, 2.0 * y + u2]).T
 
-    def f_smt(self, v):
+    def f_smt(self, v, u):
         x, y = v
-        return [2.0 * x, 2.0 * y]
+        u1, u2 = u
+        return [2.0 * x + u1, 2.0 * y + u2]
 
 
 class Poly1(CTModel):
@@ -662,6 +668,44 @@ class InvertedPendulum(GeneralCTModel):
         return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L ** 2)]
 
 
+class LorenzSystem(GeneralCTModel):
+    def f_torch(self, v, u):
+        x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
+        u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
+
+        sigma = 10.  # related to Prandtl number,
+        r = 28.  # related to Rayleigh number,
+        b = 8./3.  # geometric factor (Weisstein, 2002).
+
+        return torch.stack(
+            [-sigma * (x1 - x2) + u1 , r * x1 - x2 - x1 * x3 + u2, x1 * x2 - b * x3 + u3]
+        ).T
+
+    def f_smt(self, v, u):
+        x1, x2, x3 = v
+        u1, u2, u3 = u
+
+        # Dynamics
+        sigma = 10.  # related to Prandtl number,
+        r = 28.  # related to Rayleigh number,
+        b = 8. / 3.  # geometric factor (Weisstein, 2002).
+
+        return [-sigma * (x1 - x2) + u1, r * x1 - x2 - x1 * x3 + u2, x1 * x2 - b * x3 + u3]
+
+
+class CtrlCar(GeneralCTModel):
+    def f_torch(self, v, u):
+        x, y, omega = v[:, 0], v[:, 1], v[:, 2]
+        u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
+        return torch.stack([torch.cos(omega) + u1, torch.sin(omega) + u2, omega + u3]).T
+
+    def f_smt(self, v, u):
+        x, y, omega = v
+        u1, u2, u3 = u
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        return [cos(omega)+u1, sin(omega)+u2, omega+u3]
+
 # from Tedrake's lecture notes
 class Quadrotor2d(GeneralCTModel):
     def __init__(self):
@@ -787,3 +831,54 @@ class CtrlObstacleAvoidance(GeneralCTModel):
             velo * cos(phi),
             -sin(phi) + u1,
         ]
+
+class Benchmark1(GeneralCTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def __init__(self):
+        GeneralCTModel.__init__(self)
+        self.n_vars = 2
+
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([x + y + u1, -y - x + u2]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [x + y + u1, -y - x + u2]
+
+
+class Identity(GeneralCTModel):
+    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    def __init__(self):
+        GeneralCTModel.__init__(self)
+        self.n_vars = 2
+
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([x + u1, y + u2]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [x + u1, y + u2]
+
+class DTAhmadi(GeneralCTModel):
+    # from Non-monotonic Lyapunov Functions
+    # for Stability of Discrete Time Nonlinear and Switched Systems
+    # Amir Ali Ahmadi and Pablo A. Parrilo, CDC 2008.
+    def __init__(self):
+        GeneralCTModel.__init__(self)
+        self.n_vars = 2
+
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([ 0.3*x + u1, -x + 0.5*y + 7./18.*x**2 + u2]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [0.3*x + u1, -x + 0.5*y + 7./18.*x**2 + u2]

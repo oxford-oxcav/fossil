@@ -509,6 +509,8 @@ class Torus(Set):
         self.dimension = len(centre)
         self.dim_select=dim_select
 
+        assert outer_radius > inner_radius
+
     def generate_domain(self, x):
         """
         param x: data point x
