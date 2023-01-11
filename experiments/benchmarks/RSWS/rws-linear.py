@@ -6,9 +6,10 @@
 
 # pylint: disable=not-callable
 import torch
+import numpy as np
 import timeit
 from src.shared.components.cegis import Cegis
-from experiments.benchmarks.benchmarks_lyap import *
+from experiments.benchmarks.benchmarks_rws import rws_linear
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType
@@ -16,24 +17,26 @@ from src.plots.plot_lyap import plot_lyce
 
 
 def test_lnn():
-    benchmark = nonpoly0_lyap
+    benchmark = rws_linear
     n_vars = 2
+    n_ctrl_inputs = 2
     system = benchmark
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
 
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
+        CegisConfig.CERTIFICATE.k: CertificateType.CTRLRWS,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.LLO.k: True,
+        CegisConfig.CTRLAYER.k: [10, n_ctrl_inputs],
+        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()
@@ -41,7 +44,7 @@ def test_lnn():
     print("Elapsed Time: {}".format(stop - start))
 
     # plotting -- only for 2-d systems
-    if len(vars) == 2:
+    if len(vars) == 2 and state[CegisStateKeys.found]:
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )
@@ -49,4 +52,5 @@ def test_lnn():
 
 if __name__ == "__main__":
     torch.manual_seed(167)
+    torch.set_num_threads(1)
     test_lnn()

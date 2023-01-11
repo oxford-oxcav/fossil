@@ -6,9 +6,10 @@
 
 # pylint: disable=not-callable
 import torch
+import numpy as np
 import timeit
 from src.shared.components.cegis import Cegis
-from experiments.benchmarks.benchmarks_lyap import *
+from experiments.benchmarks.benchmarks_rws import rsws_demo
 from src.shared.activations import ActivationType
 from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.consts import VerifierType, TimeDomain, CertificateType

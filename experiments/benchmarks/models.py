@@ -1,4 +1,5 @@
 from typing import Any
+import sys
 
 import torch
 import z3
@@ -882,3 +883,73 @@ class DTAhmadi(GeneralCTModel):
         x, y = v
         u1, u2 = u[0, 0], u[1, 0]
         return [0.3*x + u1, -x + 0.5*y + 7./18.*x**2 + u2]
+
+### Benchmarks taken from RSWS work of Verdier, Mazo
+
+class Linear1(GeneralCTModel):
+    def __init__(self):
+        GeneralCTModel.__init__(self)
+        self.n_vars = 2
+
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        # What is the correct way to have a single control input?
+        return torch.stack([y, -x + u2]).T
+
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [y, -x + u2]
+
+class SecondOrder(GeneralCTModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.n_vars = 2
+    
+    def f_torch(self, v, u):
+        x, y = v[:, 0], v[:, 1]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([y - x ** 3, u1]).T
+    
+    def f_smt(self, v, u):
+        x, y = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [y - x ** 3, u1]
+
+class ThirdOrder(GeneralCTModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.n_vars = 3
+    
+    def f_torch(self, v, u):
+        x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
+        u1, u2 = u[:, 0], u[:, 1]
+        return torch.stack([-10*x1 + 10*x2 + u1, 28*x1 - x2 -x1*x3, x1*x2 - 8/3 * x3]).T
+    
+    def f_smt(self, v, u):
+        x1, x2, x3 = v
+        u1, u2 = u[0, 0], u[1, 0]
+        return [-10*x1 + 10*x2 + u1, 28*x1 - x2 -x1*x3, x1*x2 - 8/3 * x3]
+
+def read_model(model_string: str) -> CTModel:
+    """Read model from string and return model object""" 
+    for M in dir(sys.modules[__name__]):
+        if M == model_string:
+            try:
+                model = getattr(sys.modules[__name__], M)()
+            except (AttributeError, TypeError):
+                # Attribute error: M is not correct name
+                # TypeError: M is in namespace but not a CTModel - eg someone has tried to pass dreal
+                raise ValueError(f"{M} is not a CTModel")
+            return model
+        else:
+            raise ValueError(f"{M} is not a CTModel")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--model", type=str)
+    args = parser.parse_args()
+    model = read_model(args.model)
+    model.plot()

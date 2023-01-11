@@ -19,6 +19,22 @@ from src.shared.control import GeneralController
 
 T = Timer()
 
+A = torch.tensor([[0, 1.0], [1.0, 0], [0, -1.0], [-1.0, 0]])
+c = torch.tensor([1.0, 1.0, 1.0, 1.0]).T
+
+
+class ZeroingNet(nn.Module):
+    def __init__(self, radius=0.1):
+        super(ZeroingNet, self).__init__()
+        self.first_layer = nn.Linear(2, 4, bias=True)
+        self.out_size = 4
+        with torch.no_grad():
+            self.first_layer.weight = torch.nn.Parameter(A)
+            self.first_layer.bias = torch.nn.Parameter(-c * radius) 
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        return self.relu(self.first_layer(x))
 
 class Learner(Component):
     def __init__(self):
@@ -45,8 +61,9 @@ class LearnerCT(nn.Module, Learner):
     ):
         super(LearnerCT, self).__init__()
 
+        self.filter = True
         self.input_size = input_size
-        n_prev = input_size
+        n_prev = self.input_size
         self.eq = equilibria
         self._diagonalise = False
         self.acts = activate
@@ -56,6 +73,16 @@ class LearnerCT(nn.Module, Learner):
         self.layers = []
         self.closest_unsat = None
         k = 1
+        if self.filter:
+            self.acts.insert(0, ActivationType.RELU)
+            layer = nn.Linear(2, 4, bias=True)
+            with torch.no_grad():
+                layer.weight = torch.nn.Parameter(A)
+                layer.bias = torch.nn.Parameter(-c * 0.01)
+            self.layers.append(layer)
+            n_prev = 4
+            k = k + 1
+
         for n_hid in args:
             layer = nn.Linear(n_prev, n_hid, bias=bias)
             self.register_parameter("W" + str(k), layer.weight)
@@ -64,6 +91,7 @@ class LearnerCT(nn.Module, Learner):
             self.layers.append(layer)
             n_prev = n_hid
             k = k + 1
+
 
         # last layer
         layer = nn.Linear(n_prev, 1, bias=False)
@@ -738,3 +766,8 @@ def get_learner(time_domain: Literal, ctrl: Literal) -> Learner:
         return LearnerDT
     else:
         raise ValueError("Learner not implemented")
+
+
+if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+

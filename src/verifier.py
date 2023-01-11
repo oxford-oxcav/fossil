@@ -300,6 +300,8 @@ class VerifierDReal(Verifier):
             "If": dr.if_then_else,
             "Check": VerifierDReal.check_type,
             "Not": dr.Not,
+            "False": dr.Formula.FALSE(),
+            "True": dr.Formula.TRUE()
         }
 
     def is_sat(self, res) -> bool:
@@ -366,6 +368,8 @@ class VerifierZ3(Verifier):
             "If": z3.If,
             "Check": VerifierZ3.check_type,
             "Not": z3.Not,
+            "False": False,
+            "True": True
         }
 
     @staticmethod

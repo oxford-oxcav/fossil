@@ -51,3 +51,5 @@ class CertificateType(Enum):
     RSWS = auto()
     CTRLLYAP = auto()
     CTRLBARR = auto()
+    CTRLRWS = auto()
+    CTRLRSWS = auto()

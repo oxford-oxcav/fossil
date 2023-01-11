@@ -10,25 +10,20 @@ from src.shared.components.cegis import Cegis
 
 
 class CegisSupervisor:
-    def __init__(self):
-        self.cegis_timeout_sec = 10
+    def __init__(self, timeout_sec=1, max_P=1):
+        self.cegis_timeout_sec = timeout_sec
+        self.max_processes = max_P
 
-    def run(self):
+    def run(self, cegis_config):
         # check which cegis to run
         stop = False
         c = None
-        cegis_config = {}
-        while not stop:
+        procs = []
+        while len(procs) < self.max_processes and not stop:
             # change config
             c = Cegis(**cegis_config)
             p = multiprocessing.Process(target=c.solve)
             p.start()
-            p.join(self.cegis_timeout_sec)
-            stop = not p.is_alive()
-            p.terminate()
-        print("CEGIS output")
-        print(c.result)
+            procs.append(p)
+        return c.result
 
-
-if __name__ == "__main__":
-    main()

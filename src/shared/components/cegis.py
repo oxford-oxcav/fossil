@@ -43,10 +43,9 @@ class Cegis:
         self.translator_type = translator.get_translator_type(
             self.time_domain, self.verifier_type
         )
-        # benchmark opts
+        # template opts
         self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
         self.activations = kw[CegisConfig.ACTIVATION.k]
-        self.system = kw[CegisConfig.SYSTEM.k]
         self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.eq = kw.get(
             CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n)
@@ -70,6 +69,8 @@ class Cegis:
         self.x = verifier_type.new_vars(self.n)
         self.x_map = {str(x): x for x in self.x}
 
+        # System init
+        self.system = kw[CegisConfig.MODEL.k]
         # if controller, initialise system with the controller
         if self.ctrl_layers:
             # todo
@@ -81,6 +82,9 @@ class Cegis:
             self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
         else:
             self.f, self.f_domains, self.S, vars_bounds = self.system()
+        # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model  
+        self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
+        self.S = kw.get(CegisConfig.SD.k, self.S)
 
         self.domains = {label: domain(self.x) for label, domain in self.f_domains.items()}
         certificate_type = certificate.get_certificate(self.certificate_type)
@@ -100,7 +104,7 @@ class Cegis:
         # Learner init
         self.learner = self.learner_type(
             self.n,
-            self.certificate.learn,
+            self.certificate,
             *self.h,
             bias=self.certificate.bias,
             activate=self.activations,
@@ -346,3 +350,11 @@ class RASCegis:
         res_lyap = self.c_lyap.solve()
         res_barr = self.c_barr.solve()
         return res_lyap, res_barr
+
+    # Current issues with RAS:
+    # 1. If we want to find a RAS for an open loop system - ie synthesise the controller too- sequential synthesis 
+    #    we have to fix the controller after the first success (can't have two controllers for one system).
+    # 2. RAS depends on a Lyapunov function which is PD wrt a set A. This means V(x) = 0 iff x \in A.
+    #    I don't know how to enforce this for anything larger than a single point.
+    #    This can possibly be done if A is a polyhedron and the final activationlayer of the network is a relu layer.
+    #    The Relus can be used to enforce the zero property within a polyhedron 

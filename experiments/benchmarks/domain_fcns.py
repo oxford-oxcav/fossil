@@ -309,7 +309,7 @@ class Rectangle(Set):
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         f = self.set_functions(x)
         lower = f["And"](*[self.lower_bounds[i] <= x[i] for i in range(self.dimension)])
@@ -323,7 +323,7 @@ class Rectangle(Set):
             x (List): symbolic data point
 
         Returns:
-            Formula for boundary of the rectangle
+            symbolic formula for boundary of the rectangle
         """
 
         f = self.set_functions(x)
@@ -343,7 +343,7 @@ class Rectangle(Set):
         return f["And"](lower, upper)
 
     def generate_complement(self, x):
-        """Generates complement of the set as a formulas 
+        """Generates complement of the set as a symbolic formulas 
 
         Args:
             x (list): symbolic data point
@@ -393,7 +393,7 @@ class Sphere(Set):
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
@@ -406,7 +406,7 @@ class Sphere(Set):
     def generate_boundary(self, x):
         """
         param x: data point x
-        returns: formula for domain boundary
+        returns: symbolic formula for domain boundary
         """
         f = self.set_functions(x)
         if self.dim_select:
@@ -423,7 +423,7 @@ class Sphere(Set):
             x (List): symbolic data point x
 
         Returns: 
-            Formula for interior of the sphere
+            symbolic formula for interior of the sphere
         """
         f = self.set_functions(x)
         if self.dim_select:
@@ -434,7 +434,7 @@ class Sphere(Set):
         )
     
     def generate_complement(self, x):
-        """Generates complement of the set as a formulas 
+        """Generates complement of the set as a symbolic formulas 
 
         Args:
             x (list): symbolic data point
@@ -480,7 +480,7 @@ class PositiveOrthantSphere(Set):
         """
         param x: data point x
         param _And: And function for verifier
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         fcns = self.set_functions(x)
         _And = fcns['And']
@@ -514,7 +514,7 @@ class Torus(Set):
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain of hyper torus
+        returns: symbolic formula for domain of hyper torus
         """
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
@@ -529,7 +529,7 @@ class Torus(Set):
     def generate_boundary(self, x):
         """
         param x: data point x
-        returns: formula for domain boundary
+        returns: symbolic formula for domain boundary
         """
         f = self.set_functions(x)
         return f["Or"](
@@ -566,21 +566,52 @@ class Torus(Set):
         return torch.relu(self.inner_radius - (x-c).norm(2, dim=-1)) \
                + torch.relu((x-c).norm(2, dim=-1) - self.outer_radius)
 
+class Polyhedron(Set):
+    """
+    Polyhedral set defined by a set of linear inequalities (H representation Ax <= c, H = [-c A]).
+    """
+    def __init__(self, A, c):
+        self.A = np.array(A)
+        self.c = np.array(c)
+        self.dimension = self.A.shape[1]
+        self.H = np.concatenate((-self.c, self.A), axis=1)
 
-if __name__ == "__main__":
-    # X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
-    # # print(X)
-    # print(f"max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}")
-    # print(f"min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}")
+    def generate_domain(self, x):
+        """ Symbolic formula for domain of polyhedron
+        param x: symbolic point x
+        returns: symbolic formula 
+        """
+        f = self.set_functions(x)
+        And = f['And']
+        x = np.array(x).reshape(-1, 1)
+        Ax = (self.A @ x).squeeze()
+        return And(*[ax <= bi for ax, bi in zip(Ax, self.c.squeeze())])
 
-    # t = SetMinus(Sphere([0, 0], 2), Sphere([1.5, 1.5], 1))
-    t = Torus([0,0], 3, 2)
-    t = Sphere([-3, -3], 1)
-    x = t.generate_data(5000)
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        # check containment and return a tensor with gradient
+        # for now just pass through
+        return torch.zeros(x.shape[0], dtype=torch.bool)
+        A = torch.tensor(self.A).float()
+        c = torch.tensor(self.c).float()
+        Ax = A @ x.T
+        return ~torch.all(Ax <= c, dim=0)
     
 
-    x2 = x[t.check_containment(x)]
-    from matplotlib import pyplot as plt
-    plt.plot(x2[:,0], x2[:, 1], 'x')
-    plt.show()
+class EmptySet(Set):
+    """Empty Set. Generates domains s.t. negations are always unsat."""
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["False"]
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(x.shape[0], dtype=torch.bool)
+
+if __name__ == "__main__":
+    A = torch.tensor([[0, 1.0], [1.0, 0], [0, -1.0], [-1.0, 0]])
+    c = torch.tensor([[1.0], [1.0], [1.0], [1.0]])
+    import z3
+    x = [z3.Real("x" + str(i)) for i in range(2)]
+    P = Polyhedron(A, c)
+    print(P.generate_domain(x))
 
