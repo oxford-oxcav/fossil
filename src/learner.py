@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Literal
+import warnings
 
 import numpy as np
 import torch
@@ -19,22 +20,14 @@ from src.shared.control import GeneralController
 
 T = Timer()
 
-A = torch.tensor([[0, 1.0], [1.0, 0], [0, -1.0], [-1.0, 0]])
-c = torch.tensor([1.0, 1.0, 1.0, 1.0]).T
 
-
-class ZeroingNet(nn.Module):
-    def __init__(self, radius=0.1):
-        super(ZeroingNet, self).__init__()
-        self.first_layer = nn.Linear(2, 4, bias=True)
-        self.out_size = 4
-        with torch.no_grad():
-            self.first_layer.weight = torch.nn.Parameter(A)
-            self.first_layer.bias = torch.nn.Parameter(-c * radius) 
-        self.relu = nn.ReLU()
-
+class QuadraticFactor(nn.Module):
     def forward(self, x):
-        return self.relu(self.first_layer(x))
+        return torch.pow(x, 2).sum(dim=1)
+
+    def derivative(self, x):
+        return 2 * x
+
 
 class Learner(Component):
     def __init__(self):
@@ -69,19 +62,11 @@ class LearnerCT(nn.Module, Learner):
         self.acts = activate
         self._is_there_bias = bias
         self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        self.factors = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        ZaZ = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        self.factor = QuadraticFactor() if ZaZ == LearningFactors.QUADRATIC else None
         self.layers = []
         self.closest_unsat = None
         k = 1
-        if self.filter:
-            self.acts.insert(0, ActivationType.RELU)
-            layer = nn.Linear(2, 4, bias=True)
-            with torch.no_grad():
-                layer.weight = torch.nn.Parameter(A)
-                layer.bias = torch.nn.Parameter(-c * 0.01)
-            self.layers.append(layer)
-            n_prev = 4
-            k = k + 1
 
         for n_hid in args:
             layer = nn.Linear(n_prev, n_hid, bias=bias)
@@ -92,8 +77,7 @@ class LearnerCT(nn.Module, Learner):
             n_prev = n_hid
             k = k + 1
 
-
-        # last layer
+            # last layer
         layer = nn.Linear(n_prev, 1, bias=False)
         # last layer of ones
         if llo:
@@ -120,17 +104,19 @@ class LearnerCT(nn.Module, Learner):
         # circle = x0*x0 + ... + xN*xN
         circle = torch.pow(S, 2).sum(dim=1)
 
-        E, derivative_e = self.compute_factors(S, self.factors)
-
-        # define E(x) := (x-eq_0) * ... * (x-eq_N)
-        # V = NN(x) * E(x)
-        V = nn * E
-        # gradV = NN(x) * dE(x)/dx  + der(NN) * E(x)
+        F, derivative_F = self.compute_factors(S)
+        V = nn * F
+        # define F(x) := ||x||^2
+        # V = NN(x) * F(x)
+        # gradV = NN(x) * dF(x)/dx  + der(NN) * F(x)
         # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
-        gradV = (
-            nn.expand_as(grad_nn.T).T * derivative_e.expand_as(grad_nn)
-            + grad_nn * E.expand_as(grad_nn.T).T
-        )
+        if derivative_F != 0:
+            gradV = (
+                nn.expand_as(grad_nn.T).T * derivative_F.expand_as(grad_nn)
+                + grad_nn * F.expand_as(grad_nn.T).T
+            )
+        else:
+            gradV = grad_nn
         # Vdot = gradV * f(x)
         Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
 
@@ -161,39 +147,11 @@ class LearnerCT(nn.Module, Learner):
 
         return numerical_v[:, 0], jacobian[:, 0, :]
 
-    def compute_factors(self, S, lf):
-        E, factors = 1, []
-        with torch.no_grad():
-            if lf == LearningFactors.QUADRATIC:  # quadratic factors
-                # define a tensor to store all the components of the quadratic factors
-                # factors[:,:,0] stores [ x-x_eq0, y-y_eq0 ]
-                # factors[:,:,1] stores [ x-x_eq1, y-y_eq1 ]
-                factors = torch.zeros(S.shape[0], self.input_size, self.eq.shape[0])
-                for idx in range(self.eq.shape[0]):
-                    # S - self.eq == [ x-x_eq, y-y_eq ]
-                    # torch.power(S - self.eq, 2) == [ (x-x_eq)**2, (y-y_eq)**2 ]
-                    # (vector_x - eq_0)**2 =  (x-x_eq)**2 + (y-y_eq)**2
-                    factors[:, :, idx] = S - torch.tensor(self.eq[idx, :])
-                    E *= torch.sum(
-                        torch.pow(S - torch.tensor(self.eq[idx, :]), 2), dim=1
-                    )
-
-                # derivative = 2*(x-eq)*E/E_i
-                grad_e = torch.zeros(S.shape[0], self.input_size)
-                for var in range(self.input_size):
-                    for idx in range(self.eq.shape[0]):
-                        grad_e[:, var] += (
-                            E
-                            * factors[:, var, idx]
-                            / torch.sum(
-                                torch.pow(S - torch.tensor(self.eq[idx, :]), 2), dim=1
-                            )
-                        )
-                derivative_e = 2 * grad_e
-            else:
-                E, derivative_e = torch.tensor(1.0), torch.tensor(0.0)
-
-        return E, derivative_e
+    def compute_factors(self, S):
+        if self.factor:
+            return self.factor(S), self.factor.derivative(S)
+        else:
+            return 1, 0
 
     def get(self, **kw):
         return self.learn(
@@ -222,6 +180,29 @@ class LearnerCT(nn.Module, Learner):
                 if dist < min_dist:
                     min_dist = dist
         self.closest_unsat = min_dist
+
+    @staticmethod
+    def is_positive_definite(activations: list, layers: list):
+        """Checks if the net is positive definite, assuming W is also positive definite;
+
+        Positive definiteness is defined as the following:
+        N(x) > 0 for all x in R^n
+
+        Args:
+            activations (list): list of activation functions used in the net
+            layers (list): list of layers in the net
+
+        Returns:
+            bool: True is net is positive definite, else False
+        """
+        pd_acts = [
+            ActivationType.RELU,
+            ActivationType.SQUARE,
+            ActivationType.COSH,
+            ActivationType.SIGMOID,
+            ActivationType.SQUARE_DEC,
+        ]
+        return (activations[-1] in pd_acts) and (layers[-1].bias is None)
 
     @staticmethod
     def order_of_magnitude(number):
@@ -449,8 +430,6 @@ class CtrlLearnerCT(nn.Module, Learner):
         #                                     layers=self.ctrl_layers[:-1],
         #                                     activations=[ActivationType.LINEAR]*len(self.ctrl_layers))
 
-
-
     @staticmethod
     def learner_fncts():
         return {
@@ -544,7 +523,10 @@ class CtrlLearnerCT(nn.Module, Learner):
 
     def get(self, **kw):
         return self.learn(
-            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.xdot_func]
+            kw[CegisStateKeys.optimizer],
+            kw[CegisStateKeys.S],
+            kw[CegisStateKeys.S_dot],
+            kw[CegisStateKeys.xdot_func],
         )
 
     # backprop algo
@@ -634,8 +616,6 @@ class CtrlLearnerDT(nn.Module, Learner):
         #                                     layers=self.ctrl_layers[:-1],
         #                                     activations=[ActivationType.LINEAR]*len(self.ctrl_layers))
 
-
-
     @staticmethod
     def learner_fncts():
         return {
@@ -718,7 +698,10 @@ class CtrlLearnerDT(nn.Module, Learner):
 
     def get(self, **kw):
         return self.learn(
-            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot], kw[CegisStateKeys.xdot_func]
+            kw[CegisStateKeys.optimizer],
+            kw[CegisStateKeys.S],
+            kw[CegisStateKeys.S_dot],
+            kw[CegisStateKeys.xdot_func],
         )
 
     # backprop algo
@@ -755,6 +738,7 @@ class CtrlLearnerDT(nn.Module, Learner):
     def get_timer():
         return T
 
+
 def get_learner(time_domain: Literal, ctrl: Literal) -> Learner:
     if ctrl and time_domain == TimeDomain.CONTINUOUS:
         return CtrlLearnerCT
@@ -770,4 +754,3 @@ def get_learner(time_domain: Literal, ctrl: Literal) -> Learner:
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-

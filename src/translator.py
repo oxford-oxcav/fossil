@@ -136,32 +136,10 @@ class TranslatorCT(Component):
         :param lf: linear factors
         :return:
         """
-        if lf == LearningFactors.QUADRATIC:  # quadratic terms
-            E, temp = 1, []
-            factors = np.full(
-                shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0
-            )
-            for idx in range(self.eq.shape[0]):  # number of equilibrium points
-                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[
-                    0, 0
-                ]
-                factors[idx] = x.T - self.eq[idx, :].reshape(x.T.shape)
-            # derivative = 2*(x-eq)*E/E_i
-            grad_e = sp.zeros(1, x.shape[0])
-            for var in range(x.shape[0]):
-                for idx in range(self.eq.shape[0]):
-                    grad_e[var] += sp.simplify(
-                        E
-                        * factors[idx, var]
-                        / sum(
-                            np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T
-                        )[0, 0]
-                    )
-            derivative_e = 2 * grad_e
-        else:  # no factors
-            E, derivative_e = 1.0, 0.0
-
-        return E, derivative_e
+        if lf == LearningFactors.QUADRATIC:
+            return np.sum(x**2), 2 * x
+        else:
+            return 1, 0
 
     @staticmethod
     def get_timer():

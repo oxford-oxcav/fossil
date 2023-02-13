@@ -70,23 +70,30 @@ class Cegis:
         self.x_map = {str(x): x for x in self.x}
 
         # System init
-        self.system = kw[CegisConfig.MODEL.k]
+        self.system = kw[CegisConfig.SYSTEM.k]
         # if controller, initialise system with the controller
         if self.ctrl_layers:
             # todo
             # ctrler = GeneralController(ctrl_layers)  --> pass to self.system
             ctrl_activ = kw[CegisConfig.CTRLACTIVATION.k]
-            self.ctrler = control.GeneralController(inputs=self.n, output=self.ctrl_layers[-1],
-                                                    layers=self.ctrl_layers[:-1],
-                                                    activations=ctrl_activ)
+            self.ctrler = control.GeneralController(
+                inputs=self.n,
+                output=self.ctrl_layers[-1],
+                layers=self.ctrl_layers[:-1],
+                activations=ctrl_activ,
+            )
             self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
         else:
             self.f, self.f_domains, self.S, vars_bounds = self.system()
-        # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model  
+
+        # Overwrite domains if provided
+        # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model
         self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
         self.S = kw.get(CegisConfig.SD.k, self.S)
 
-        self.domains = {label: domain(self.x) for label, domain in self.f_domains.items()}
+        self.domains = {
+            label: domain(self.x) for label, domain in self.f_domains.items()
+        }
         certificate_type = certificate.get_certificate(self.certificate_type)
         self.certificate = certificate_type(domains=self.domains, **kw)
 
@@ -96,7 +103,7 @@ class Cegis:
             self.certificate.get_constraints,
             vars_bounds,
             self.x,
-            **kw
+            **kw,
         )
 
         self.xdot = self.f(self.x)
@@ -104,13 +111,13 @@ class Cegis:
         # Learner init
         self.learner = self.learner_type(
             self.n,
-            self.certificate,
+            self.certificate.learn,
             *self.h,
             bias=self.certificate.bias,
             activate=self.activations,
             equilibria=self.eq,
             llo=self.llo,
-            **kw
+            **kw,
         )
 
         self.optimizer = torch.optim.AdamW(
@@ -130,7 +137,7 @@ class Cegis:
             self.xdot,
             self.eq,
             self.rounding,
-            **kw
+            **kw,
         )
         self._result = None
 
@@ -210,7 +217,7 @@ class Cegis:
                         component[CegisComponentsState.to_next_component](
                             outputs,
                             next_component[CegisComponentsState.instance],
-                            **state
+                            **state,
                         )
                     ),
                 }
@@ -223,7 +230,9 @@ class Cegis:
                             state[CegisStateKeys.V_dot],
                         )
                         if stop:
-                            print(f"Found a valid {self.certificate_type.name} certificate")
+                            print(
+                                f"Found a valid {self.certificate_type.name} certificate"
+                            )
                     else:
                         print(f"Found a valid {self.certificate_type.name} certificate")
                         stop = True
@@ -257,7 +266,9 @@ class Cegis:
                     state[CegisStateKeys.S_dot],
                     state[CegisStateKeys.cex],
                 )
-                if isinstance(self.f, ClosedLoopModel) or isinstance(self.f, GeneralClosedLoopModel):
+                if isinstance(self.f, ClosedLoopModel) or isinstance(
+                    self.f, GeneralClosedLoopModel
+                ):
                     pass
                     # self.f.plot()
                     # It might be better to have a CONTROLLED param to cegis, but there's
@@ -320,12 +331,12 @@ class Cegis:
         assert self.max_cegis_time > 0
 
 
-class RASCegis:
-    """Convenience class for ReachAvoidStay Synthesis
-    
+class RASSeriesCegis:
+    """Convenience class for ReachAvoidStay Synthesis in series.
+
     This class is a wrapper for the Cegis class. It is used to run the Cegis algorithm twice,
     once for a Lyapunov function (stability) and once for a Barrier function (safety).
-    
+
     A reach avoid stay criterion relies on an open set D, compact sets XI, XG and a closed set XU.
     http://arxiv.org/abs/2009.04432, https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9483376.
 
@@ -352,9 +363,126 @@ class RASCegis:
         return res_lyap, res_barr
 
     # Current issues with RAS:
-    # 1. If we want to find a RAS for an open loop system - ie synthesise the controller too- sequential synthesis 
+    # 1. If we want to find a RAS for an open loop system - ie synthesise the controller too- sequential synthesis
     #    we have to fix the controller after the first success (can't have two controllers for one system).
-    # 2. RAS depends on a Lyapunov function which is PD wrt a set A. This means V(x) = 0 iff x \in A.
-    #    I don't know how to enforce this for anything larger than a single point.
-    #    This can possibly be done if A is a polyhedron and the final activationlayer of the network is a relu layer.
-    #    The Relus can be used to enforce the zero property within a polyhedron 
+
+
+class RASCegis:
+    """Reach Avoid Stay Cegis in parallel."""
+
+    def __init__(self, **kw):
+        self.n = kw[CegisConfig.N_VARS.k]
+        # control layers
+        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
+        # components type
+        self.verifier_type = kw[CegisConfig.VERIFIER.k]
+        self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
+        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
+        self.consolidator_type = kw.get(
+            CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v
+        )
+        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
+        self.learner_type = learner.get_learner(self.time_domain, self.ctrl_layers)
+        self.translator_type = translator.get_translator_type(
+            self.time_domain, self.verifier_type
+        )
+        # template opts
+        self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
+        self.activations = kw[CegisConfig.ACTIVATION.k]
+        self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        self.eq = kw.get(
+            CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n)
+        )
+        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
+        self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
+        self.ENet = kw.get(CegisConfig.ENET.k, CegisConfig.ENET.v)
+        # other opts
+        self.max_cegis_iter = kw.get(
+            CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v
+        )
+        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
+        # batch init
+        self.learning_rate = kw.get(
+            CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v
+        )
+
+        # Verifier init
+        verifier_type = verifier.get_verifier_type(self.verifier_type)
+
+        self.x = verifier_type.new_vars(self.n)
+        self.x_map = {str(x): x for x in self.x}
+
+        # System init
+        self.system = kw[CegisConfig.SYSTEM.k]
+        # if controller, initialise system with the controller
+        if self.ctrl_layers:
+            # todo
+            # ctrler = GeneralController(ctrl_layers)  --> pass to self.system
+            ctrl_activ = kw[CegisConfig.CTRLACTIVATION.k]
+            self.ctrler = control.GeneralController(
+                inputs=self.n,
+                output=self.ctrl_layers[-1],
+                layers=self.ctrl_layers[:-1],
+                activations=ctrl_activ,
+            )
+            self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
+        else:
+            self.f, self.f_domains, self.S, vars_bounds = self.system()
+
+        # Overwrite domains if provided
+        # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model
+        self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
+        self.S = kw.get(CegisConfig.SD.k, self.S)
+
+        self.domains = {
+            label: domain(self.x) for label, domain in self.f_domains.items()
+        }
+        certificate_type = certificate.get_certificate(self.certificate_type)
+        self.certificate = certificate_type(domains=self.domains, **kw)
+
+        self.verifier = verifier.get_verifier(
+            verifier_type,
+            self.n,
+            self.certificate.get_constraints,
+            vars_bounds,
+            self.x,
+            **kw,
+        )
+
+        self.xdot = self.f(self.x)
+
+        # Learner init
+        self.learner = self.learner_type(
+            self.n,
+            self.certificate,
+            *self.h,
+            bias=self.certificate.bias,
+            activate=self.activations,
+            equilibria=self.eq,
+            llo=self.llo,
+            **kw,
+        )
+
+        self.optimizer = torch.optim.AdamW(
+            chain(self.learner.parameters(), self.f.parameters), lr=self.learning_rate
+        )
+
+        if self.consolidator_type == ConsolidatorType.DEFAULT:
+            self.consolidator = Consolidator(self.f)
+        else:
+            TypeError("Not Implemented Consolidator")
+
+        # Translator init
+        self.translator = translator.get_translator(
+            self.translator_type,
+            self.learner,
+            self.x,
+            self.xdot,
+            self.eq,
+            self.rounding,
+            **kw,
+        )
+        self._result = None
+
+    def solve(self):
+        pass
