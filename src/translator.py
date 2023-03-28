@@ -12,14 +12,6 @@ import numpy as np
 import sympy as sp
 import torch
 
-try:
-    from maraboupy.Marabou import read_onnx
-    from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
-    marabou = True
-except ImportError as e:
-    logging.exception("Exception while importing Marabou")
-    marabou = False
-
 
 import src.learner as learner
 from src.shared.activations_symbolic import activation_der_sym, activation_sym
@@ -32,7 +24,17 @@ from src.shared.utils import Timer, timer, vprint
 T = Timer()
 
 
-class TranslatorCT(Component):
+def optional_Marabou_import():
+    try:
+        from maraboupy.Marabou import read_onnx
+        from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
+
+        marabou = True
+    except ImportError as e:
+        logging.exception("Exception while importing Marabou")
+
+
+class TranslatorNN(Component):
     def __init__(self, net, x, xdot, eq, rounding, **kw):
         super().__init__()
         self.net = net
@@ -59,6 +61,26 @@ class TranslatorCT(Component):
         vprint(["Candidate: {}".format(V)], self.verbose)
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
+
+    def compute_factors(self, x, lf):
+        """
+        :param x:
+        :param lf: linear factors
+        :return:
+        """
+        if lf == LearningFactors.QUADRATIC:
+            return np.sum(x**2), 2 * x
+        else:
+            return 1, 0
+
+    @staticmethod
+    def get_timer():
+        return T
+
+
+class TranslatorCT(TranslatorNN):
+    def __init__(self, net, x, xdot, eq, rounding, **kw):
+        TranslatorNN.__init__(self, net, x, xdot, eq, rounding, **kw)
 
     def get_symbolic_formula(self, x, xdot, lf=None):
         """
@@ -130,44 +152,10 @@ class TranslatorCT(Component):
 
         return z, jacobian
 
-    def compute_factors(self, x, lf):
-        """
-        :param x:
-        :param lf: linear factors
-        :return:
-        """
-        if lf == LearningFactors.QUADRATIC:
-            return np.sum(x**2), 2 * x
-        else:
-            return 1, 0
 
-    @staticmethod
-    def get_timer():
-        return T
-
-
-class TranslatorDT(TranslatorCT):
+class TranslatorDT(TranslatorNN):
     def __init__(self, net, x, xdot, eq, rounding, **kw):
-        super().__init__(net, x, xdot, eq, rounding, **kw)
-
-    @timer(T)
-    def get(self, **kw):
-        # to disable rounded numbers, set rounding=-1
-        sp_handle = kw.get(CegisStateKeys.sp_handle, False)
-        fcts = kw.get(CegisStateKeys.factors)
-        # this updates the contents of f_smt when the controller is updated
-        self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
-        V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
-
-        if sp_handle:
-            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
-            x_map = kw[CegisStateKeys.x_v_map]
-            V = sympy_converter(x_map, V)
-            Vdot = sympy_converter(x_map, Vdot)
-
-        vprint(["Candidate: {}".format(V)], self.verbose)
-
-        return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
+        TranslatorNN.__init__(self, net, x, xdot, eq, rounding, **kw)
 
     def get_symbolic_formula(self, x, xdot, lf=None):
         """
@@ -191,7 +179,7 @@ class TranslatorDT(TranslatorCT):
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)
-        E = self.compute_factors(np.array(x).reshape(1, -1), lf)
+        E, _ = self.compute_factors(np.array(x).reshape(1, -1), lf)
 
         # gradV = der(NN) * E + dE/dx * NN
 
@@ -230,92 +218,68 @@ class TranslatorDT(TranslatorCT):
             # Vdot
         return z
 
-    def compute_factors(self, x, lf):
+
+class _DiffNet(torch.nn.Module):
+    """Private class to provide forward method of delta_V for Marabou
+
+    V (NNDiscrete): Candidate Lyapunov ReluNet
+    f (EstimNet): Estimate of system dynamics ReluNet
+    """
+
+    def __init__(self, V: learner.LearnerDT, f) -> None:
+        super(_DiffNet, self).__init__()
+        self.V = V
+        # Means forward can only be called with batchsize = 1
+        self.factor = torch.nn.Parameter(-1 * torch.ones([1, 1]))
+        self.F = f
+
+    def forward(self, S, Sdot) -> torch.Tensor:
+        return self.V(self.F(S), self.F(Sdot))[0] + self.factor @ self.V(S, Sdot)[0]
+
+
+class MarabouTranslator(Component):
+    """Takes an torch nn.module object and converts it to an onnx file to be read by marabou
+
+    dimension (int): Dimension of dynamical system
+    """
+
+    def __init__(self, dimension: int):
+        optional_Marabou_import()
+        self.dimension = dimension
+
+    @timer(T)
+    def get(
+        self, net: learner.LearnerDT = None, ENet=None, **kw
+    ) -> Tuple["MarabouNetworkONNX", "MarabouNetworkONNX"]:
         """
-        :param x:
-        :param lf: linear factors
-        :return:
+        net (NNDiscrete): PyTorch candidate Lyapunov Neural Network
+        ENet (EstimNet): dynamical system as PyTorch Neural Network
         """
-        if lf == LearningFactors.QUADRATIC:  # quadratic terms
-            E, temp = 1, []
-            factors = np.full(
-                shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0
-            )
-            for idx in range(self.eq.shape[0]):  # number of equilibrium points
-                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[
-                    0, 0
-                ]
-                factors[idx] = x.T - self.eq[idx, :].reshape(x.T.shape)
-            # derivative = 2*(x-eq)*E/E_i
-        else:  # no factors
-            E = 1.0
+        tf_V = tempfile.NamedTemporaryFile(suffix=".onnx")
+        tf_DV = tempfile.NamedTemporaryFile(suffix=".onnx")
+        model = _DiffNet(net, ENet)
+        self.export_net_to_file(net, tf_V, "V")
+        self.export_net_to_file(model, tf_DV, "dV")
 
-        return E
+        V_net = read_onnx(tf_V.name, outputName="V")
+        dV_net = read_onnx(tf_DV.name, outputName="dV")
+        return {CegisStateKeys.V: V_net, CegisStateKeys.V_dot: dV_net}
 
-    @staticmethod
-    def get_timer():
-        return T
-
-
-if marabou:
-
-    class _DiffNet(torch.nn.Module):
-        """Private class to provide forward method of delta_V for Marabou
-
-        V (NNDiscrete): Candidate Lyapunov ReluNet
-        f (EstimNet): Estimate of system dynamics ReluNet
-        """
-
-        def __init__(self, V: learner.LearnerDT, f) -> None:
-            super(_DiffNet, self).__init__()
-            self.V = V
-            # Means forward can only be called with batchsize = 1
-            self.factor = torch.nn.Parameter(-1 * torch.ones([1, 1]))
-            self.F = f
-
-        def forward(self, S, Sdot) -> torch.Tensor:
-            return self.V(self.F(S), self.F(Sdot))[0] + self.factor @ self.V(S, Sdot)[0]
-
-
-    class MarabouTranslator(Component):
-        """Takes an torch nn.module object and converts it to an onnx file to be read by marabou
-
-        dimension (int): Dimension of dynamical system
-        """
-
-        def __init__(self, dimension: int):
-            self.dimension = dimension
-
-        @timer(T)
-        def get(
-            self, net: learner.LearnerDT = None, ENet=None, **kw
-        ) -> Tuple[MarabouNetworkONNX, MarabouNetworkONNX]:
-            """
-            net (NNDiscrete): PyTorch candidate Lyapunov Neural Network
-            ENet (EstimNet): dynamical system as PyTorch Neural Network
-            """
-            tf_V = tempfile.NamedTemporaryFile(suffix=".onnx")
-            tf_DV = tempfile.NamedTemporaryFile(suffix=".onnx")
-            model = _DiffNet(net, ENet)
-            self.export_net_to_file(net, tf_V, "V")
-            self.export_net_to_file(model, tf_DV, "dV")
-
-            V_net = read_onnx(tf_V.name, outputName="V")
-            dV_net = read_onnx(tf_DV.name, outputName="dV")
-            return {CegisStateKeys.V: V_net, CegisStateKeys.V_dot: dV_net}
-
-        def export_net_to_file(
-            self, net: Union[_DiffNet, learner.LearnerDT], tf, output: str
-        ) -> None:
-            dummy_input = (torch.rand([1, self.dimension]), torch.rand([1, self.dimension]))
-            torch.onnx.export(
-                net,
-                dummy_input,
-                tf,
-                input_names=["S", "Sdot"],
-                output_names=[output],
-                opset_version=11,
-            )
+    def export_net_to_file(
+        self, net: Union[_DiffNet, learner.LearnerDT], tf, output: str
+    ) -> None:
+        dummy_input = (
+            torch.rand([1, self.dimension]),
+            torch.rand([1, self.dimension]),
+        )
+        torch.onnx.export(
+            net,
+            dummy_input,
+            tf,
+            input_names=["S", "Sdot"],
+            output_names=[output],
+            opset_version=11,
+        )
 
     @staticmethod
     def get_timer():

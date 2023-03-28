@@ -73,7 +73,7 @@ class Lyapunov(Certificate):
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            V, Vdot, circle = learner.forward(S[Lyapunov.SD], Sdot[Lyapunov.SD])
+            V, Vdot, circle = learner.get_all(S[Lyapunov.SD], Sdot[Lyapunov.SD])
 
             slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
@@ -187,7 +187,7 @@ class Barrier(Certificate):
             optimizer.zero_grad()
 
             # This seems slightly faster
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -335,7 +335,7 @@ class BarrierLyapunov(Certificate):
 
             # permutation_index = torch.randperm(S[0].size()[0])
             # permuted_S, permuted_Sdot = S[0][permutation_index], S_dot[0][permutation_index]
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -483,7 +483,7 @@ class RWS(Certificate):
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -643,7 +643,7 @@ class RSWS(Certificate):
         for t in range(learn_loops):
             optimizer.zero_grad()
 
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -809,7 +809,7 @@ class CtrlLyapunov(Certificate):
             samples_dot = f_torch(samples)
             # print(samples_dot[0])
 
-            V, Vdot, circle = learner.forward(samples, samples_dot)
+            V, Vdot, circle = learner.get_all(samples, samples_dot)
 
             slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
             leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
@@ -929,7 +929,7 @@ class CtrlBarrier(Certificate):
             samples_dot = f_torch(S_cat)
 
             # This seems slightly faster
-            B, Bdot, _ = learner.forward(S_cat, samples_dot)
+            B, Bdot, _ = learner.get_all(S_cat, samples_dot)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -1084,7 +1084,7 @@ class CtrlRWS(Certificate):
 
             Sdot_cat = f_torch(S_cat)
 
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -1224,7 +1224,7 @@ class CtrlRSWS(Certificate):
 
             Sdot_cat = f_torch(S_cat)
 
-            B, Bdot, _ = learner.forward(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
