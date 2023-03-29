@@ -12,16 +12,15 @@ import torch
 from torch.optim import Optimizer
 
 import src.learner as learner
-from src.shared.cegis_values import CegisConfig
 from src.shared.utils import vprint
-from src.shared.consts import CertificateType
+from src.shared.consts import CertificateType, CegisConfig
 
 
 class Certificate:
     def __init__(self) -> None:
         pass
 
-    def learn(self, optimizer: Optimizer, S: list, Sdot: list) -> dict:
+    def learn(self, optimizer: Optimizer, S: list, Sdot: list, f_torch=None) -> dict:
         """
         param optimizer: torch optimizar
         param S:
@@ -54,8 +53,32 @@ class Lyapunov(Certificate):
         self.bias = False
         self.pos_def = False
 
+    def compute_loss(self, V, Vdot, circle):
+        margin = 0 * 0.01
+
+        slope = 10 ** (learner.LearnerNN.order_of_magnitude(max(abs(Vdot)).detach()))
+        leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
+        # compute loss function. if last layer of ones (llo), can drop parts with V
+        if self.llo:
+            learn_accuracy = sum(Vdot <= -margin).item()
+            loss = (leaky_relu(Vdot + margin * circle)).mean()
+        else:
+            learn_accuracy = 0.5 * (
+                sum(Vdot <= -margin).item() + sum(V >= margin).item()
+            )
+            loss = (leaky_relu(Vdot + margin * circle)).mean() + (
+                leaky_relu(-V + margin * circle)
+            ).mean()
+
+        return loss, learn_accuracy
+
     def learn(
-        self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list
+        self,
+        learner: learner.Learner,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
     ) -> dict:
         """
         :param learner: learner object
@@ -65,29 +88,25 @@ class Lyapunov(Certificate):
         :return: --
         """
 
-        assert len(S) == len(Sdot)
         batch_size = len(S[Lyapunov.SD])
         learn_loops = 1000
-        margin = 0 * 0.01
+        samples = S[Lyapunov.SD]
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = Sdot[Lyapunov.SD]
+
+        assert len(samples) == len(samples_dot)
 
         for t in range(learn_loops):
             optimizer.zero_grad()
+            if f_torch:
+                samples_dot = f_torch(samples)
 
-            V, Vdot, circle = learner.get_all(S[Lyapunov.SD], Sdot[Lyapunov.SD])
+            V, Vdot, circle = learner.get_all(samples, samples_dot)
 
-            slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
-            # compute loss function. if last layer of ones (llo), can drop parts with V
-            if self.llo:
-                learn_accuracy = sum(Vdot <= -margin).item()
-                loss = (leaky_relu(Vdot + margin * circle)).mean()
-            else:
-                learn_accuracy = 0.5 * (
-                    sum(Vdot <= -margin).item() + sum(V >= margin).item()
-                )
-                loss = (leaky_relu(Vdot + margin * circle)).mean() + (
-                    leaky_relu(-V + margin * circle)
-                ).mean()
+            loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
 
             if t % 100 == 0 or t == learn_loops - 1:
                 vprint(
@@ -136,7 +155,7 @@ class Lyapunov(Certificate):
 
 class Barrier(Certificate):
     """
-    Certifies Safety for CT and DT models
+    Certifies Safety for CT models
 
     Arguments:
     domains {dict}: dictionary of string:domains pairs for a initial set, unsafe set and domain
@@ -162,8 +181,47 @@ class Barrier(Certificate):
         )
         self.bias = True
 
+    def compute_loss(self, B_i, B_u, B_d, Bdot_d):
+        """
+        :param sets: dictionary of sets
+        :return: loss function
+        """
+        margin = 0
+        slope = 1 / 10**4
+        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
+
+        relu6 = torch.nn.Softplus()
+        init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
+        unsafe_loss = (torch.relu(-B_u + margin) - slope * relu6(B_u + margin)).mean()
+        loss = init_loss + unsafe_loss
+
+        # set two belts
+        percent_belt = 0
+        if self.SYMMETRIC_BELT:
+            belt_index = torch.nonzero(torch.abs(B_d) <= 0.5)
+        else:
+            belt_index = torch.nonzero(B_d >= -margin)
+
+        if belt_index.nelement() != 0:
+            dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
+            learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
+            percent_belt = 100 * (sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
+
+            lie_loss = (relu6(dB_belt + 0 * margin)).mean() - slope * relu6(
+                -dB_belt
+            ).mean()
+            loss = loss + lie_loss
+
+        return loss, percent_accuracy_init_unsafe, percent_belt, len(belt_index)
+
     def learn(
-        self, learner: learner.Learner, optimizer: Optimizer, S: dict, Sdot: dict
+        self,
+        learner: learner.Learner,
+        optimizer: Optimizer,
+        S: dict,
+        Sdot: dict,
+        f_torch=None,
     ) -> dict:
         """
         :param learner: learner object
@@ -175,19 +233,24 @@ class Barrier(Certificate):
         assert len(S) == len(Sdot)
 
         learn_loops = 1000
-        margin = 0.1
         condition_old = False
         i1 = S["lie"].shape[0]
         i2 = S["init"].shape[0]
-        S_cat, Sdot_cat = torch.cat([s for s in S.values()]), torch.cat(
-            [sdot for sdot in Sdot.values()]
-        )
+        samples = torch.cat([s for s in S.values()])
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = torch.cat([s for s in Sdot.values()])
 
         for t in range(learn_loops):
             optimizer.zero_grad()
 
+            if f_torch:
+                samples_dot = f_torch(samples)
+
             # This seems slightly faster
-            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(samples, samples_dot)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -195,33 +258,12 @@ class Barrier(Certificate):
             B_i = B[i1 : i1 + i2]
             B_u = B[i1 + i2 :]
 
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S["unsafe"]) + len(S["init"]))
-            )
-            slope = 1 / 10**4
-            relu6 = torch.nn.ReLU6()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            # set two belts
-            percent_belt = 0
-            if self.SYMMETRIC_BELT:
-                belt_index = torch.nonzero(torch.abs(B_d) <= 0.5)
-            else:
-                belt_index = torch.nonzero(B_d >= -margin)
-
-            if belt_index.nelement() != 0:
-                dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
-                learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
-                percent_belt = 100 * (sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
-
-                loss = (
-                    loss
-                    + (relu6(dB_belt + 0 * margin)).mean()
-                    - slope * relu6(-dB_belt).mean()
-                )
+            (
+                loss,
+                accuracy_init_unsafe,
+                accuracy_belt,
+                N_belt,
+            ) = self.compute_loss(B_i, B_u, B_d, Bdot_d)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 vprint(
@@ -230,16 +272,16 @@ class Barrier(Certificate):
                         "- loss:",
                         loss.item(),
                         "- accuracy init-unsafe:",
-                        percent_accuracy_init_unsafe,
+                        accuracy_init_unsafe,
                         "- accuracy belt:",
-                        percent_belt,
+                        accuracy_belt,
                         "- points in belt:",
-                        len(belt_index),
+                        N_belt,
                     ),
                     learner.verbose,
                 )
 
-            if percent_accuracy_init_unsafe == 100 and percent_belt >= 99.9:
+            if accuracy_init_unsafe == 100 and accuracy_belt >= 99.9:
                 condition = True
             else:
                 condition = False
@@ -286,9 +328,11 @@ class Barrier(Certificate):
             yield cs
 
 
-class BarrierLyapunov(Certificate):
+class BarrierAlt(Certificate):
     """
-    Certifies Safety of a model
+    Certifies Safety of a model  using Lie derivative everywhere.
+
+    Works for continuous and discrete models.
 
     Arguments:
     domains {dict}: dictionary of string: domains pairs for a initial set, unsafe set and domain
@@ -304,10 +348,31 @@ class BarrierLyapunov(Certificate):
     SU = XU
 
     def __init__(self, domains, **kw) -> None:
-        self.domain = domains[BarrierLyapunov.XD]
-        self.initial_s = domains[BarrierLyapunov.XI]
-        self.unsafe_s = domains[BarrierLyapunov.XU]
+        self.domain = domains[BarrierAlt.XD]
+        self.initial_s = domains[BarrierAlt.XI]
+        self.unsafe_s = domains[BarrierAlt.XU]
         self.bias = True
+
+    def compute_loss(self, Bdot_d, B_i, B_u):
+        margin = 0.1
+
+        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
+        slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+        relu6 = torch.nn.ReLU6()
+        p = 1
+        init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
+        unsafe_loss = (torch.relu(-B_u + margin) - slope * relu6(B_u + margin)).mean()
+
+        lie_loss = (relu6(Bdot_d + margin)).mean()
+
+        # set two belts
+        percent_belt = 0
+
+        lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
+
+        loss = init_loss + unsafe_loss + lie_loss
+        return percent_accuracy_init_unsafe, percent_belt, lie_accuracy, loss
 
     def learn(
         self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list
@@ -322,10 +387,9 @@ class BarrierLyapunov(Certificate):
         assert len(S) == len(Sdot)
 
         learn_loops = 1000
-        margin = 0.1
         condition_old = False
-        i1 = S[BarrierLyapunov.XD].shape[0]
-        i2 = S[BarrierLyapunov.SD].shape[0]
+        i1 = S[BarrierAlt.XD].shape[0]
+        i2 = S[BarrierAlt.SD].shape[0]
         S_cat, Sdot_cat = torch.cat([s for s in S.values()]), torch.cat(
             [sdot for sdot in Sdot.values()]
         )
@@ -343,31 +407,12 @@ class BarrierLyapunov(Certificate):
             B_i = B[i1 : i1 + i2]
             B_u = B[i1 + i2 :]
 
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy
-                * 100
-                / (len(S[BarrierLyapunov.SU]) + len(S[BarrierLyapunov.SD]))
-            )
-            slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            relu6 = torch.nn.ReLU6()
-            p = 1
-            init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
-            # init_loss = (init_loss / init_loss.detach().norm(p=p)).mean()
-            unsafe_loss = (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-            # unsafe_loss = (unsafe_loss / unsafe_loss.detach().norm(p=p)).mean()
-
-            lie_loss = (relu6(Bdot_d + margin)).mean()
-            # lie_loss = (lie_loss / lie_loss.detach().norm(p=p)).mean()
-
-            # set two belts
-            percent_belt = 0
-
-            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
-
-            loss = init_loss + unsafe_loss + lie_loss
+            (
+                percent_accuracy_init_unsafe,
+                percent_belt,
+                lie_accuracy,
+                loss,
+            ) = self.compute_loss(Bdot_d, B_i, B_u)
 
             # loss = loss + (100-percent_accuracy)
 
@@ -427,13 +472,23 @@ class BarrierLyapunov(Certificate):
         inital_constr = _And(inital_constr, self.domain)
         unsafe_constr = _And(unsafe_constr, self.domain)
         for cs in (
-            {BarrierLyapunov.SD: inital_constr, BarrierLyapunov.SU: unsafe_constr},
-            {BarrierLyapunov.SD: lie_constr},
+            {BarrierAlt.SD: inital_constr, BarrierAlt.SU: unsafe_constr},
+            {BarrierAlt.SD: lie_constr},
         ):
             yield cs
 
 
 class RWS(Certificate):
+    """Certificate to satisfy a reach-while-stay property.
+
+    Reach While stay must satisfy:
+    \forall x in XI, V <= 0,
+    \forall x in boundary of XS, V > 0,
+    \forall x in A \ XG, dV/dt <= 0
+    A = {x \in XS| V <=0 }
+
+    """
+
     XD = "lie"
     XI = "init"
     XS = "safe"
@@ -444,14 +499,7 @@ class RWS(Certificate):
     SS = XS
     SG = XG
 
-    # Reach While stay must satisfy:
-    # \forall x in XI, V <= 0,
-    # \forall x in boundary of XS, V > 0,
-    # \forall x in A \ XG, dV/dt <= 0
-    # A = {x \in XS| V <=0 }
-
     def __init__(self, domains, **kw) -> None:
-        # TODO: Make set labels constants of the class
         self.domain = domains[RWS.XD]
         self.initial_s = domains[RWS.XI]
         self.safe_s = domains[RWS.XS]
@@ -459,8 +507,29 @@ class RWS(Certificate):
         self.goal = domains[RWS.XG]
         self.bias = True
 
+    def compute_loss(self, Bdot_d, B_i, B_u):
+        margin = 0.1
+        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_i) + len(B_u))
+        slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+        relu6 = torch.nn.ReLU6()
+        # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
+        loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
+            torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
+        ).mean()
+
+        lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
+
+        loss = loss - (relu6(-Bdot_d + margin)).mean()
+        return percent_accuracy_init_unsafe, loss, lie_accuracy
+
     def learn(
-        self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list
+        self,
+        learner: learner.Learner,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
     ) -> dict:
         """
         :param learner: learner object
@@ -472,18 +541,23 @@ class RWS(Certificate):
         assert len(S) == len(Sdot)
 
         learn_loops = 1000
-        margin = 0.1
         condition_old = False
         i1 = S[RWS.XD].shape[0]
         i2 = S[RWS.XI].shape[0]
         # I think dicts remember insertion order now, though perhaps this should be done more thoroughly
-        S_cat, Sdot_cat = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XS])), torch.cat(
-            (Sdot[RWS.XD], Sdot[RWS.XI], Sdot[RWS.XS])
-        )
+        samples = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XS]))
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = torch.cat((Sdot[RWS.XD], Sdot[RWS.XI], Sdot[RWS.XS]))
+
         for t in range(learn_loops):
             optimizer.zero_grad()
+            if f_torch:
+                samples_dot = f_torch(samples)
 
-            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
+            B, Bdot, _ = learner.get_all(samples, samples_dot)
             B_d, Bdot_d, = (
                 B[:i1],
                 Bdot[:i1],
@@ -491,22 +565,9 @@ class RWS(Certificate):
             B_i = B[i1 : i1 + i2]
             B_u = B[i1 + i2 :]
 
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S[RWS.XI]) + len(S[RWS.XS]))
+            percent_accuracy_init_unsafe, loss, lie_accuracy = self.compute_loss(
+                Bdot_d, B_i, B_u
             )
-            slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            relu6 = torch.nn.ReLU6()
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
-
-            loss = loss - (relu6(-Bdot_d + margin)).mean()
-
-            # loss = loss + (100-percent_accuracy)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 vprint(
@@ -567,7 +628,7 @@ class RWS(Certificate):
             yield cs
 
 
-class RSWS(Certificate):
+class RSWS(RWS):
     """Reach and Stay While Stay Certificate
 
     Firstly satisfies reach while stay conditions, given by:
@@ -616,122 +677,9 @@ class RSWS(Certificate):
         self.goal_border = domains[RSWS.dXG]
         self.bias = True
 
-    def learn(
-        self, learner: learner.Learner, optimizer: Optimizer, S: list, Sdot: list
-    ) -> dict:
-        """_summary_
-
-        Args:
-            learner (learner.Learner): learner object
-            optimizer (Optimizer): torch optimizer
-            S (list): list of tensors of the state
-            Sdot (list): list of tensors of the state derivative
-
-        Returns:
-            dict: empty dict
-        """
-        assert len(S) == len(Sdot)
-
-        learn_loops = 1000
-        margin = 0.1
-        condition_old = False
-        i1 = S[RSWS.XD].shape[0]
-        i2 = S[RSWS.XI].shape[0]
-        S_cat, Sdot_cat = torch.cat((S[RSWS.XD], S[RSWS.XI], S[RSWS.SU])), torch.cat(
-            (Sdot[RSWS.XD], Sdot[RSWS.XI], Sdot[RSWS.SU])
-        )
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
-            B_d, Bdot_d, = (
-                B[:i1],
-                Bdot[:i1],
-            )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
-
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S[RSWS.XI]) + len(S[RSWS.SU]))
-            )
-            slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            relu6 = torch.nn.ReLU6()
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
-
-            loss = loss - (relu6(-Bdot_d + margin)).mean()
-
-            # loss = loss + (100-percent_accuracy)
-
-            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                vprint(
-                    (
-                        t,
-                        "- loss:",
-                        loss.item(),
-                        "- accuracy init-safe:",
-                        percent_accuracy_init_unsafe,
-                        "- accuracy belt:",
-                        lie_accuracy,
-                    ),
-                    learner.verbose,
-                )
-
-            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
-                condition = True
-            else:
-                condition = False
-
-            if condition and condition_old:
-                break
-            condition_old = condition
-
-            loss.backward()
-            optimizer.step()
-
-        return {}
-
-    def get_constraints(self, verifier, C, Cdot) -> Generator:
-        """returns the constraints of the certificate
-
-        Args:
-            verifier (Verifier): verifier object
-            C: SMT formula of certificate function
-            Cdot: SMT formula of certificate lie derivative
-
-        Yields:
-            Generator: tuple of dictionaries of certificate conditons
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Not = verifier.solver_fncts()["Not"]
-        # Cdot <= 0 in C == 0
-        # C <= 0 if x \in initial
-        initial_constr = _And(C > 0, self.initial_s)
-        # C > 0 if x \in safe border
-        safe_constr = _And(C <= 0, self.unsafe_border)
-
-        # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
-        gamma = 0
-        lie_constr = _And(_And(C >= 0, _Not(self.goal)), Cdot > gamma)
-
-        # add domain constraints
-        inital_constr = _And(initial_constr, self.domain)
-        safe_constr = _And(safe_constr, self.domain)
-        lie_constr = _And(lie_constr, self.domain)
-
-        for cs in (
-            {RSWS.XI: inital_constr, RSWS.XU: safe_constr},
-            {RSWS.XD: lie_constr},
-        ):
-            yield cs
-
     def stay_in_goal_check(self, verifier, C, Cdot):
-        """Checks if the system stays in the goal region. True if it stays in the goal region, False otherwise.
+        """Checks if the system stays in the goal region.
+        True if it stays in the goal region, False otherwise.
 
         This check involves finding a beta such that:
 
@@ -758,646 +706,6 @@ class RSWS(Certificate):
         s = verifier.new_solver()
         res, timedout = verifier.solve_with_timeout(s, F)
         return verifier.is_sat(res)
-
-
-# TODO: in devel
-class CtrlLyapunov(Certificate):
-    """
-    Certifies stability and computes the control for CT models
-    bool LLO: last layer of ones in network
-    XD: Symbolic formula of domain
-
-    """
-
-    XD = "lie-&-pos"
-    SD = XD
-
-    def __init__(self, domains, **kw) -> None:
-        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
-        self.domain = domains[Lyapunov.XD]
-        self.bias = False
-
-    # the Lyapunov certificate use a static Sdot, whereas we need to recompute Sdot at every iteration, since it
-    # comes from another network
-    def learn(
-        self,
-        learner: learner.Learner,
-        optimizer: Optimizer,
-        S: list,
-        Sdot: list,
-        f_torch: callable,
-    ) -> dict:
-        """
-        :param learner: learner object
-        :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data) -- actually NOT used, just for compatibility
-        :return: --
-        """
-
-        samples = S[Lyapunov.SD]
-        samples_dot = f_torch(samples)
-        assert len(samples) == len(samples_dot)
-        batch_size = len(samples)
-        learn_loops = 1000
-        margin = 0 * 0.01
-
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            # recompute Sdot with new controller
-            samples_dot = f_torch(samples)
-            # print(samples_dot[0])
-
-            V, Vdot, circle = learner.get_all(samples, samples_dot)
-
-            slope = 10 ** (learner.order_of_magnitude(max(abs(Vdot)).detach()))
-            leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
-            # compute loss function. if last layer of ones (llo), can drop parts with V
-            if self.llo:
-                learn_accuracy = sum(Vdot <= -margin).item()
-                loss = (leaky_relu(Vdot + margin * circle)).mean()
-            else:
-                learn_accuracy = 0.5 * (
-                    sum(Vdot <= -margin).item() + sum(V >= margin).item()
-                )
-                loss = (leaky_relu(Vdot + margin * circle)).mean() + (
-                    leaky_relu(-V + margin * circle)
-                ).mean()
-
-            if t % 100 == 0 or t == learn_loops - 1:
-                vprint(
-                    (
-                        t,
-                        "- loss:",
-                        loss.item(),
-                        "- acc:",
-                        learn_accuracy * 100 / batch_size,
-                        "%",
-                    ),
-                    learner.verbose,
-                )
-
-            # t>=1 ensures we always have at least 1 optimisation step
-            if learn_accuracy == batch_size and t >= 1:
-                break
-
-            loss.backward()
-            optimizer.step()
-
-            if learner._diagonalise:
-                learner.diagonalisation()
-
-        return {}
-
-    def get_constraints(self, verifier, V, Vdot) -> Generator:
-        """
-        :param verifier: verifier object
-        :param V: SMT formula of Lyapunov Function
-        :param Vdot: SMT formula of Lyapunov lie derivative
-        :return: tuple of dictionaries of lyapunov conditons
-        """
-        _Or = verifier.solver_fncts()["Or"]
-        _And = verifier.solver_fncts()["And"]
-
-        lyap_negated = _Or(V <= 0, Vdot > 0)
-        lyap_condition = _And(self.domain, lyap_negated)
-        for cs in ({Lyapunov.SD: lyap_condition},):
-            yield cs
-
-
-class CtrlBarrier(Certificate):
-    """
-    Certifies Safety for CT and DT models
-
-    Arguments:
-    domains {dict}: dictionary of string:domains pairs for an initial set, unsafe set and domain
-
-    Keyword Arguments:
-    SYMMETRIC_BELT {bool}: sets belt symmetry
-
-    """
-
-    XD = "lie"
-    XI = "init"
-    XU = "unsafe"
-    SD = XD
-    SI = XI
-    SU = XU
-
-    def __init__(self, domains, **kw) -> None:
-        self.domain = domains["lie"]
-        self.initial_s = domains["init"]
-        self.unsafe_s = domains["unsafe"]
-        self.SYMMETRIC_BELT = kw.get(
-            CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v
-        )
-        self.bias = True
-
-    # the Barrier certificate use a static Sdot, whereas we need to recompute Sdot at every iteration, since it
-    # comes from another network
-    def learn(
-        self,
-        learner: learner.Learner,
-        optimizer: Optimizer,
-        S: dict,
-        Sdot: dict,
-        f_torch: callable,
-    ) -> dict:
-        """
-        :param learner: learner object
-        :param optimizer: torch optimizer
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
-        :return: --
-        """
-        assert len(S) == len(Sdot)
-
-        learn_loops = 1000
-        margin = 0.1
-        condition_old = False
-        i1 = S["lie"].shape[0]
-        i2 = S["init"].shape[0]
-        S_cat = torch.cat([s for s in S.values()])
-        Sdot_ = f_torch(S_cat)
-        assert len(S_cat) == len(Sdot_)
-
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            # recompute Sdot with new controller
-            samples_dot = f_torch(S_cat)
-
-            # This seems slightly faster
-            B, Bdot, _ = learner.get_all(S_cat, samples_dot)
-            B_d, Bdot_d, = (
-                B[:i1],
-                Bdot[:i1],
-            )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
-
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S["unsafe"]) + len(S["init"]))
-            )
-            slope = 1 / 10**4
-            relu6 = torch.nn.ReLU6()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            # set two belts
-            percent_belt = 0
-            if self.SYMMETRIC_BELT:
-                belt_index = torch.nonzero(torch.abs(B_d) <= 0.5)
-            else:
-                belt_index = torch.nonzero(B_d >= -margin)
-
-            if belt_index.nelement() != 0:
-                dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
-                learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
-                percent_belt = 100 * (sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
-
-                loss = (
-                    loss
-                    + (relu6(dB_belt + 0 * margin)).mean()
-                    - slope * relu6(-dB_belt).mean()
-                )
-
-            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                vprint(
-                    (
-                        t,
-                        "- loss:",
-                        loss.item(),
-                        "- accuracy init-unsafe:",
-                        percent_accuracy_init_unsafe,
-                        "- accuracy belt:",
-                        percent_belt,
-                        "- points in belt:",
-                        len(belt_index),
-                    ),
-                    learner.verbose,
-                )
-
-            if percent_accuracy_init_unsafe == 100 and percent_belt >= 99.9:
-                condition = True
-            else:
-                condition = False
-
-            if condition and condition_old:
-                break
-            condition_old = condition
-
-            loss.backward()
-            optimizer.step()
-
-        return {}
-
-    def get_constraints(self, verifier, B, Bdot) -> Generator:
-        """
-        :param verifier: verifier object
-        :param B: SMT formula of Barrier function
-        :param Bdot: SMT formula of Barrier lie derivative
-        :return: tuple of dictionaries of Barrier conditons
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Or = verifier.solver_fncts()["Or"]
-        _Not = verifier.solver_fncts()["Not"]
-        # Bdot <= 0 in B == 0
-        # lie_constr = And(B >= -0.05, B <= 0.05, Bdot > 0)
-        # lie_constr = _Not(_Or(Bdot < 0, _Not(B==0)))
-        lie_constr = _And(B == 0, Bdot >= 0)
-
-        # B < 0 if x \in initial
-        initial_constr = _And(B >= 0, self.initial_s)
-
-        # B > 0 if x \in unsafe
-        unsafe_constr = _And(B <= 0, self.unsafe_s)
-
-        # add domain constraints
-        lie_constr = _And(lie_constr, self.domain)
-        inital_constr = _And(initial_constr, self.domain)
-        unsafe_constr = _And(unsafe_constr, self.domain)
-
-        for cs in (
-            {Barrier.SI: inital_constr, Barrier.SU: unsafe_constr},
-            {Barrier.SD: lie_constr},
-        ):
-            yield cs
-
-
-class CtrlRWS(Certificate):
-    XD = "lie"
-    XI = "init"
-    XS = "safe"
-    dXS = "safe_border"
-    XG = "goal"
-    SD = XD
-    SI = XI
-    SS = XS
-    SG = XG
-
-    # Reach While stay must satisfy:
-    # \forall x in XI, V <= 0,
-    # \forall x in boundary of XS, V > 0,
-    # \forall x in A \ XG, dV/dt <= 0
-    # A = {x \in XS| V <=0 }
-
-    def __init__(self, domains, **kw) -> None:
-        # TODO: Make set labels constants of the class
-        self.domain = domains[RWS.XD]
-        self.initial_s = domains[RWS.XI]
-        self.safe_s = domains[RWS.XS]
-        self.safe_border = domains[RWS.dXS]
-        self.goal = domains[RWS.XG]
-        self.bias = True
-
-    def learn(
-        self,
-        learner: learner.Learner,
-        optimizer: Optimizer,
-        S: list,
-        Sdot: list,
-        f_torch: callable,
-    ) -> dict:
-        """
-        :param learner: learner object
-        :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
-        :return: --
-        """
-        assert len(S) == len(Sdot)
-
-        learn_loops = 1000
-        margin = 0.1
-        condition_old = False
-        i1 = S[RWS.XD].shape[0]
-        i2 = S[RWS.XI].shape[0]
-        S_cat = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XS]))
-        Sdot_cat = f_torch(S_cat)
-
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            Sdot_cat = f_torch(S_cat)
-
-            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
-            B_d, Bdot_d, = (
-                B[:i1],
-                Bdot[:i1],
-            )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
-
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S[RWS.XI]) + len(S[RWS.XS]))
-            )
-            slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            relu6 = torch.nn.ReLU6()
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
-
-            loss = loss - (relu6(-Bdot_d + margin)).mean()
-
-            # loss = loss + (100-percent_accuracy)
-
-            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                vprint(
-                    (
-                        t,
-                        "- loss:",
-                        loss.item(),
-                        "- accuracy init-unsafe:",
-                        percent_accuracy_init_unsafe,
-                        "- accuracy belt:",
-                        lie_accuracy,
-                    ),
-                    learner.verbose,
-                )
-
-            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
-                condition = True
-            else:
-                condition = False
-
-            if condition and condition_old:
-                break
-            condition_old = condition
-
-            loss.backward()
-            optimizer.step()
-
-        return {}
-
-    def get_constraints(self, verifier, C, Cdot) -> Generator:
-        """
-        :param verifier: verifier object
-        :param C: SMT formula of Barrier function
-        :param Cdot: SMT formula of Barrier lie derivative
-        :return: tuple of dictionaries of Barrier conditons
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Not = verifier.solver_fncts()["Not"]
-        # Cdot <= 0 in C == 0
-        # C <= 0 if x \in initial
-        initial_constr = _And(C > 0, self.initial_s)
-        # C > 0 if x \in safe border
-        safe_constr = _And(C <= 0, self.safe_border)
-
-        # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
-        gamma = 0
-        lie_constr = _And(_And(C >= 0, _Not(self.goal)), Cdot > gamma)
-
-        # add domain constraints
-        inital_constr = _And(initial_constr, self.domain)
-        safe_constr = _And(safe_constr, self.domain)
-        lie_constr = _And(lie_constr, self.domain)
-
-        for cs in (
-            {RWS.XI: inital_constr, RWS.XS: safe_constr},
-            {RWS.XD: lie_constr},
-        ):
-            yield cs
-
-
-class CtrlRSWS(Certificate):
-
-    XD = "lie"
-    XI = "init"
-    XU = "unsafe_border"
-    XS = "safe"
-    XG = "goal"
-    dXG = "goal_border"
-    SD = XD
-    SI = XI
-    SU = "unsafe"
-    SG = XG
-
-    def __init__(self, domains, **kw) -> None:
-        self.domain = domains[RSWS.XD]
-        self.initial_s = domains[RSWS.XI]
-        self.unsafe_border = domains[RSWS.XU]
-        self.safe = domains[RSWS.XS]
-        self.goal = domains[RSWS.XG]
-        self.goal_border = domains[RSWS.dXG]
-        self.bias = True
-
-    def learn(
-        self,
-        learner: learner.Learner,
-        optimizer: Optimizer,
-        S: list,
-        Sdot: list,
-        f_torch: callable,
-    ) -> dict:
-        """learning function for RSWS
-
-        Args:
-            learner (learner.Learner): learner object
-            optimizer (Optimizer): torch optimizer
-            S (list): list of tensors of the state
-            Sdot (list): list of tensors of the state derivative
-
-        Returns:
-            dict: empty dict
-        """
-        assert len(S) == len(Sdot)
-
-        learn_loops = 1000
-        margin = 0.1
-        condition_old = False
-        i1 = S[RSWS.XD].shape[0]
-        i2 = S[RSWS.XI].shape[0]
-        S_cat = torch.cat((S[RSWS.XD], S[RSWS.XI], S[RSWS.SU]))
-        Sdot_ = f_torch(S_cat)
-        assert len(S_cat) == len(Sdot_)
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-
-            Sdot_cat = f_torch(S_cat)
-
-            B, Bdot, _ = learner.get_all(S_cat, Sdot_cat)
-            B_d, Bdot_d, = (
-                B[:i1],
-                Bdot[:i1],
-            )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
-
-            learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-            percent_accuracy_init_unsafe = (
-                learn_accuracy * 100 / (len(S[RSWS.XI]) + len(S[RSWS.SU]))
-            )
-            slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-            relu6 = torch.nn.ReLU6()
-            # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
-            loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-                torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-            ).mean()
-
-            lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
-
-            loss = loss - (relu6(-Bdot_d + margin)).mean()
-
-            # loss = loss + (100-percent_accuracy)
-
-            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                vprint(
-                    (
-                        t,
-                        "- loss:",
-                        loss.item(),
-                        "- accuracy init-safe:",
-                        percent_accuracy_init_unsafe,
-                        "- accuracy belt:",
-                        lie_accuracy,
-                    ),
-                    learner.verbose,
-                )
-
-            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
-                condition = True
-            else:
-                condition = False
-
-            if condition and condition_old:
-                break
-            condition_old = condition
-
-            loss.backward()
-            optimizer.step()
-
-        return {}
-
-    def get_constraints(self, verifier, C, Cdot) -> Generator:
-        """returns the constraints of the certificate
-
-        Args:
-            verifier (Verifier): verifier object
-            C: SMT formula of certificate function
-            Cdot: SMT formula of certificate lie derivative
-
-        Yields:
-            Generator: tuple of dictionaries of certificate conditons
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Not = verifier.solver_fncts()["Not"]
-        # Cdot <= 0 in C == 0
-        # C <= 0 if x \in initial
-        initial_constr = _And(C > 0, self.initial_s)
-        # C > 0 if x \in safe border
-        safe_constr = _And(C <= 0, self.unsafe_border)
-
-        # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
-        gamma = 0
-        lie_constr = _And(_And(C >= 0, _Not(self.goal)), Cdot > gamma)
-
-        # add domain constraints
-        inital_constr = _And(initial_constr, self.domain)
-        safe_constr = _And(safe_constr, self.domain)
-        lie_constr = _And(lie_constr, self.domain)
-
-        for cs in (
-            {RSWS.XI: inital_constr, RSWS.XU: safe_constr},
-            {RSWS.XD: lie_constr},
-        ):
-            yield cs
-
-    def stay_in_goal_check(self, verifier, C, Cdot):
-        """Checks if the system stays in the goal region. True if it stays in the goal region, False otherwise.
-
-        This check involves finding a beta such that:
-
-        \forall x in border XG: V > \beta
-        \forall x in XG \ int(B): dV/dt <= 0
-        B = {x in XS | V <= \beta}
-
-        Args:
-            verifier (Verifier): verifier object
-            C: SMT formula of certificate function
-            Cdot: SMT formula of certificate lie derivative
-
-        Returns:
-            bool: True if sat
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Not = verifier.solver_fncts()["Not"]
-        beta = verifier.new_vars(1, base="b")[0]
-        B = _And(C <= beta, _And(self.domain, self.safe))
-        dG = self.goal_border  # Border of goal set
-        border_condition = _And(C > beta, dG)
-        lie_condition = _And(_And(self.goal, _Not(B)), Cdot <= 0)
-        F = _And(border_condition, lie_condition)
-        s = verifier.new_solver()
-        res, timedout = verifier.solve_with_timeout(s, F)
-        return verifier.is_sat(res)
-
-
-class RAS(Certificate):
-    """Reach-avoid-stay certificate"""
-
-    XD = SD = "lie"
-    XI = SI = "init"
-    XU = SU = "unsafe"
-    XG = SG = "goal"
-
-    def __init__(self, domains, **kw):
-        self.domain = domains[RAS.XD]
-        self.initial = domains[RAS.XI]
-        self.unsafe = domains[RAS.XU]
-        self.goal = domains[RAS.XG]
-        self.llo = False
-
-    def learn(self, learner_V, learner_B, S, Sdot, f_torch):
-        pass
-
-    def get_constraints(self, verifier, V, Vdot, B, Bdot):
-        """returns the constraints of the certificate
-
-        Args:
-            verifier (Verifier): Verifier object
-            V (): SMT formula of certificate function
-            Vdot (): SMT formula of certificate lie derivative
-            B (): SMT formula of certificate function
-            Bdot (): SMT formula of certificate lie derivative
-        """
-        _And = verifier.solver_fncts()["And"]
-        _Not = verifier.solver_fncts()["Not"]
-        _Or = verifier.solver_fncts()["Or"]
-        if self.llo:
-            # V is positive definite by construction
-            lyap_negated = Vdot > 0
-        else:
-            lyap_negated = _Or(V <= 0, Vdot > 0)
-        lyap_condition = _And(self.domain, lyap_negated)
-
-        B_lie_constr = _And(B == 0, Bdot >= 0)
-
-        # B < 0 if x \in initial
-        B_initial_constr = _And(B >= 0, self.initial_s)
-
-        # B > 0 if x \in unsafe
-        B_unsafe_constr = _And(B <= 0, self.unsafe_s)
-
-        # add domain constraints
-        lie_constr = _And(B_lie_constr, self.domain)
-        inital_constr = _And(B_initial_constr, self.domain)
-        unsafe_constr = _And(B_unsafe_constr, self.domain)
-
-        for cs in (
-            {RAS.XD, lyap_condition},
-            {RAS.XI: inital_constr, RAS.XU: unsafe_constr},
-            {RAS.XD: lie_constr},
-        ):
-            yield cs
 
 
 def get_certificate(certificate: CertificateType):
@@ -1406,18 +714,10 @@ def get_certificate(certificate: CertificateType):
     elif certificate == CertificateType.BARRIER:
         return Barrier
     elif certificate == CertificateType.BARRIER_LYAPUNOV:
-        return BarrierLyapunov
+        return BarrierAlt
     elif certificate == CertificateType.RWS:
         return RWS
     elif certificate == CertificateType.RSWS:
         return RSWS
-    elif certificate == CertificateType.CTRLLYAP:
-        return CtrlLyapunov
-    elif certificate == CertificateType.CTRLBARR:
-        return CtrlBarrier
-    elif certificate == CertificateType.CTRLRWS:
-        return CtrlRWS
-    elif certificate == CertificateType.CTRLRSWS:
-        return CtrlRSWS
     else:
         raise ValueError("Unknown certificate type {}".format(certificate))

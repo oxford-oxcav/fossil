@@ -11,9 +11,9 @@ import dreal
 
 from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-from src.shared.activations import ActivationType
+
 import src.shared.control as control
-from src.shared.consts import TimeDomain
+from src.shared.consts import *
 from src.certificate import RWS, RSWS
 
 
@@ -63,6 +63,6 @@ def rws_linear(controller):
         RWS.SD: XD.generate_data(batch_size),
         RWS.SI: XI.generate_data(batch_size),
         RWS.SS: XS.generate_data(batch_size),
-        RWS.SG: XG.generate_data(batch_size)
+        RWS.SG: XG.generate_data(batch_size),
     }
     return f, domains, data, inf_bounds_n(2)

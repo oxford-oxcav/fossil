@@ -11,15 +11,9 @@ import torch
 from experiments.benchmarks.models import ClosedLoopModel, GeneralClosedLoopModel
 import src.certificate as certificate
 import src.learner as learner
-from src.shared.cegis_values import CegisComponentsState, CegisConfig, CegisStateKeys
 from src.shared.components.consolidator import Consolidator
 import src.shared.control as control
-from src.shared.consts import (
-    ConsolidatorType,
-    LearnerType,
-    VerifierType,
-    CertificateType,
-)
+from src.shared.consts import *
 from src.shared.utils import print_section, vprint
 import src.translator as translator
 import src.verifier as verifier

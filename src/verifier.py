@@ -20,9 +20,8 @@ try:
 except ModuleNotFoundError:
     logging.exception("No dreal")
 
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.consts import VerifierType
+from src.shared.consts import *
 from src.shared.utils import (
     Timer,
     contains_object,

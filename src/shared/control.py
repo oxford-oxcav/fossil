@@ -46,7 +46,7 @@ class BaseController(torch.nn.Module):
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
         z = W @ y  # + b
 
-        print(f'Controller: \n{z}')
+        print(f"Controller: \n{z}")
 
         return z
 
@@ -103,7 +103,7 @@ class GeneralController(torch.nn.Module):
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
         z = W @ y  # + b
 
-        print(f'Controller: \n{z}')
+        print(f"Controller: \n{z}")
 
         return z
 
@@ -121,9 +121,11 @@ class StabilityCT(BaseController):
 
     def loss_der_direction(self, S, Sdot):
         return (S @ Sdot.T).diag().sum()
-    
+
     def loss_onestep(self, S, Sdot, tau=0.05):
-        return (torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)).sum()
+        return (
+            torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)
+        ).sum()
 
 
 class StabilityDT(BaseController):
@@ -136,6 +138,7 @@ class StabilityDT(BaseController):
             optimizer.step()
             optimizer.zero_grad()
 
+
 class SafeStableCT(BaseController):
     def __init__(self, dim, layers, activations, unsafe) -> None:
         super().__init__(dim, layers, activations)
@@ -144,17 +147,21 @@ class SafeStableCT(BaseController):
     def learn(self, S: torch.Tensor, f_open, optimizer):
         for i in range(2000):
             Sdot = f_open(S) + self(S)
-            loss = 10 * self.loss_enter_unsafe(S, Sdot) + self.loss_der_direction(S, Sdot)
+            loss = 10 * self.loss_enter_unsafe(S, Sdot) + self.loss_der_direction(
+                S, Sdot
+            )
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
     def loss_der_direction(self, S, Sdot):
         return (S @ Sdot.T).diag().sum()
-    
+
     def loss_onestep(self, S, Sdot, tau=0.05):
-        return (torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)).sum()
-    
+        return (
+            torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)
+        ).sum()
+
     def loss_enter_unsafe(self, S, Sdot, tau=0.05):
         S_tau = S + tau * Sdot
         return self.XU.check_containment(S_tau).int().sum()
@@ -167,7 +174,9 @@ penalises the entry in the unsafe set and pushes the trajectory in the safe set
 
 
 class TrajectorySafeStableCT(GeneralController):
-    def __init__(self, inputs, outputs, layers, activations, time_domain,  goal, unsafe, steps=10) -> None:
+    def __init__(
+        self, inputs, outputs, layers, activations, time_domain, goal, unsafe, steps=10
+    ) -> None:
         super().__init__(inputs, outputs, layers, activations)
         self.XU = unsafe
         self.XG = goal
@@ -188,11 +197,13 @@ class TrajectorySafeStableCT(GeneralController):
             optimizer.step()
             optimizer.zero_grad()
             if abs(old_loss - loss.item()) < 1e-6:
-                print(f'Learning Converged')
+                print(f"Learning Converged")
                 break
             old_loss = loss.item()
             if i % 200 == 0:
-                print(f'Control Loss: {loss.item():.2f}. Progress: {i/control_epochs*100:.0f}%')
+                print(
+                    f"Control Loss: {loss.item():.2f}. Progress: {i/control_epochs*100:.0f}%"
+                )
 
     def trajectory_compute(self, f_open, S):
 
@@ -211,11 +222,13 @@ class TrajectorySafeStableCT(GeneralController):
     def loss_enter_goal(self, traj, lamb=0.7):
         steps = traj.shape[0]
         # weight is a forgetting factor, so trajectory is weighted-sum
-        weight = torch.flipud(torch.tensor([lamb ** i for i in range(steps)]))
+        weight = torch.flipud(torch.tensor([lamb**i for i in range(steps)]))
         return (weight @ self.XG.check_containment_grad(traj)).sum()
 
     def loss_onestep(self, S, Sdot, tau=0.05):
-        return (torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)).sum()
+        return (
+            torch.norm(Sdot * tau + S, p=2, dim=1) - torch.norm(S, p=2, dim=1)
+        ).sum()
 
     def loss_enter_unsafe(self, traj, lamb=0.7):
         steps = traj.shape[0]
@@ -226,11 +239,13 @@ class TrajectorySafeStableCT(GeneralController):
 
 # Computes the trajectory in order to push them towards the goal set
 class TrajectoryStable(GeneralController):
-    def __init__(self, inputs, outputs, layers, activations, time_domain, equilibrium, steps=10) -> None:
+    def __init__(
+        self, inputs, outputs, layers, activations, time_domain, equilibrium, steps=10
+    ) -> None:
         super().__init__(inputs, outputs, layers, activations)
 
         self.XG = equilibrium
-        self.tau = 0.01 #* np.random.rand(steps)
+        self.tau = 0.01  # * np.random.rand(steps)
         # self.tau = np.hstack([np.zeros(1), self.tau])
         self.td = time_domain
         self.steps = steps
@@ -245,11 +260,11 @@ class TrajectoryStable(GeneralController):
             optimizer.step()
             optimizer.zero_grad()
             if abs(old_loss - loss.item()) < 1e-9:
-                print(f'Learning Converged')
+                print(f"Learning Converged")
                 break
             old_loss = loss.item()
             if i % 200 == 0:
-                print(f'Control Learning Loss: {loss.item()}')
+                print(f"Control Learning Loss: {loss.item()}")
 
     def trajectory_compute(self, f_open, S):
 
@@ -278,19 +293,20 @@ class TrajectoryStable(GeneralController):
 
     def loss_enter_goal(self, traj, lamb=0.5):
         # weight is a forgetting factor, so trajectory is weighted-sum
-        weight = torch.flipud(torch.tensor([lamb ** i for i in range(self.steps)]))
+        weight = torch.flipud(torch.tensor([lamb**i for i in range(self.steps)]))
 
         traj_in_equilibrium = (traj - self.XG).norm(2, dim=-1)
 
         return (weight @ traj_in_equilibrium).sum()
 
-    def loss_traj_decrease_enter_goal(self, traj, lamb=2.):
+    def loss_traj_decrease_enter_goal(self, traj, lamb=2.0):
         # expdecay defines the desired exponential decay of the trajectory
         # expdecay = (torch.tensor([np.exp(-lamb * self.tau[:i+1].sum()) for i in range(self.steps)]) \
         #                                                                           ).repeat(traj.shape[1], 1)
 
-        expdecay = (torch.tensor([np.exp(-lamb * i * self.tau) for i in range(self.steps)])).repeat(
-            traj.shape[1], 1)
+        expdecay = (
+            torch.tensor([np.exp(-lamb * i * self.tau) for i in range(self.steps)])
+        ).repeat(traj.shape[1], 1)
         expdecay = expdecay.repeat(traj.shape[-1], 1, 1)
 
         # traj_in_equilibrium = (traj - self.XG).norm(2, dim=-1)
@@ -300,4 +316,3 @@ class TrajectoryStable(GeneralController):
         desired_trajectory = expdecay.T * init_pos
 
         return (traj - desired_trajectory).norm(2, dim=-1).sum()
-

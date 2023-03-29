@@ -10,9 +10,9 @@ import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import ctrl_obstacle_avoidance
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -20,7 +20,8 @@ import numpy as np
 def test_lnn():
 
     ###############################
-    # takes 170 secs, at iter 5
+    # This is a great idea!
+    # takes 3.3 secs, at iter 3
     ###############################
 
     # using trajectory control
@@ -30,7 +31,7 @@ def test_lnn():
 
     # define NN parameters
     barr_activations = [ActivationType.TANH]
-    barr_hidden_neurons = [75] * len(barr_activations)
+    barr_hidden_neurons = [15] * len(barr_activations)
 
     # ctrl params
     n_ctrl_inputs = 1
@@ -38,7 +39,7 @@ def test_lnn():
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.CTRLBARR,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: barr_activations,
@@ -46,7 +47,7 @@ def test_lnn():
         CegisConfig.N_HIDDEN_NEURONS.k: barr_hidden_neurons,
         CegisConfig.CTRLAYER.k: [20, n_ctrl_inputs],
         CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
-        CegisConfig.SYMMETRIC_BELT.k: False,
+        CegisConfig.SYMMETRIC_BELT.k: True,
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()

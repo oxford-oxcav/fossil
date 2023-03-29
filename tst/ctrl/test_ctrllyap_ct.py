@@ -9,19 +9,15 @@ import torch
 import timeit
 import dreal as dr
 from src.shared.components.cegis import Cegis
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+from src.shared.consts import *
 from src.learner import CtrlLearnerCT
 from src.shared.control import GeneralController
 from experiments.benchmarks.benchmark_ctrl import ctrllyap_identity
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import CegisStateKeys
 import src.translator as translator
 
 
-
 class test_init(unittest.TestCase):
-
     def init_cegis(self):
         benchmark = ctrllyap_identity
         n_vars = 2
@@ -37,7 +33,7 @@ class test_init(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.LLO.k: False,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.DREAL,
@@ -45,7 +41,7 @@ class test_init(unittest.TestCase):
             CegisConfig.SYSTEM.k: system,
             CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
             CegisConfig.CTRLAYER.k: [ctrl_hidden_neurons, ctrl_inputs],
-            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
+            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
         }
         c = Cegis(**opts)
 
@@ -81,7 +77,7 @@ class test_init(unittest.TestCase):
 
         opts = {
             CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
+            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
             CegisConfig.LLO.k: False,
             CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
             CegisConfig.VERIFIER.k: VerifierType.DREAL,
@@ -89,7 +85,7 @@ class test_init(unittest.TestCase):
             CegisConfig.SYSTEM.k: system,
             CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
             CegisConfig.CTRLAYER.k: ctrl_hidden_neurons + ctrl_inputs,
-            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
+            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
         }
 
         c = Cegis(**opts)
@@ -124,12 +120,12 @@ class test_init(unittest.TestCase):
 
         # set control weights
         # controller should be [3*x0, 8*x1]
-        controller.layers[0].weight.data = torch.tensor([[1., 0.], [0., 2.]])
-        controller.layers[1].weight.data = torch.tensor([[3., 0.], [0., 4.]])
+        controller.layers[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 2.0]])
+        controller.layers[1].weight.data = torch.tensor([[3.0, 0.0], [0.0, 4.0]])
 
         f_smt = c.f.f_smt
 
-        xs = [dr.Variable('x0'), dr.Variable('x1')]
+        xs = [dr.Variable("x0"), dr.Variable("x1")]
         # the system is
         # [x0 + u0, x1 + u1]
         # then should result
@@ -137,23 +133,23 @@ class test_init(unittest.TestCase):
 
         xdots = f_smt(xs)
 
-        assert [4.*xs[0], 9.*xs[1]] == xdots
+        assert [4.0 * xs[0], 9.0 * xs[1]] == xdots
 
         # another check
         # controller should be [3*x0 + 2*x1, 8*x1]
-        controller.layers[0].weight.data = torch.tensor([[1., 0.], [0., 2.]])
-        controller.layers[1].weight.data = torch.tensor([[3., 1.], [0., 4.]])
+        controller.layers[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 2.0]])
+        controller.layers[1].weight.data = torch.tensor([[3.0, 1.0], [0.0, 4.0]])
 
         f_smt = c.f.f_smt
 
-        xs = [dr.Variable('x0'), dr.Variable('x1')]
+        xs = [dr.Variable("x0"), dr.Variable("x1")]
         # the system is
         # [x0 + u0, x1 + u1]
         # then should result
         # [x0 + 3*x0 + 2*x1, x1 + 8*x1]
         xdots = f_smt(xs)
 
-        assert [4. * xs[0] + 2. * xs[1], 9. * xs[1]] == xdots
+        assert [4.0 * xs[0] + 2.0 * xs[1], 9.0 * xs[1]] == xdots
 
     def test_correctness(self):
         c = self.init_cegis()
@@ -161,12 +157,12 @@ class test_init(unittest.TestCase):
         controller = c.ctrler
 
         # controller should be [3*x0 + 2*x1, 8*x1]
-        controller.layers[0].weight.data = torch.tensor([[1., 0.], [0., 2.]])
-        controller.layers[1].weight.data = torch.tensor([[3., 1.], [0., 4.]])
+        controller.layers[0].weight.data = torch.tensor([[1.0, 0.0], [0.0, 2.0]])
+        controller.layers[1].weight.data = torch.tensor([[3.0, 1.0], [0.0, 4.0]])
 
         f_smt = c.f.f_smt
 
-        xs = [dr.Variable('x0'), dr.Variable('x1')]
+        xs = [dr.Variable("x0"), dr.Variable("x1")]
         # the system is
         # [x0 + u0, x1 + u1]
         # then should result
@@ -176,28 +172,21 @@ class test_init(unittest.TestCase):
         # set Lyapunov function
         # V = 3 * x0^2 + x1^2
         learner = c.learner
-        learner.layers[0].weight.data = torch.tensor([[3., 0.], [0., 1.]])
-        learner.layers[1].weight.data = torch.tensor([[1., 1.]])
+        learner.layers[0].weight.data = torch.tensor([[3.0, 0.0], [0.0, 1.0]])
+        learner.layers[1].weight.data = torch.tensor([[1.0, 1.0]])
 
         # create a 'real' translator and compute V, Vdot
         regolo = translator.TranslatorCT(learner, xs, xdots, None, 1)
-        res = regolo.get(**{'factors': None})
+        res = regolo.get(**{"factors": None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         # check
-        desired_V = (3. * xs[0]) ** 2 + (1. * xs[1]) ** 2
-        desired_Vdot = 18. * xs[0] * (4. * xs[0] + 2.*xs[1]) + 2. * xs[1] * (9. * xs[1])
+        desired_V = (3.0 * xs[0]) ** 2 + (1.0 * xs[1]) ** 2
+        desired_Vdot = 18.0 * xs[0] * (4.0 * xs[0] + 2.0 * xs[1]) + 2.0 * xs[1] * (
+            9.0 * xs[1]
+        )
 
         res = dr.CheckSatisfiability(V != desired_V, 0.0001)
         assert res is None
         res = dr.CheckSatisfiability(Vdot != desired_Vdot, 0.0001)
         assert res is None
-
-
-
-
-
-
-
-
-

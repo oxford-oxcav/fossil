@@ -10,9 +10,9 @@ import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import ctrllyap_unstable
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -31,7 +31,7 @@ def test_lnn():
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
+        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
         CegisConfig.LLO.k: True,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
@@ -39,7 +39,7 @@ def test_lnn():
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
         CegisConfig.CTRLAYER.k: [2, 3],
-        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
+        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()

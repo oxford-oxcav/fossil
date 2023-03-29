@@ -4,19 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Literal
-import warnings
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from src.shared.activations import ActivationType, activation, activation_der
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
+from src.shared.activations import activation
 from src.shared.component import Component
-from src.shared.consts import LearningFactors, TimeDomain
+from src.shared.consts import *
 from src.shared.utils import Timer, timer
-from src.shared.activations_symbolic import activation_sym
-from src.shared.control import GeneralController
 
 T = Timer()
 
@@ -89,12 +85,16 @@ class LearnerNN(nn.Module, Learner):
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot):
-        return self.learn_method(self, optimizer, S, Sdot)
+    def learn(self, optimizer, S, Sdot, xdot_func):
+        return self.learn_method(self, optimizer, S, Sdot, xdot_func)
 
     def get(self, **kw):
         return self.learn(
-            kw[CegisStateKeys.optimizer], kw[CegisStateKeys.S], kw[CegisStateKeys.S_dot]
+            kw[CegisStateKeys.optimizer],
+            kw[CegisStateKeys.S],
+            kw[CegisStateKeys.S_dot],
+            None,
+            # I think this could actually still pass xdot_func, since there's no pytorch parameters to learn
         )
 
     def get_all(self, S, Sdot):

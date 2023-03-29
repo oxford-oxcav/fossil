@@ -1,22 +1,20 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import traceback
 import timeit
 from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, LearnerType
+from src.shared.consts import *
 from functools import partial
 
 
 def lyap_synthesis(benchmark, n_vars):
 
-    batch_size=500
+    batch_size = 500
     system = partial(benchmark, batch_size=batch_size)
 
     # compute equilibria
@@ -47,12 +45,22 @@ def lyap_synthesis(benchmark, n_vars):
     factors = None
 
     start = timeit.default_timer()
-    c = Cegis_for_lyap(n_vars, system, learner_type, activations, n_hidden_neurons,
-              verifier_type, inner_radius, outer_radius,
-              factors=factors, eq=None, sp_handle=True)
+    c = Cegis_for_lyap(
+        n_vars,
+        system,
+        learner_type,
+        activations,
+        n_hidden_neurons,
+        verifier_type,
+        inner_radius,
+        outer_radius,
+        factors=factors,
+        eq=None,
+        sp_handle=True,
+    )
     c.solve()
     stop = timeit.default_timer()
-    print('Elapsed Time: {}'.format(stop-start))
+    print("Elapsed Time: {}".format(stop - start))
 
 
 def barrier_synthesis(benchmark, n_vars):
@@ -60,7 +68,11 @@ def barrier_synthesis(benchmark, n_vars):
     MIN_TO_SEC = 60
     batch_size = 500
     system = partial(benchmark, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
+    activations = [
+        ActivationType.LINEAR,
+        ActivationType.LIN_TO_CUBIC,
+        ActivationType.LINEAR,
+    ]
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
@@ -78,8 +90,7 @@ def barrier_synthesis(benchmark, n_vars):
         _, found, _ = c.solve()
         end = timeit.default_timer()
 
-        print('Elapsed Time: {}'.format(end - start))
+        print("Elapsed Time: {}".format(end - start))
         print("Found? {}".format(found))
     except Exception as _:
         print(traceback.format_exc())
-

@@ -7,28 +7,7 @@
 # definition of various activation fcns
 from enum import Enum, auto
 import torch
-
-
-class ActivationType(Enum):
-    IDENTITY = auto()
-    RELU = auto()
-    LINEAR = auto()
-    SQUARE = auto()
-    LIN_SQUARE = auto()
-    RELU_SQUARE = auto()
-    REQU = auto()
-    # dReal only from here
-    TANH = auto()
-    SIGMOID = auto()
-    SOFTPLUS = auto()
-    COSH = auto()
-    LIN_TO_CUBIC = auto()
-    LIN_TO_QUARTIC = auto()
-    LIN_TO_QUINTIC = auto()
-    LIN_TO_SEXTIC = auto()
-    LIN_TO_SEPTIC = auto()
-    LIN_TO_OCTIC = auto()
-    SQUARE_DEC = auto()
+from src.shared.consts import ActivationType
 
 
 # Activation function

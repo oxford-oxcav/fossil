@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 
 from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-from src.shared.activations import ActivationType
+
 import src.shared.control as control
 from src.certificate import Lyapunov, Barrier
 
@@ -29,7 +29,6 @@ from src.certificate import Lyapunov, Barrier
 def nonpoly0_lyap():
     p = models.NonPoly0()
     domain = Torus([0, 0], 1, 0.1)
-    
 
     return (
         p,
@@ -334,8 +333,6 @@ def non_linear_discrete():
     }
 
     return f, domains, data, inf_bounds_n(2)
-
-
 
 
 def ras_demo_lyap():

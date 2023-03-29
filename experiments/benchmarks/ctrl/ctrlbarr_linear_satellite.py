@@ -10,9 +10,9 @@ import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import linear_satellite
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -36,7 +36,7 @@ def test_lnn():
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.CTRLBARR,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: barr_activations,

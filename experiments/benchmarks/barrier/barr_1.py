@@ -7,10 +7,10 @@
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import barr_1
 from src.shared.components.cegis import Cegis
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
-from src.shared.activations import ActivationType
+
+
+from src.shared.consts import *
+
 from src.shared.components.cegis import Cegis
 from src.plots.plot_barriers import plot_darboux_bench
 import numpy as np
@@ -31,6 +31,7 @@ def main():
         CegisConfig.ACTIVATION.k: activations,
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
+        CegisConfig.SYMMETRIC_BELT.k: True,
     }
     c = Cegis(**opts)
     state, vars, f_learner, iters = c.solve()

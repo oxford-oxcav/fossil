@@ -10,9 +10,9 @@ import numpy as np
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_rws import rws_linear
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 
 
@@ -36,7 +36,7 @@ def test_lnn():
         CegisConfig.SYSTEM.k: system,
         CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
         CegisConfig.CTRLAYER.k: [10, n_ctrl_inputs],
-        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
+        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
     }
     c = Cegis(**opts)
     state, vars, f, iters = c.solve()

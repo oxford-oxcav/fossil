@@ -1,36 +1,34 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import unittest
 import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+from src.shared.consts import *
 from z3 import *
 import src.translator as translator
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import CegisStateKeys
 
 
 def zero_in_zero(learner):
     v_zero, _ = learner.forward_tensors(
         torch.zeros(1, learner.input_size).reshape(1, learner.input_size),
     )
-    return v_zero == .0
+    return v_zero == 0.0
 
 
 def positive_definite(learner, S_d, Sdot):
     v, _, _ = learner.forward(S_d, Sdot)
-    return all(v >= .0)
+    return all(v >= 0.0)
 
 
 def negative_definite_lie_derivative(learner, S, Sdot):
-    v, vdot, _  = learner.forward(S, Sdot)
+    v, vdot, _ = learner.forward(S, Sdot)
     # find points have vdot > 0
     if len(torch.nonzero(vdot > 0)) > 0:
         return False
@@ -39,21 +37,22 @@ def negative_definite_lie_derivative(learner, S, Sdot):
 
 
 class test_cegis(unittest.TestCase):
-
     def assertNumericallyLyapunov(self, model, S_d, Sdot):
         self.assertTrue(zero_in_zero(model), "model is not zero in zero")
-        self.assertTrue(positive_definite(model, S_d, Sdot),
-                        "model is not positive definite")
-        self.assertTrue(negative_definite_lie_derivative(model, S_d, Sdot),
-                        "model lie derivative is not negative definite")
+        self.assertTrue(
+            positive_definite(model, S_d, Sdot), "model is not positive definite"
+        )
+        self.assertTrue(
+            negative_definite_lie_derivative(model, S_d, Sdot),
+            "model lie derivative is not negative definite",
+        )
 
     def assertLyapunovOverPositiveOrthant(self, system, c):
 
         f, domain, _, _ = system()
-        domain = domain['lie-&-pos'](list(c.x_map.values()))
-        tr = translator.TranslatorCT(c.learner, c.x, c.xdot,
-                                  None, 3)
-        res = tr.get(**{'factors': None})
+        domain = domain["lie-&-pos"](list(c.x_map.values()))
+        tr = translator.TranslatorCT(c.learner, c.x, c.xdot, None, 3)
+        res = tr.get(**{"factors": None})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         s = Solver()
@@ -64,15 +63,17 @@ class test_cegis(unittest.TestCase):
             model = "{}".format(s.model())
         else:
             model = ""
-        self.assertEqual(res, z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model))
+        self.assertEqual(
+            res, z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model)
+        )
 
-        Sdot = f(c.S['lie-&-pos'])
-        S = c.S['lie-&-pos']
+        Sdot = f(c.S["lie-&-pos"])
+        S = c.S["lie-&-pos"]
         self.assertNumericallyLyapunov(c.learner, S, Sdot)
 
     def test_poly_2(self):
         torch.manual_seed(167)
-    
+
         batch_size = 500
         benchmark = poly_2
         n_vars = 2
@@ -106,7 +107,7 @@ class test_cegis(unittest.TestCase):
         stop = timeit.default_timer()
 
         self.assertLyapunovOverPositiveOrthant(system, c)
-        
+
     def test_non_poly_0(self):
         torch.manual_seed(167)
         batch_size = 500
@@ -135,7 +136,6 @@ class test_cegis(unittest.TestCase):
             CegisConfig.INNER_RADIUS.k: inner_radius,
             CegisConfig.OUTER_RADIUS.k: outer_radius,
             CegisConfig.LLO.k: True,
-
         }
         c = Cegis(**opts)
         c.solve()
@@ -188,7 +188,7 @@ class test_cegis(unittest.TestCase):
         # define domain constraints
         outer_radius = 10
         inner_radius = 0.01
-        
+
         # define NN parameters
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
         n_hidden_neurons = [10] * len(activations)
@@ -215,5 +215,5 @@ class test_cegis(unittest.TestCase):
         self.assertLyapunovOverPositiveOrthant(system, c)
 
 
-if __name__ == '__main__':
-    unittest.main() 
+if __name__ == "__main__":
+    unittest.main()

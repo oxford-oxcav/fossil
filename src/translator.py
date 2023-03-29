@@ -15,9 +15,8 @@ import torch
 
 import src.learner as learner
 from src.shared.activations_symbolic import activation_der_sym, activation_sym
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.consts import LearningFactors, TimeDomain, VerifierType
+from src.shared.consts import *
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import Timer, timer, vprint
 

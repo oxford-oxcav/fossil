@@ -12,12 +12,10 @@ from z3 import *
 
 import src.verifier as verifier
 import src.learner as learner
-from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import *
 import src.translator as translator
 import src.certificate as certificate
-from src.shared.cegis_values import CegisStateKeys
-from src.shared.consts import TranslatorType
+from src.shared.consts import TranslatorType, CegisStateKeys, ActivationType
 
 
 class TestZ3Verifier(unittest.TestCase):
@@ -53,7 +51,9 @@ class TestZ3Verifier(unittest.TestCase):
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         print(V)
         res = ver.verify(V, Vdot)
-        self.assertEqual(res[CegisStateKeys.found], res[CegisStateKeys.cex] == {'lie-&-pos': []})
+        self.assertEqual(
+            res[CegisStateKeys.found], res[CegisStateKeys.cex] == {"lie-&-pos": []}
+        )
         self.assertTrue(res[CegisStateKeys.found])
 
     def test_poly2_with_bad_Lyapunov_function(self):

@@ -6,9 +6,9 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import hi_ord_8
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
+from src.shared.consts import *
+
+
 from src.shared.components.cegis import Cegis
 import timeit
 import torch
