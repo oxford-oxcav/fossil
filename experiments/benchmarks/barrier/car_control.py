@@ -29,7 +29,7 @@ def test_lnn():
     start = timeit.default_timer()
     opts = {
         CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER_LYAPUNOV,
+        CegisConfig.CERTIFICATE.k: CertificateType.BARRIERALT,
         CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
         CegisConfig.VERIFIER.k: VerifierType.DREAL,
         CegisConfig.ACTIVATION.k: activations,

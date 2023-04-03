@@ -35,6 +35,7 @@ T = Timer()
 
 
 def optional_Marabou_import():
+    """Function to import Marabou only if needed."""
     try:
         from maraboupy import Marabou
     except ImportError as e:
@@ -150,11 +151,14 @@ class Verifier(Component):
                 if self.is_sat(res):
                     vprint([label + ": "], self.verbose)
                     original_point = self.compute_model(solvers[label], res)
-                    V_ctx, Vdot_ctx = self.replace_point(
-                        C, self.xs, original_point.numpy().T
-                    ), self.replace_point(dC, self.xs, original_point.numpy().T)
-                    print("\nV_ctx: ", V_ctx)
-                    print("\nVdot_ctx: ", Vdot_ctx)
+                    # This next bit is hard to handle if C, dC are tuples of formula
+                    # For now, just check it's not a tuple
+                    if type(C) is not tuple:
+                        V_ctx, Vdot_ctx = self.replace_point(
+                            C, self.xs, original_point.numpy().T
+                        ), self.replace_point(dC, self.xs, original_point.numpy().T)
+                        print("\nV_ctx: ", V_ctx)
+                        print("\nVdot_ctx: ", Vdot_ctx)
                     ces[label] = self.randomise_counterex(original_point)
                 else:
                     vprint([res], self.verbose)

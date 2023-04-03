@@ -28,6 +28,7 @@ class ConsolidatorType(Enum):
 class TranslatorType(Enum):
     DISCRETE = auto()
     CONTINUOUS = auto()
+    DOUBLE = auto()
 
 
 class LearningFactors(Enum):
@@ -47,10 +48,11 @@ class PrimerMode(Enum):
 
 class CertificateType(Enum):
     BARRIER = auto()
-    BARRIER_LYAPUNOV = auto()
+    BARRIERALT = auto()
     LYAPUNOV = auto()
     RWS = auto()
     RSWS = auto()
+    STABLESAFE = auto()
 
 
 class ActivationType(Enum):
@@ -112,6 +114,8 @@ class CegisConfig(Enum, settings=NoAlias):
     ENET = None
     CTRLAYER = None
     CTRLACTIVATION = None
+    N_HIDDEN_NEURONS_ALT = [10]  # For DoubleCegis
+    ACTIVATION_ALT = [ActivationType.SQUARE]  # For DoubleCegis
 
     @property
     def k(self):

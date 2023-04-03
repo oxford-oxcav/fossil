@@ -59,10 +59,8 @@ class CTModel:
         """
         return True
 
-    def plot(self):
-        xrange = [-3, 3]
-        yrange = [-3, 3]
-        ax = plt.gca()
+    def plot(self, ax=None, xrange=[-3, 3], yrange=[-3, 3]):
+        ax = plt.gca() or ax
         xx = np.linspace(xrange[0], xrange[1], 50)
         yy = np.linspace(yrange[0], yrange[1], 50)
         XX, YY = np.meshgrid(xx, yy)
@@ -76,10 +74,10 @@ class CTModel:
             .numpy()
             .T
         )
-        color = np.sqrt((np.hypot(dx, dy)))
+        # color = np.sqrt((np.hypot(dx, dy)))
         dx = dx.reshape(XX.shape)
         dy = dy.reshape(YY.shape)
-        color = color.reshape(XX.shape)
+        # color = color.reshape(XX.shape)
         ax.set_ylim(xrange)
         ax.set_xlim(yrange)
         plt.streamplot(
@@ -91,9 +89,9 @@ class CTModel:
             density=1.5,
             arrowstyle="fancy",
             arrowsize=1.5,
-            color=color,
+            # color=color,
         )
-        plt.show()
+        return ax
 
 
 class GeneralCTModel:
@@ -223,33 +221,33 @@ class NonPoly1(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([-x + 2 * x ** 2 * y, -y]).T
+        return torch.stack([-x + 2 * x**2 * y, -y]).T
 
     def f_smt(self, v):
         x, y = v
-        return [-x + 2 * x ** 2 * y, -y]
+        return [-x + 2 * x**2 * y, -y]
 
 
 class NonPoly2(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
-        return torch.stack([-x, -2 * y + 0.1 * x * y ** 2 + z, -z - 1.5 * y]).T
+        return torch.stack([-x, -2 * y + 0.1 * x * y**2 + z, -z - 1.5 * y]).T
 
     def f_smt(self, v):
         x, y, z = v
-        return [-x, -2 * y + 0.1 * x * y ** 2 + z, -z - 1.5 * y]
+        return [-x, -2 * y + 0.1 * x * y**2 + z, -z - 1.5 * y]
 
 
 class NonPoly3(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
-        return torch.stack([-3 * x - 0.1 * x * y ** 3, -y + z, -z]).T
+        return torch.stack([-3 * x - 0.1 * x * y**3, -y + z, -z]).T
 
     def f_smt(self, v):
         x, y, z = v
-        return [-3 * x - 0.1 * x * y ** 3, -y + z, -z]
+        return [-3 * x - 0.1 * x * y**3, -y + z, -z]
 
 
 # POLY benchmarks
@@ -317,34 +315,34 @@ class Poly1(CTModel):
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack(
-            [-(x ** 3) - x * z ** 2, -y - x ** 2 * y, -z + 3 * x ** 2 * z - (3 * z)]
+            [-(x**3) - x * z**2, -y - x**2 * y, -z + 3 * x**2 * z - (3 * z)]
         ).T
 
     def f_smt(self, v):
         x, y, z = v
-        return [-(x ** 3) - x * z ** 2, -y - x ** 2 * y, -z + 3 * x ** 2 * z - (3 * z)]
+        return [-(x**3) - x * z**2, -y - x**2 * y, -z + 3 * x**2 * z - (3 * z)]
 
 
 class Poly2(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([-(x ** 3) + y, -x - y]).T
+        return torch.stack([-(x**3) + y, -x - y]).T
 
     def f_smt(self, v):
         x, y = v
-        return [-(x ** 3) + y, -x - y]
+        return [-(x**3) + y, -x - y]
 
 
 class Poly3(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([-(x ** 3) - y ** 2, x * y - y ** 3]).T
+        return torch.stack([-(x**3) - y**2, x * y - y**3]).T
 
     def f_smt(self, v):
         x, y = v
-        return [-(x ** 3) - y ** 2, x * y - y ** 3]
+        return [-(x**3) - y**2, x * y - y**3]
 
 
 class Poly4(CTModel):
@@ -352,12 +350,12 @@ class Poly4(CTModel):
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack(
-            [-x - 1.5 * x ** 2 * y ** 3, -(y ** 3) + 0.5 * x ** 3 * y ** 2]
+            [-x - 1.5 * x**2 * y**3, -(y**3) + 0.5 * x**3 * y**2]
         ).T
 
     def f_smt(self, v):
         x, y = v
-        return [-x - 1.5 * x ** 2 * y ** 3, -(y ** 3) + 0.5 * x ** 3 * y ** 2]
+        return [-x - 1.5 * x**2 * y**3, -(y**3) + 0.5 * x**3 * y**2]
 
 
 class TwoDHybrid(CTModel):
@@ -366,8 +364,8 @@ class TwoDHybrid(CTModel):
         x0, x1 = v[:, 0], v[:, 1]
         _condition = x1 >= 0
         _negated_cond = x1 < 0
-        _then = -x1 - 0.5 * x0 ** 3
-        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0**3
+        _else = -x1 - x0**2 - 0.25 * x1**3
         # _condition and _negated _condition are tensors of bool, act like 0 and 1
         x1dot = _condition * _then + _negated_cond * _else
 
@@ -376,8 +374,8 @@ class TwoDHybrid(CTModel):
     def f_smt(self, v):
         _If = self.fncs["If"]
         x0, x1 = v
-        _then = -x1 - 0.5 * x0 ** 3
-        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0**3
+        _else = -x1 - x0**2 - 0.25 * x1**3
         _cond = x1 >= 0
         return [-x0, _If(_cond, _then, _else)]
 
@@ -421,19 +419,19 @@ class NonLinearDiscrete(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([0.5 * x - 0.000001 * y ** 2, 0.5 * x * y]).T
+        return torch.stack([0.5 * x - 0.000001 * y**2, 0.5 * x * y]).T
 
     def f_smt(self, v):
         x, y = v
-        return [0.5 * x - 0.000001 * y ** 2, 0.5 * x * y]
+        return [0.5 * x - 0.000001 * y**2, 0.5 * x * y]
 
 
 class Hybrid2d(CTModel):
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
 
-        _then = -x1 - 0.5 * x0 ** 3
-        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0**3
+        _else = -x1 - x0**2 - 0.25 * x1**3
         _cond = x1 >= 0
 
         return torch.stack([-x0, torch.where(_cond, _then, _else)]).T
@@ -441,8 +439,8 @@ class Hybrid2d(CTModel):
     def f_smt(self, v):
         If = self.fncs["If"]
         x0, x1 = v
-        _then = -x1 - 0.5 * x0 ** 3
-        _else = -x1 - x0 ** 2 - 0.25 * x1 ** 3
+        _then = -x1 - 0.5 * x0**3
+        _else = -x1 - x0**2 - 0.25 * x1**3
         _cond = x1 >= 0
         return [-x0, If(_cond, _then, _else)]
 
@@ -455,11 +453,11 @@ class Hybrid2d(CTModel):
 class Barr1(CTModel):
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([y + 2 * x * y, -x - y ** 2 + 2 * x ** 2]).T
+        return torch.stack([y + 2 * x * y, -x - y**2 + 2 * x**2]).T
 
     def f_smt(self, v):
         x, y = v
-        return [y + 2 * x * y, -x - y ** 2 + 2 * x ** 2]
+        return [y + 2 * x * y, -x - y**2 + 2 * x**2]
 
 
 class Barr2(CTModel):
@@ -477,26 +475,26 @@ class Barr2(CTModel):
 class Barr3(CTModel):
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return torch.stack([y, -x - y + 1 / 3 * x ** 3]).T
+        return torch.stack([y, -x - y + 1 / 3 * x**3]).T
 
     def f_smt(self, v):
         x, y = v
-        return [y, -x - y + 1 / 3 * x ** 3]
+        return [y, -x - y + 1 / 3 * x**3]
 
 
 class TwoD_Hybrid(CTModel):
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
-        _then = -x0 - 0.5 * x0 ** 3
-        _else = x0 - 0.25 * x1 ** 2
+        _then = -x0 - 0.5 * x0**3
+        _else = x0 - 0.25 * x1**2
         _cond = x0 >= 0
         return torch.stack([x1, torch.where(_cond, _then, _else)]).T
 
     def f_smt(self, v):
         x0, x1 = v
         If = self.fncs["If"]
-        _then = -x0 - 0.5 * x0 ** 3
-        _else = x0 - 0.25 * x1 ** 2
+        _then = -x0 - 0.5 * x0**3
+        _else = x0 - 0.25 * x1**2
         _cond = x0 >= 0
         return [x1, If(_cond, _then, _else)]
 
@@ -512,7 +510,7 @@ class ObstacleAvoidance(CTModel):
                 -torch.sin(phi)
                 + 3
                 * (x * torch.sin(phi) + y * torch.cos(phi))
-                / (0.5 + x ** 2 + y ** 2),
+                / (0.5 + x**2 + y**2),
             ]
         ).T
 
@@ -524,7 +522,7 @@ class ObstacleAvoidance(CTModel):
         return [
             velo * sin(phi),
             velo * cos(phi),
-            -sin(phi) + 3 * (x * sin(phi) + y * cos(phi)) / (0.5 + x ** 2 + y ** 2),
+            -sin(phi) + 3 * (x * sin(phi) + y * cos(phi)) / (0.5 + x**2 + y**2),
         ]
 
 
@@ -652,7 +650,7 @@ class InvertedPendulum(GeneralCTModel):
         b = 0.1  # friction
 
         return torch.stack(
-            [y + u1, u2 + (m * G * L * torch.sin(x) - b * y) / (m * L ** 2)]
+            [y + u1, u2 + (m * G * L * torch.sin(x) - b * y) / (m * L**2)]
         ).T
 
     def f_smt(self, v, u):
@@ -666,7 +664,7 @@ class InvertedPendulum(GeneralCTModel):
         m = 0.15  # ball mass
         b = 0.1  # friction
 
-        return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L ** 2)]
+        return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
 
 
 class LorenzSystem(GeneralCTModel):
@@ -674,12 +672,12 @@ class LorenzSystem(GeneralCTModel):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
 
-        sigma = 10.  # related to Prandtl number,
-        r = 28.  # related to Rayleigh number,
-        b = 8./3.  # geometric factor (Weisstein, 2002).
+        sigma = 10.0  # related to Prandtl number,
+        r = 28.0  # related to Rayleigh number,
+        b = 8.0 / 3.0  # geometric factor (Weisstein, 2002).
 
         return torch.stack(
-            [-sigma * (x1 - x2) + u1 , r * x1 - x2 - x1 * x3 + u2, x1 * x2 - b * x3 + u3]
+            [-sigma * (x1 - x2) + u1, r * x1 - x2 - x1 * x3 + u2, x1 * x2 - b * x3 + u3]
         ).T
 
     def f_smt(self, v, u):
@@ -687,11 +685,15 @@ class LorenzSystem(GeneralCTModel):
         u1, u2, u3 = u
 
         # Dynamics
-        sigma = 10.  # related to Prandtl number,
-        r = 28.  # related to Rayleigh number,
-        b = 8. / 3.  # geometric factor (Weisstein, 2002).
+        sigma = 10.0  # related to Prandtl number,
+        r = 28.0  # related to Rayleigh number,
+        b = 8.0 / 3.0  # geometric factor (Weisstein, 2002).
 
-        return [-sigma * (x1 - x2) + u1, r * x1 - x2 - x1 * x3 + u2, x1 * x2 - b * x3 + u3]
+        return [
+            -sigma * (x1 - x2) + u1,
+            r * x1 - x2 - x1 * x3 + u2,
+            x1 * x2 - b * x3 + u3,
+        ]
 
 
 class CtrlCar(GeneralCTModel):
@@ -705,7 +707,8 @@ class CtrlCar(GeneralCTModel):
         u1, u2, u3 = u
         sin = self.fncs["sin"]
         cos = self.fncs["cos"]
-        return [cos(omega)+u1, sin(omega)+u2, omega+u3]
+        return [cos(omega) + u1, sin(omega) + u2, omega + u3]
+
 
 # from Tedrake's lecture notes
 class Quadrotor2d(GeneralCTModel):
@@ -767,7 +770,7 @@ class LinearSatellite(GeneralCTModel):
         # https://github.com/MIT-REALM/neural_clbf/
         MU = 3.986e14
         a = 42164e3
-        self.n = MU / (a ** 3)
+        self.n = MU / (a**3)
 
     def f_torch(self, v, u):
 
@@ -779,11 +782,11 @@ class LinearSatellite(GeneralCTModel):
         qdot = v[:, 3:]
         qddot = torch.vstack(
             [
-                3.0 * self.n ** 2 * q[:, 0]
+                3.0 * self.n**2 * q[:, 0]
                 - 2.0 * self.n * qdot[:, 1]
                 + u1 / self.mass,
                 -2.0 * self.n * qdot[:, 0] + u2 / self.mass,
-                -self.n ** 2 * q[:, 2] + u3 / self.mass,
+                -self.n**2 * q[:, 2] + u3 / self.mass,
             ]
         ).T
 
@@ -799,9 +802,9 @@ class LinearSatellite(GeneralCTModel):
         qdot = np.array(v[3:])
         qddot = np.array(
             [
-                3.0 * self.n ** 2 * q[0] - 2.0 * self.n * qdot[1] + u1 / self.mass,
+                3.0 * self.n**2 * q[0] - 2.0 * self.n * qdot[1] + u1 / self.mass,
                 -2.0 * self.n * qdot[0] + u2 / self.mass,
-                -self.n ** 2 * q[2] + u3 / self.mass,
+                -self.n**2 * q[2] + u3 / self.mass,
             ]
         )
 
@@ -832,6 +835,7 @@ class CtrlObstacleAvoidance(GeneralCTModel):
             velo * cos(phi),
             -sin(phi) + u1,
         ]
+
 
 class Benchmark1(GeneralCTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
@@ -866,6 +870,7 @@ class Identity(GeneralCTModel):
         u1, u2 = u[0, 0], u[1, 0]
         return [x + u1, y + u2]
 
+
 class DTAhmadi(GeneralCTModel):
     # from Non-monotonic Lyapunov Functions
     # for Stability of Discrete Time Nonlinear and Switched Systems
@@ -877,14 +882,16 @@ class DTAhmadi(GeneralCTModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([ 0.3*x + u1, -x + 0.5*y + 7./18.*x**2 + u2]).T
+        return torch.stack([0.3 * x + u1, -x + 0.5 * y + 7.0 / 18.0 * x**2 + u2]).T
 
     def f_smt(self, v, u):
         x, y = v
         u1, u2 = u[0, 0], u[1, 0]
-        return [0.3*x + u1, -x + 0.5*y + 7./18.*x**2 + u2]
+        return [0.3 * x + u1, -x + 0.5 * y + 7.0 / 18.0 * x**2 + u2]
+
 
 ### Benchmarks taken from RSWS work of Verdier, Mazo
+
 
 class Linear1(GeneralCTModel):
     def __init__(self):
@@ -902,38 +909,57 @@ class Linear1(GeneralCTModel):
         u1, u2 = u[0, 0], u[1, 0]
         return [y, -x + u2]
 
+
 class SecondOrder(GeneralCTModel):
     def __init__(self) -> None:
         super().__init__()
         self.n_vars = 2
-    
+
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([y - x ** 3, u1]).T
-    
+        return torch.stack([y - x**3, u1]).T
+
     def f_smt(self, v, u):
         x, y = v
         u1, u2 = u[0, 0], u[1, 0]
-        return [y - x ** 3, u1]
+        return [y - x**3, u1]
+
 
 class ThirdOrder(GeneralCTModel):
     def __init__(self) -> None:
         super().__init__()
         self.n_vars = 3
-    
+
     def f_torch(self, v, u):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
         u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([-10*x1 + 10*x2 + u1, 28*x1 - x2 -x1*x3, x1*x2 - 8/3 * x3]).T
-    
+        return torch.stack(
+            [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
+        ).T
+
     def f_smt(self, v, u):
         x1, x2, x3 = v
         u1, u2 = u[0, 0], u[1, 0]
-        return [-10*x1 + 10*x2 + u1, 28*x1 - x2 -x1*x3, x1*x2 - 8/3 * x3]
+        return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
+
+
+class LoktaVolterra(CTModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.n_vars = 2
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([0.6 * x - x * y, -0.6 * y + x * y]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.6 * x - x * y, -0.6 * y + x * y]
+
 
 def read_model(model_string: str) -> CTModel:
-    """Read model from string and return model object""" 
+    """Read model from string and return model object"""
     for M in dir(sys.modules[__name__]):
         if M == model_string:
             try:
@@ -941,15 +967,17 @@ def read_model(model_string: str) -> CTModel:
             except (AttributeError, TypeError):
                 # Attribute error: M is not correct name
                 # TypeError: M is in namespace but not a CTModel - eg someone has tried to pass dreal
-                raise ValueError(f"{M} is not a CTModel")
+                raise ValueError(f"{model_string} is not a CTModel")
             return model
-        else:
-            raise ValueError(f"{M} is not a CTModel")
+    raise ValueError(f"{model_string} is not a CTModel")
+
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", type=str)
     args = parser.parse_args()
     model = read_model(args.model)
-    model.plot()
+    ax = model.plot()
+    plt.show()

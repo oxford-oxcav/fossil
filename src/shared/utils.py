@@ -524,8 +524,8 @@ class Timer:
         return self._sum
 
     def __repr__(self):
-        return "total={}s,min={}s,max={}s,avg={}s".format(
-            self._sum, self.min, self.max, self.avg
+        return "total={}s,min={}s,max={}s,avg={}s, N={}".format(
+            self._sum, self.min, self.max, self.avg, self.n_updates
         )
 
 

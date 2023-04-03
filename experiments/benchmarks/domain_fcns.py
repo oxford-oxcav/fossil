@@ -10,6 +10,24 @@ from matplotlib import pyplot as plt
 
 import src.verifier as verifier
 
+inf = 1e300
+inf_bounds = [-inf, inf]
+
+
+def inf_bounds_n(n):
+    return [inf_bounds] * n
+
+
+def get_plot_colour(label):
+    if label == "goal":
+        return "green", "goal"
+    elif label == "unsafe":
+        return "red", "Unsafe"
+    elif label == "init":
+        return "blue", "Initial"
+    else:
+        return "black", None
+
 
 def square_init_data(domain, batch_size):
     """
@@ -299,9 +317,13 @@ class SetMinus(Set):
         data = data[~self.S2.check_containment(data)]
         return data
 
+    def plot(self, *args, **kwargs):
+        self.S1.plot(*args, **kwargs)
+        self.S2.plot(*args, **kwargs)
+
 
 class Rectangle(Set):
-    def __init__(self, lb, ub, dim_select=None):
+    def __init__(self, lb: tuple[float, ...], ub: tuple[float, ...], dim_select=None):
         self.name = "square"
         self.lower_bounds = lb
         self.upper_bounds = ub
@@ -385,7 +407,7 @@ class Rectangle(Set):
             torch.sum(x - torch.tensor(self.upper_bounds), dim=1)
         ) + torch.relu(torch.sum(torch.tensor(self.lower_bounds) - x, dim=1))
 
-    def plot(self, fig, ax):
+    def plot(self, fig, ax, label=None):
         """
         Plots the set
         """
@@ -394,7 +416,10 @@ class Rectangle(Set):
         anchor = (self.lower_bounds[0], self.lower_bounds[1])
         width = self.upper_bounds[0] - self.lower_bounds[0]
         height = self.upper_bounds[1] - self.lower_bounds[1]
-        rect = plt.Rectangle(anchor, width, height, fill=False, color="red")
+        colour, label = get_plot_colour(label)
+        rect = plt.Rectangle(
+            anchor, width, height, fill=False, color=colour, label=label, linewidth=2.5
+        )
         ax.add_artist(rect)
         return fig, ax
 
@@ -484,10 +509,18 @@ class Sphere(Set):
         # returns 0 if it IS contained, a positive number otherwise
         return torch.relu((x - c).norm(2, dim=-1) - self.radius)
 
-    def plot(self, fig, ax):
+    def plot(self, fig, ax, label=None):
         if self.dimension != 2:
             raise NotImplementedError("Plotting only supported for 2D sets")
-        circle = plt.Circle(self.centre, self.radius, color="r", fill=False)
+        colour, label = get_plot_colour(label)
+        circle = plt.Circle(
+            self.centre,
+            self.radius,
+            color=colour,
+            fill=False,
+            label=label,
+            linewidth=2.5,
+        )
         ax.add_artist(circle)
         return fig, ax
 
@@ -594,12 +627,22 @@ class Torus(Set):
             (x - c).norm(2, dim=-1) - self.outer_radius
         )
 
-    def plot(self, fig, ax):
+    def plot(self, fig, ax, label=None):
         if self.dimension != 2:
             raise NotImplementedError("Plotting only supported for 2D sets")
-        circle = plt.Circle(self.centre, self.outer_radius, color="r", fill=False)
+        colour, label = get_plot_colour(label)
+        circle = plt.Circle(
+            self.centre,
+            self.outer_radius,
+            color=colour,
+            fill=False,
+            label=label,
+            linewidth=2.5,
+        )
         ax.add_artist(circle)
-        circle = plt.Circle(self.centre, self.inner_radius, color="r", fill=False)
+        circle = plt.Circle(
+            self.centre, self.inner_radius, color=colour, fill=False, linewidth=2.5
+        )
         ax.add_artist(circle)
         return fig, ax
 
@@ -668,10 +711,14 @@ class EmptySet(Set):
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         return torch.zeros(x.shape[0], dtype=torch.bool)
 
+    def generate_data(self, batch_size):
+        return None
+
 
 class Reals(Set):
     """Set of R^n"""
 
+    # I think this set is useless because its negation is always False
     def __init__(self, dim):
         self.dim = dim
 
@@ -703,8 +750,8 @@ class Complement(Set):
         """
         return self.set.generate_boundary(x)
 
-    def plot(self, *args):
-        return self.set.plot(*args)
+    def plot(self, *args, **kwargs):
+        return self.set.plot(*args, **kwargs)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Literal
+from typing import Literal, Callable
 
 import numpy as np
 import torch
@@ -43,7 +43,7 @@ class LearnerNN(nn.Module, Learner):
         learn_method,
         *args,
         bias=True,
-        activate=ActivationType.SQUARE,
+        activate=[ActivationType.SQUARE],
         equilibria=0,
         llo=False,
         **kw
@@ -85,11 +85,19 @@ class LearnerNN(nn.Module, Learner):
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot, xdot_func):
-        return self.learn_method(self, optimizer, S, Sdot, xdot_func)
+    def learn(
+        self,
+        net: "LearnerNN",
+        optimizer: torch.optim.Optimizer,
+        S: torch.Tensor,
+        Sdot: torch.Tensor,
+        xdot_func: Callable,
+    ) -> dict:
+        return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
     def get(self, **kw):
         return self.learn(
+            kw[CegisStateKeys.net],
             kw[CegisStateKeys.optimizer],
             kw[CegisStateKeys.S],
             kw[CegisStateKeys.S_dot],
@@ -97,7 +105,24 @@ class LearnerNN(nn.Module, Learner):
             # I think this could actually still pass xdot_func, since there's no pytorch parameters to learn
         )
 
-    def get_all(self, S, Sdot):
+    def get_all(
+        self, S: torch.Tensor, Sdot: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns the value of the function, its lie derivative and circle.
+
+        Assumes CT model.
+        The function is defined as:
+            V = NN(x) * F(x)
+        where NN(x) is the neural network and F(x) is a factor, equal to either 1 or ||x||^2.
+            S (torch.Tensor): Samples over the domain.
+            Sdot (torch.Tensor): Dynamical model evaluated at S.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                V (torch.Tensor): Value of the function.
+                Vdot (torch.Tensor): Lie derivative of the function.
+                circle (torch.Tensor): Circle of the function.
+        """
         assert len(S) == len(Sdot)
 
         nn, grad_nn = self.compute_net_gradnet(S)
@@ -109,11 +134,13 @@ class LearnerNN(nn.Module, Learner):
 
         return V, Vdot, circle
 
-    def forward(self, x):
-        """
-        :param x: tensor of data points
-        :return:
-                nn: tensor, evaluation of x in net
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Standard forward pass of the neural network.
+
+            x (torch.Tensor): input tensor
+
+        Returns:
+            torch.Tensor: output tensor
         """
         y = x
 
@@ -124,7 +151,16 @@ class LearnerNN(nn.Module, Learner):
         nn = torch.matmul(y, self.layers[-1].weight.T)[:, 0]
         return nn
 
-    def compute_net_gradnet(self, S):
+    def compute_net_gradnet(self, S: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Computes the value of the neural network and its gradient.
+
+        Computes gradient using autograd.
+
+            S (torch.Tensor): input tensor
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: (nn, grad_nn)
+        """
         S_clone = torch.clone(S).requires_grad_()
         nn = self(S_clone)
 
@@ -138,7 +174,22 @@ class LearnerNN(nn.Module, Learner):
         )[0]
         return nn, grad_nn
 
-    def compute_V_gradV(self, nn, grad_nn, S):
+    def compute_V_gradV(
+        self, nn: torch.Tensor, grad_nn: torch.Tensor, S: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Computes the value of the function and its gradient.
+
+        The function is defined as:
+            V = NN(x) * F(x)
+        where NN(x) is the neural network and F(x) is a factor, equal to either 1 or ||x||^2.
+
+            nn (torch.Tensor): neural network value
+            grad_nn (torch.Tensor): gradient of the neural network
+            S (torch.Tensor): input tensor
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: (V, gradV)
+        """
         F, derivative_F = self.compute_factors(S)
         V = nn * F
         # define F(x) := ||x||^2
@@ -163,7 +214,7 @@ class LearnerNN(nn.Module, Learner):
             "If": lambda cond, _then, _else: _then if cond.item() else _else,
         }
 
-    def compute_factors(self, S):
+    def compute_factors(self, S: torch.Tensor):
         if self.factor:
             return self.factor(S), self.factor.derivative(S)
         else:
@@ -187,12 +238,11 @@ class LearnerNN(nn.Module, Learner):
 
     @staticmethod
     def is_positive_definite(activations: list, layers: list):
-        """Checks if the net is positive definite, assuming W is also positive definite;
+        """Checks if the net is positive (semi) definite, assuming W is also positive definite;
 
         Positive definiteness is defined as the following:
         N(x) > 0 for all x in R^n
 
-        Args:
             activations (list): list of activation functions used in the net
             layers (list): list of layers in the net
 
@@ -219,15 +269,24 @@ class LearnerNN(nn.Module, Learner):
     def get_timer():
         return T
 
+    def compute_dV(self, gradV, Sdot):
+        raise NotImplementedError("compute_dV not implemented for this learner")
+
 
 class LearnerCT(LearnerNN):
+    """Leaner class for continuous time dynamical models.
+
+    Learns and evaluates V and Vdot.
+
+    """
+
     def __init__(
         self,
         input_size,
         learn_method,
         *args,
         bias=True,
-        activate=ActivationType.SQUARE,
+        activate=[ActivationType.SQUARE],
         equilibria=0,
         llo=False,
         **kw
@@ -244,7 +303,16 @@ class LearnerCT(LearnerNN):
             **kw
         )
 
-    def compute_dV(self, gradV, Sdot):
+    def compute_dV(self, gradV: torch.Tensor, Sdot: torch.Tensor) -> torch.Tensor:
+        """Computes the  lie derivative of the function.
+
+        Args:
+            gradV (torch.Tensor): gradient of the function
+            Sdot (torch.Tensor): df/dt
+
+        Returns:
+            torch.Tensor: dV/dt
+        """
         # Vdot = gradV * f(x)
         Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
         return Vdot
@@ -274,7 +342,21 @@ class LearnerDT(LearnerNN):
             **kw
         )
 
-    def get_all(self, S, Sdot):
+    def get_all(
+        self, S: torch.Tensor, Sdot: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Computes V, delta_V and circle.
+
+        Args:
+            S (torch.Tensor): samples over the domain
+            Sdot (torch.Tensor): f(x) evaluated at the samples
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                V (torch.Tensor): Value of the function.
+                delta V (torch.Tensor): One step difference of the function.
+                circle (torch.Tensor): Circle of the function.
+        """
         # assert (len(S) == len(Sdot))  ## This causes a warning in Marabou
 
         nn = self.forward(S)
@@ -292,10 +374,6 @@ class LearnerDT(LearnerNN):
         return V, delta_V, circle
 
 
-"""
-CtrlLearnerCT *should* give a Control Lyapunov function 
-"""
-# TODO: in devel
 class CtrlLearnerCT(LearnerNN):
     def __init__(
         self,
@@ -303,7 +381,7 @@ class CtrlLearnerCT(LearnerNN):
         learn_method,
         *args,
         bias=True,
-        activate=ActivationType.SQUARE,
+        activate=[ActivationType.SQUARE],
         equilibria=0,
         llo=False,
         **kw
@@ -328,6 +406,7 @@ class CtrlLearnerCT(LearnerNN):
 
     def get(self, **kw):
         return self.learn(
+            kw[CegisStateKeys.net],
             kw[CegisStateKeys.optimizer],
             kw[CegisStateKeys.S],
             kw[CegisStateKeys.S_dot],
@@ -336,10 +415,19 @@ class CtrlLearnerCT(LearnerNN):
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot, xdot_func):
-        return self.learn_method(self, optimizer, S, Sdot, xdot_func)
+    def learn(self, net, optimizer, S, Sdot, xdot_func):
+        return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
-    def compute_dV(self, gradV, Sdot):
+    def compute_dV(self, gradV: torch.Tensor, Sdot: torch.Tensor) -> torch.Tensor:
+        """Computes the  lie derivative of the function.
+
+        Args:
+            gradV (torch.Tensor): gradient of the function
+            Sdot (torch.Tensor): df/dt
+
+        Returns:
+            torch.Tensor: dV/dt
+        """
         # Vdot = gradV * f(x)
         Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
         return Vdot
@@ -352,7 +440,7 @@ class CtrlLearnerDT(LearnerNN):
         learn_method,
         *args,
         bias=True,
-        activate=ActivationType.SQUARE,
+        activate=[ActivationType.SQUARE],
         equilibria=0,
         llo=False,
         **kw
@@ -375,7 +463,21 @@ class CtrlLearnerDT(LearnerNN):
         #                                     layers=self.ctrl_layers[:-1],
         #                                     activations=[ActivationType.LINEAR]*len(self.ctrl_layers))
 
-    def get_all(self, S, Sdot):
+    def get_all(
+        self, S: torch.Tensor, Sdot: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Computes V, delta_V and circle.
+
+        Args:
+            S (torch.Tensor): samples over the domain
+            Sdot (torch.Tensor): f(x) evaluated at the samples
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                V (torch.Tensor): Value of the function.
+                delta V (torch.Tensor): One step difference of the function.
+                circle (torch.Tensor): Circle of the function.
+        """
         assert len(S) == len(Sdot)
 
         nn = self.forward(S)
@@ -394,6 +496,7 @@ class CtrlLearnerDT(LearnerNN):
 
     def get(self, **kw):
         return self.learn(
+            kw[CegisStateKeys.net],
             kw[CegisStateKeys.optimizer],
             kw[CegisStateKeys.S],
             kw[CegisStateKeys.S_dot],
@@ -402,8 +505,8 @@ class CtrlLearnerDT(LearnerNN):
 
     # backprop algo
     @timer(T)
-    def learn(self, optimizer, S, Sdot, xdot_func):
-        return self.learn_method(self, optimizer, S, Sdot, xdot_func)
+    def learn(self, net, optimizer, S, Sdot, xdot_func):
+        return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
 
 def get_learner(time_domain: Literal, ctrl: Literal) -> Learner:
