@@ -28,18 +28,18 @@ def test_robustness(h):
     hidden_neurons = [h] * len(activations)
 
     start = timeit.default_timer()
-    opts = {
-        CegisConfig.N_VARS.k: 2,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SP_SIMPLIFY.k: True,
-        CegisConfig.VERBOSE.k: False,
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=2,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        CERTIFICATE=CertificateType.BARRIER,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=hidden_neurons,
+        SP_SIMPLIFY=True,
+        VERBOSE=False,
+    )
+    c = Cegis(opts)
     state, vars, f_learner, iters = c.solve()
     end = timeit.default_timer()
 

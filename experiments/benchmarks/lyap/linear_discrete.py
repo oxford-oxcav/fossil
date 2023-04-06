@@ -27,21 +27,21 @@ def test_lnn():
     activations = [ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.SP_HANDLE.k: False,
-        CegisConfig.SP_SIMPLIFY.k: False,
-        CegisConfig.LLO.k: True,
-    }
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        TIME_DOMAIN=TimeDomain.DISCRETE,
+        VERIFIER=VerifierType.DREAL,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        SP_HANDLE=False,
+        SP_SIMPLIFY=False,
+        LLO=True,
+    )
 
     start = timeit.default_timer()
-    c = Cegis(**opts)
+    c = Cegis(opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))

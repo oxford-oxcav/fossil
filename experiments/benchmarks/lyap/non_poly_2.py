@@ -28,17 +28,17 @@ def test_lnn():
 
     start = timeit.default_timer()
 
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.Z3,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.LLO.k: True,
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.Z3,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        LLO=True,
+    )
+    c = Cegis(opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))

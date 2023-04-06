@@ -39,14 +39,14 @@ class TranslatorNN(Component):
     Base class for translators that rely on SMT.
     It provides the basic init and get methods."""
 
-    def __init__(self, x, xdot, eq, rounding, **kw):
+    def __init__(self, x, xdot, eq, rounding, verbose):
         super().__init__()
         # self.net = net
         self.x = np.array(x).reshape(-1, 1)
         self.xdot = np.array(xdot).reshape(-1, 1)
         self.eq = eq
         self.round = rounding
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
+        self.verbose = verbose
 
     @timer(T)
     def get(self, **kw):
@@ -89,8 +89,8 @@ class TranslatorCT(TranslatorNN):
     Calculates the symbolic formula for V and Vdot.
     """
 
-    def __init__(self, x, xdot, eq, rounding, **kw):
-        TranslatorNN.__init__(self, x, xdot, eq, rounding, **kw)
+    def __init__(self, x, xdot, eq, rounding, verbose):
+        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
 
     def get_symbolic_formula(self, net, x, xdot, lf=None):
         """
@@ -166,8 +166,8 @@ class TranslatorDT(TranslatorNN):
 
     This calculates V(k+1) - V(k) instead of Vdot(x)"""
 
-    def __init__(self, x, xdot, eq, rounding, **kw):
-        TranslatorNN.__init__(self, x, xdot, eq, rounding, **kw)
+    def __init__(self, x, xdot, eq, rounding, verbose):
+        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
 
     def get_symbolic_formula(self, net, x, xdot, lf=None):
         """

@@ -20,20 +20,20 @@ def main():
     system = hi_ord_6
     activations = [ActivationType.LINEAR]
     hidden_neurons = [10]
-    opts = {
-        CegisConfig.N_VARS.k: 6,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SYMMETRIC_BELT.k: False,
-        CegisConfig.ROUNDING.k: 2,
-    }
+    opts = CegisConfig(
+        N_VARS=6,
+        CERTIFICATE=CertificateType.BARRIER,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=hidden_neurons,
+        SYMMETRIC_BELT=False,
+        ROUNDING=2,
+    )
 
     start = timeit.default_timer()
-    c = Cegis(**opts)
+    c = Cegis(opts)
     state, _, __, ___ = c.solve()
     end = timeit.default_timer()
 

@@ -16,19 +16,19 @@ from src.shared.consts import CegisStateKeys
 
 
 def zero_in_zero(learner):
-    v_zero, _ = learner.forward_tensors(
+    v_zero = learner.forward(
         torch.zeros(1, learner.input_size).reshape(1, learner.input_size),
     )
     return v_zero == 0.0
 
 
 def positive_definite(learner, S_d, Sdot):
-    v, _, _ = learner.forward(S_d, Sdot)
+    v, _, _ = learner.get_all(S_d, Sdot)
     return all(v >= 0.0)
 
 
 def negative_definite_lie_derivative(learner, S, Sdot):
-    v, vdot, _ = learner.forward(S, Sdot)
+    v, vdot, _ = learner.get_all(S, Sdot)
     # find points have vdot > 0
     if len(torch.nonzero(vdot > 0)) > 0:
         return False
@@ -51,8 +51,8 @@ class test_cegis(unittest.TestCase):
 
         f, domain, _, _ = system()
         domain = domain["lie-&-pos"](list(c.x_map.values()))
-        tr = translator.TranslatorCT(c.learner, c.x, c.xdot, None, 3)
-        res = tr.get(**{"factors": None})
+        tr = translator.TranslatorCT(c.x, c.xdot, None, 3, False)
+        res = tr.get(**{"net": c.learner})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
         s = Solver()
@@ -87,22 +87,22 @@ class test_cegis(unittest.TestCase):
         activations = [ActivationType.SQUARE]
         n_hidden_neurons = [10] * len(activations)
 
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-            CegisConfig.SP_HANDLE.k: False,
-            CegisConfig.INNER_RADIUS.k: inner_radius,
-            CegisConfig.OUTER_RADIUS.k: outer_radius,
-            CegisConfig.LLO.k: True,
-        }
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=n_hidden_neurons,
+            SP_HANDLE=False,
+            INNER_RADIUS=inner_radius,
+            OUTER_RADIUS=outer_radius,
+            LLO=True,
+        )
 
         start = timeit.default_timer()
-        c = Cegis(**opts)
+        c = Cegis(opts)
         c.solve()
         stop = timeit.default_timer()
 
@@ -124,20 +124,20 @@ class test_cegis(unittest.TestCase):
         n_hidden_neurons = [2] * len(activations)
 
         start = timeit.default_timer()
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-            CegisConfig.SP_HANDLE.k: False,
-            CegisConfig.INNER_RADIUS.k: inner_radius,
-            CegisConfig.OUTER_RADIUS.k: outer_radius,
-            CegisConfig.LLO.k: True,
-        }
-        c = Cegis(**opts)
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=n_hidden_neurons,
+            SP_HANDLE=False,
+            INNER_RADIUS=inner_radius,
+            OUTER_RADIUS=outer_radius,
+            LLO=True,
+        )
+        c = Cegis(opts)
         c.solve()
         stop = timeit.default_timer()
 
@@ -158,21 +158,21 @@ class test_cegis(unittest.TestCase):
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
         n_hidden_neurons = [20] * len(activations)
 
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-            CegisConfig.SP_HANDLE.k: False,
-            CegisConfig.INNER_RADIUS.k: inner_radius,
-            CegisConfig.OUTER_RADIUS.k: outer_radius,
-            CegisConfig.LLO.k: True,
-        }
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=n_hidden_neurons,
+            SP_HANDLE=False,
+            INNER_RADIUS=inner_radius,
+            OUTER_RADIUS=outer_radius,
+            LLO=True,
+        )
         start = timeit.default_timer()
-        c = Cegis(**opts)
+        c = Cegis(opts)
         state, vars, f_learner, iters = c.solve()
         stop = timeit.default_timer()
 
@@ -195,20 +195,20 @@ class test_cegis(unittest.TestCase):
 
         start = timeit.default_timer()
 
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-            CegisConfig.SP_HANDLE.k: False,
-            CegisConfig.INNER_RADIUS.k: inner_radius,
-            CegisConfig.OUTER_RADIUS.k: outer_radius,
-            CegisConfig.LLO.k: True,
-        }
-        c = Cegis(**opts)
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=n_hidden_neurons,
+            SP_HANDLE=False,
+            INNER_RADIUS=inner_radius,
+            OUTER_RADIUS=outer_radius,
+            LLO=True,
+        )
+        c = Cegis(opts)
         state, vars, f_learner, iters = c.solve()
         stop = timeit.default_timer()
 

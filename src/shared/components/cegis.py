@@ -21,59 +21,33 @@ import src.verifier as verifier
 
 class Cegis:
     # todo: set params for NN and avoid useless definitions
-    def __init__(self, **kw):
-        self.n = kw[CegisConfig.N_VARS.k]
-        # control layers
-        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
-        # components type
-        self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
-        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.consolidator_type = kw.get(
-            CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v
+    def __init__(self, config: CegisConfig):
+        self.config = config
+
+        self.learner_type = learner.get_learner(
+            self.config.TIME_DOMAIN, self.config.CTRLAYER
         )
-        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.learner_type = learner.get_learner(self.time_domain, self.ctrl_layers)
         self.translator_type = translator.get_translator_type(
-            self.time_domain, self.verifier_type
-        )
-        # template opts
-        self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
-        self.activations = kw[CegisConfig.ACTIVATION.k]
-        self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
-        self.eq = kw.get(
-            CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n)
-        )
-        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
-        self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
-        self.ENet = kw.get(CegisConfig.ENET.k, CegisConfig.ENET.v)
-        # other opts
-        self.max_cegis_iter = kw.get(
-            CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v
-        )
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        # batch init
-        self.learning_rate = kw.get(
-            CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v
+            self.config.TIME_DOMAIN, self.config.VERIFIER
         )
 
         # Verifier init
-        verifier_type = verifier.get_verifier_type(self.verifier_type)
+        verifier_type = verifier.get_verifier_type(self.config.VERIFIER)
 
-        self.x = verifier_type.new_vars(self.n)
+        self.x = verifier_type.new_vars(self.config.N_VARS)
         self.x_map = {str(x): x for x in self.x}
 
         # System init
-        self.system = kw[CegisConfig.SYSTEM.k]
+        self.system = self.config.SYSTEM
         # if controller, initialise system with the controller
-        if self.ctrl_layers:
+        if self.config.CTRLAYER:
             # todo
             # ctrler = GeneralController(ctrl_layers)  --> pass to self.system
-            ctrl_activ = kw[CegisConfig.CTRLACTIVATION.k]
+            ctrl_activ = self.config.CTRLACTIVATION
             self.ctrler = control.GeneralController(
-                inputs=self.n,
-                output=self.ctrl_layers[-1],
-                layers=self.ctrl_layers[:-1],
+                inputs=self.config.N_VARS,
+                output=self.config.CTRLAYER[-1],
+                layers=self.config.CTRLAYER[:-1],
                 activations=ctrl_activ,
             )
             self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
@@ -82,45 +56,44 @@ class Cegis:
 
         # Overwrite domains if provided
         # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model
-        self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
-        self.S = kw.get(CegisConfig.SD.k, self.S)
+        # self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
+        # self.S = kw.get(CegisConfig.SD.k, self.S)
 
         self.domains = {
             label: domain(self.x) for label, domain in self.f_domains.items()
         }
-        certificate_type = certificate.get_certificate(self.certificate_type)
-        if self.certificate_type == certificate.CertificateType.STABLESAFE:
+        certificate_type = certificate.get_certificate(self.config.CERTIFICATE)
+        if self.config.CERTIFICATE == certificate.CertificateType.STABLESAFE:
             raise ValueError("StableSafe not compatible with default CEGIS")
-        self.certificate = certificate_type(domains=self.domains, **kw)
+        self.certificate = certificate_type(self.domains, self.config)
 
         self.verifier = verifier.get_verifier(
             verifier_type,
-            self.n,
+            self.config.N_VARS,
             self.certificate.get_constraints,
             vars_bounds,
             self.x,
-            **kw,
+            self.config.VERBOSE,
         )
 
         self.xdot = self.f(self.x)
 
         # Learner init
         self.learner = self.learner_type(
-            self.n,
+            self.config.N_VARS,
             self.certificate.learn,
-            *self.h,
+            *self.config.N_HIDDEN_NEURONS,
+            activation=self.config.ACTIVATION,
             bias=self.certificate.bias,
-            activate=self.activations,
-            equilibria=self.eq,
-            llo=self.llo,
-            **kw,
+            config=self.config,
         )
 
         self.optimizer = torch.optim.AdamW(
-            chain(self.learner.parameters(), self.f.parameters), lr=self.learning_rate
+            chain(self.learner.parameters(), self.f.parameters),
+            lr=self.config.LEARNING_RATE,
         )
 
-        if self.consolidator_type == ConsolidatorType.DEFAULT:
+        if self.config.CONSOLIDATOR == ConsolidatorType.DEFAULT:
             self.consolidator = Consolidator(self.f)
         else:
             TypeError("Not Implemented Consolidator")
@@ -131,9 +104,9 @@ class Cegis:
             # self.learner,
             self.x,
             self.xdot,
-            self.eq,
-            self.rounding,
-            **kw,
+            self.config.EQUILIBRIUM,
+            self.config.ROUNDING,
+            verbose=self.config.VERBOSE,
         )
         self._result = None
 
@@ -174,7 +147,7 @@ class Cegis:
             CegisStateKeys.optimizer: self.optimizer,
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
-            CegisStateKeys.factors: self.fcts,
+            CegisStateKeys.factors: self.config.FACTORS,
             CegisStateKeys.V: None,
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
@@ -184,7 +157,7 @@ class Cegis:
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
             CegisStateKeys.trajectory: None,
-            CegisStateKeys.ENet: self.ENet,
+            CegisStateKeys.ENet: self.config.ENET,
         }
 
         # reset timers
@@ -201,7 +174,7 @@ class Cegis:
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                if self.verbose:
+                if self.config.VERBOSE:
                     print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
@@ -219,7 +192,7 @@ class Cegis:
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    if self.certificate_type == CertificateType.RSWS:
+                    if self.config.CERTIFICATE == CertificateType.RSWS:
                         stop = self.certificate.stay_in_goal_check(
                             self.verifier,
                             state[CegisStateKeys.V],
@@ -227,17 +200,19 @@ class Cegis:
                         )
                         if stop:
                             print(
-                                f"Found a valid {self.certificate_type.name} certificate"
+                                f"Found a valid {self.config.CERTIFICATE.name} certificate"
                             )
                     else:
-                        print(f"Found a valid {self.certificate_type.name} certificate")
+                        print(
+                            f"Found a valid {self.config.CERTIFICATE.name} certificate"
+                        )
                         stop = True
 
                 if state[CegisStateKeys.verification_timed_out]:
                     print("Verification Timed Out")
                     stop = True
 
-            if self.max_cegis_iter == iters and not state[CegisStateKeys.found]:
+            if self.config.CEGIS_MAX_ITERS == iters and not state[CegisStateKeys.found]:
                 print("Out of Cegis loops")
                 stop = True
 
@@ -283,14 +258,20 @@ class Cegis:
             self.verifier.get_timer().sum,
             self.consolidator.get_timer().sum,
         ]
-        vprint(["Learner times: {}".format(self.learner.get_timer())], self.verbose)
         vprint(
-            ["Translator times: {}".format(self.translator.get_timer())], self.verbose
+            ["Learner times: {}".format(self.learner.get_timer())], self.config.VERBOSE
         )
-        vprint(["Verifier times: {}".format(self.verifier.get_timer())], self.verbose)
+        vprint(
+            ["Translator times: {}".format(self.translator.get_timer())],
+            self.config.VERBOSE,
+        )
+        vprint(
+            ["Verifier times: {}".format(self.verifier.get_timer())],
+            self.config.VERBOSE,
+        )
         vprint(
             ["Consolidator times: {}".format(self.consolidator.get_timer())],
-            self.verbose,
+            self.config.VERBOSE,
         )
 
         self._result = state, np.array(self.x).reshape(-1, 1), self.f, iters
@@ -340,61 +321,33 @@ class DoubleCegis(Cegis):
     (3) \forall x \in XI, B(x) >= 0; \forall x in XU: B(x) <0
     (4) \forall x \in D: dB/dt >= 0"""
 
-    def __init__(self, **kw):
-        self.n = kw[CegisConfig.N_VARS.k]
-        # control layers
-        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
-        # components type
-        self.verifier_type = kw[CegisConfig.VERIFIER.k]
-        self.certificate_type = kw.get(CegisConfig.CERTIFICATE.k)
-        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.consolidator_type = kw.get(
-            CegisConfig.CONSOLIDATOR.k, CegisConfig.CONSOLIDATOR.v
+    def __init__(self, config: CegisConfig):
+        self.config = config
+
+        self.learner_type = learner.get_learner(
+            self.config.TIME_DOMAIN, self.config.CTRLAYER
         )
-        self.time_domain = kw.get(CegisConfig.TIME_DOMAIN.k, CegisConfig.TIME_DOMAIN.v)
-        self.learner_type = learner.get_learner(self.time_domain, self.ctrl_layers)
         self.translator_type = translator.get_translator_type(
-            self.time_domain, self.verifier_type
-        )
-        # template opts
-        self.h = kw[CegisConfig.N_HIDDEN_NEURONS.k]
-        self.activations = kw[CegisConfig.ACTIVATION.k]
-        self.h_alt = kw.get(CegisConfig.N_HIDDEN_NEURONS_ALT.k, self.h)
-        self.activations_alt = kw.get(CegisConfig.ACTIVATION_ALT.k, self.activations)
-        self.fcts = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
-        self.eq = kw.get(
-            CegisConfig.EQUILIBRIUM.k, CegisConfig.EQUILIBRIUM.v[0](self.n)
-        )
-        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
-        self.rounding = kw.get(CegisConfig.ROUNDING.k, CegisConfig.ROUNDING.v)
-        self.ENet = kw.get(CegisConfig.ENET.k, CegisConfig.ENET.v)
-        # other opts
-        self.max_cegis_iter = kw.get(
-            CegisConfig.CEGIS_MAX_ITERS.k, CegisConfig.CEGIS_MAX_ITERS.v
-        )
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        # batch init
-        self.learning_rate = kw.get(
-            CegisConfig.LEARNING_RATE.k, CegisConfig.LEARNING_RATE.v
+            self.config.TIME_DOMAIN, self.config.VERIFIER
         )
 
         # Verifier init
-        verifier_type = verifier.get_verifier_type(self.verifier_type)
+        verifier_type = verifier.get_verifier_type(self.config.VERIFIER)
 
-        self.x = verifier_type.new_vars(self.n)
+        self.x = verifier_type.new_vars(self.config.N_VARS)
         self.x_map = {str(x): x for x in self.x}
 
         # System init
-        self.system = kw[CegisConfig.SYSTEM.k]
+        self.system = self.config.SYSTEM
         # if controller, initialise system with the controller
-        if self.ctrl_layers:
+        if self.config.CTRLAYER:
             # todo
             # ctrler = GeneralController(ctrl_layers)  --> pass to self.system
-            ctrl_activ = kw[CegisConfig.CTRLACTIVATION.k]
+            ctrl_activ = self.config.CTRLACTIVATION
             self.ctrler = control.GeneralController(
-                inputs=self.n,
-                output=self.ctrl_layers[-1],
-                layers=self.ctrl_layers[:-1],
+                inputs=self.config.N_VARS,
+                output=self.config.CTRLAYER[-1],
+                layers=self.config.CTRLAYER[:-1],
                 activations=ctrl_activ,
             )
             self.f, self.f_domains, self.S, vars_bounds = self.system(self.ctrler)
@@ -403,50 +356,54 @@ class DoubleCegis(Cegis):
 
         # Overwrite domains if provided
         # This is a precursor to providing the sets separately to CEGIS, rather than in bulk with the model
-        self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
-        self.S = kw.get(CegisConfig.SD.k, self.S)
+        # self.f_domains = kw.get(CegisConfig.XD.k, self.f_domains)
+        # self.S = kw.get(CegisConfig.SD.k, self.S)
 
         self.domains = {
             label: domain(self.x) for label, domain in self.f_domains.items()
         }
-        certificate_type = certificate.get_certificate(self.certificate_type)
-        if self.certificate_type != CertificateType.STABLESAFE:
+        certificate_type = certificate.get_certificate(self.config.CERTIFICATE)
+        if self.config.CERTIFICATE != CertificateType.STABLESAFE:
             raise ValueError("DoubleCegis only supports StableSafe certificates")
-        self.certificate = certificate_type(domains=self.domains, **kw)
+        self.certificate = certificate_type(self.domains, self.config)
 
         self.verifier = verifier.get_verifier(
             verifier_type,
-            self.n,
+            self.config.N_VARS,
             self.certificate.get_constraints,
             vars_bounds,
             self.x,
-            **kw,
+            self.config.VERBOSE,
         )
 
         self.xdot = self.f(self.x)
 
         # Learner init
         self.lyap_learner = self.learner_type(
-            self.n,
+            self.config.N_VARS,
             self.certificate.learn,
-            *self.h,
+            *self.config.N_HIDDEN_NEURONS,
             bias=False,
-            activate=self.activations,
-            equilibria=self.eq,
-            llo=self.llo,
-            **kw,
+            activation=self.config.ACTIVATION,
+            config=self.config,
         )
 
         self.barr_learner = self.learner_type(
-            self.n,
+            self.config.N_VARS,
             self.certificate.learn,
-            *self.h_alt,
+            *self.config.N_HIDDEN_NEURONS_ALT,
             bias=True,
-            activate=self.activations_alt,
-            equilibria=self.eq,
-            llo=self.llo,
-            **kw,
+            activation=self.config.ACTIVATION_ALT,
+            config=self.config,
         )
+
+        if self.config.CONSOLIDATOR == ConsolidatorType.DEFAULT:
+            self.consolidator = Consolidator(self.f)
+        else:
+            TypeError("Not Implemented Consolidator")
+
+        # Translator init
+        self._result = None
 
         self.optimizer = torch.optim.AdamW(
             chain(
@@ -454,13 +411,8 @@ class DoubleCegis(Cegis):
                 self.barr_learner.parameters(),
                 self.f.parameters,
             ),
-            lr=self.learning_rate,
+            lr=self.config.LEARNING_RATE,
         )
-
-        if self.consolidator_type == ConsolidatorType.DEFAULT:
-            self.consolidator = Consolidator(self.f)
-        else:
-            TypeError("Not Implemented Consolidator")
 
         # Translator init
         self.translator_type = translator.TranslatorCTDouble
@@ -468,12 +420,10 @@ class DoubleCegis(Cegis):
             self.translator_type,
             self.x,
             self.xdot,
-            self.eq,
-            self.rounding,
-            **kw,
+            self.config.EQUILIBRIUM,
+            self.config.ROUNDING,
+            verbose=self.config.VERBOSE,
         )
-
-        self._result = None
 
     def solve(self):
 
@@ -512,7 +462,7 @@ class DoubleCegis(Cegis):
             CegisStateKeys.optimizer: self.optimizer,
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
-            CegisStateKeys.factors: self.fcts,
+            CegisStateKeys.factors: self.config.FACTORS,
             CegisStateKeys.V: None,
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
@@ -522,7 +472,7 @@ class DoubleCegis(Cegis):
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
             CegisStateKeys.trajectory: None,
-            CegisStateKeys.ENet: self.ENet,
+            CegisStateKeys.ENet: self.config.ENET,
         }
 
         # reset timers
@@ -539,7 +489,7 @@ class DoubleCegis(Cegis):
                 component = components[component_idx]
                 next_component = components[(component_idx + 1) % len(components)]
 
-                if self.verbose:
+                if self.config.VERBOSE:
                     print_section(component[CegisComponentsState.name], iters)
                 outputs = component[CegisComponentsState.instance].get(**state)
 
@@ -557,7 +507,7 @@ class DoubleCegis(Cegis):
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    if self.certificate_type == CertificateType.RSWS:
+                    if self.config.CERTIFICATE == CertificateType.RSWS:
                         stop = self.certificate.stay_in_goal_check(
                             self.verifier,
                             state[CegisStateKeys.V],
@@ -565,17 +515,19 @@ class DoubleCegis(Cegis):
                         )
                         if stop:
                             print(
-                                f"Found a valid {self.certificate_type.name} certificate"
+                                f"Found a valid {self.config.CERTIFICATE.name} certificate"
                             )
                     else:
-                        print(f"Found a valid {self.certificate_type.name} certificate")
+                        print(
+                            f"Found a valid {self.config.CERTIFICATE.name} certificate"
+                        )
                         stop = True
 
                 if state[CegisStateKeys.verification_timed_out]:
                     print("Verification Timed Out")
                     stop = True
 
-            if self.max_cegis_iter == iters and not state[CegisStateKeys.found]:
+            if self.config.CEGIS_MAX_ITERS == iters and not state[CegisStateKeys.found]:
                 print("Out of Cegis loops")
                 stop = True
 
@@ -623,15 +575,20 @@ class DoubleCegis(Cegis):
             self.consolidator.get_timer().sum,
         ]
         vprint(
-            ["Learner times: {}".format(self.lyap_learner.get_timer())], self.verbose
+            ["Learner times: {}".format(self.lyap_learner.get_timer())],
+            self.config.VERBOSE,
         )
         vprint(
-            ["Translator times: {}".format(self.translator.get_timer())], self.verbose
+            ["Translator times: {}".format(self.translator.get_timer())],
+            self.config.VERBOSE,
         )
-        vprint(["Verifier times: {}".format(self.verifier.get_timer())], self.verbose)
+        vprint(
+            ["Verifier times: {}".format(self.verifier.get_timer())],
+            self.config.VERBOSE,
+        )
         vprint(
             ["Consolidator times: {}".format(self.consolidator.get_timer())],
-            self.verbose,
+            self.config.VERBOSE,
         )
 
         self._result = state, np.array(self.x).reshape(-1, 1), self.f, iters

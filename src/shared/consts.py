@@ -4,8 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any
 from aenum import Enum, auto, NoAlias
+from dataclasses import dataclass
 import math
+
 import numpy as np
 
 
@@ -79,7 +82,7 @@ class ActivationType(Enum):
 
 # prefer this over CegisConfig = Enum('CegisConfig', "...")
 # to aid with the ide
-class CegisConfig(Enum, settings=NoAlias):
+class CegisConfigOld(Enum, settings=NoAlias):
     SYSTEM = []
     SD = {}
     XD = {}
@@ -124,6 +127,50 @@ class CegisConfig(Enum, settings=NoAlias):
     @property
     def v(self):
         return self.value
+
+
+@dataclass
+class CegisConfig:
+    SYSTEM: Any = None
+    CERTIFICATE: CertificateType = CertificateType.LYAPUNOV
+    SD: Any = None
+    XD: Any = None
+    GOAL: Any = None
+    SP_SIMPLIFY: bool = False
+    SP_HANDLE: bool = False
+    SYMMETRIC_BELT: bool = False
+    CEGIS_MAX_ITERS: int = 10
+    CEGIS_MAX_TIME_S: float = math.inf  # in sec
+    TIME_DOMAIN: TimeDomain = TimeDomain.CONTINUOUS
+    LEARNER: LearnerType = LearnerType.CONTINUOUS
+    VERIFIER: VerifierType = VerifierType.Z3
+    CONSOLIDATOR: ConsolidatorType = ConsolidatorType.DEFAULT
+    TRANSLATOR: TranslatorType = TranslatorType.CONTINUOUS
+    BATCH_SIZE: int = 500
+    LEARNING_RATE: float = 0.1
+    FACTORS = LearningFactors.NONE
+    EQUILIBRIUM: Any = (lambda n_vars: np.zeros((1, n_vars)),)  # default in zero
+    LLO: bool = False  # last layer of ones
+    ROUNDING: int = 3
+    N_VARS: int = 0
+    N_HIDDEN_NEURONS: tuple[int] = (10,)
+    ACTIVATION: tuple[ActivationType, ...] = (ActivationType.SQUARE,)
+    INNER_RADIUS: float = 0
+    OUTER_RADIUS: float = 10
+    INTERACTIVE_DOMAIN: bool = False
+    POSITIVE_DOMAIN: bool = False
+    SEED_AND_SPEED: bool = False
+    VERBOSE: bool = True
+    ENET: Any = None
+    CTRLAYER: tuple[int] = None
+    CTRLACTIVATION: tuple[ActivationType, ...] = None
+    N_HIDDEN_NEURONS_ALT: tuple[int] = (10,)  # For DoubleCegis
+    ACTIVATION_ALT: tuple[ActivationType, ...] = (
+        ActivationType.SQUARE,
+    )  # For DoubleCegis
+
+    def __getitem__(self, item):
+        return getattr(self, item)
 
 
 class CegisStateKeys:

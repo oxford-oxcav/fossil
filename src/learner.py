@@ -42,22 +42,20 @@ class LearnerNN(nn.Module, Learner):
         input_size,
         learn_method,
         *args,
+        activation: tuple[ActivationType, ...] = (ActivationType.SQUARE,),
+        config: CegisConfig = CegisConfig(),
         bias=True,
-        activate=[ActivationType.SQUARE],
-        equilibria=0,
-        llo=False,
-        **kw
     ):
         super(LearnerNN, self).__init__()
 
         self.input_size = input_size
         n_prev = self.input_size
-        self.eq = equilibria
+        self.eq = config.EQUILIBRIUM
         self._diagonalise = False
-        self.acts = activate
+        self.acts = activation
         self._is_there_bias = bias
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        ZaZ = kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
+        self.verbose = config.VERBOSE
+        ZaZ = config.FACTORS  # kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.factor = QuadraticFactor() if ZaZ == LearningFactors.QUADRATIC else None
         self.layers = []
         self.closest_unsat = None
@@ -75,7 +73,7 @@ class LearnerNN(nn.Module, Learner):
             # last layer
         layer = nn.Linear(n_prev, 1, bias=False)
         # last layer of ones
-        if llo:
+        if config.LLO:
             layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
             self.layers.append(layer)
         else:  # free output layer
@@ -108,31 +106,8 @@ class LearnerNN(nn.Module, Learner):
     def get_all(
         self, S: torch.Tensor, Sdot: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Returns the value of the function, its lie derivative and circle.
-
-        Assumes CT model.
-        The function is defined as:
-            V = NN(x) * F(x)
-        where NN(x) is the neural network and F(x) is a factor, equal to either 1 or ||x||^2.
-            S (torch.Tensor): Samples over the domain.
-            Sdot (torch.Tensor): Dynamical model evaluated at S.
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                V (torch.Tensor): Value of the function.
-                Vdot (torch.Tensor): Lie derivative of the function.
-                circle (torch.Tensor): Circle of the function.
-        """
-        assert len(S) == len(Sdot)
-
-        nn, grad_nn = self.compute_net_gradnet(S)
-        # circle = x0*x0 + ... + xN*xN
-        circle = torch.pow(S, 2).sum(dim=1)
-
-        V, gradV = self.compute_V_gradV(nn, grad_nn, S)
-        Vdot = self.compute_dV(gradV, Sdot)
-
-        return V, Vdot, circle
+        """Computes the value of the learner, its lie derivative and the circle."""
+        raise NotImplementedError
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Standard forward pass of the neural network.
@@ -280,28 +255,34 @@ class LearnerCT(LearnerNN):
 
     """
 
-    def __init__(
-        self,
-        input_size,
-        learn_method,
-        *args,
-        bias=True,
-        activate=[ActivationType.SQUARE],
-        equilibria=0,
-        llo=False,
-        **kw
-    ):
-        LearnerNN.__init__(
-            self,
-            input_size,
-            learn_method,
-            *args,
-            bias=bias,
-            activate=activate,
-            equilibria=equilibria,
-            llo=llo,
-            **kw
-        )
+    def get_all(
+        self, S: torch.Tensor, Sdot: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns the value of the function, its lie derivative and circle.
+
+        Assumes CT model.
+        The function is defined as:
+            V = NN(x) * F(x)
+        where NN(x) is the neural network and F(x) is a factor, equal to either 1 or ||x||^2.
+            S (torch.Tensor): Samples over the domain.
+            Sdot (torch.Tensor): Dynamical model evaluated at S.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                V (torch.Tensor): Value of the function.
+                Vdot (torch.Tensor): Lie derivative of the function.
+                circle (torch.Tensor): Circle of the function.
+        """
+        assert len(S) == len(Sdot)
+
+        nn, grad_nn = self.compute_net_gradnet(S)
+        # circle = x0*x0 + ... + xN*xN
+        circle = torch.pow(S, 2).sum(dim=1)
+
+        V, gradV = self.compute_V_gradV(nn, grad_nn, S)
+        Vdot = self.compute_dV(gradV, Sdot)
+
+        return V, Vdot, circle
 
     def compute_dV(self, gradV: torch.Tensor, Sdot: torch.Tensor) -> torch.Tensor:
         """Computes the  lie derivative of the function.
@@ -319,28 +300,7 @@ class LearnerCT(LearnerNN):
 
 
 class LearnerDT(LearnerNN):
-    def __init__(
-        self,
-        input_size,
-        learn_method,
-        *args,
-        bias=True,
-        activate=[ActivationType.LIN_SQUARE],
-        equilibria=0,
-        llo=False,
-        **kw
-    ):
-        LearnerNN.__init__(
-            self,
-            input_size,
-            learn_method,
-            *args,
-            bias=bias,
-            activate=activate,
-            equilibria=equilibria,
-            llo=llo,
-            **kw
-        )
+    """Leaner class for discrete time dynamical models."""
 
     def get_all(
         self, S: torch.Tensor, Sdot: torch.Tensor
@@ -374,30 +334,27 @@ class LearnerDT(LearnerNN):
         return V, delta_V, circle
 
 
-class CtrlLearnerCT(LearnerNN):
+class CtrlLearnerCT(LearnerCT):
     def __init__(
         self,
         input_size,
         learn_method,
         *args,
+        activation: tuple[ActivationType, ...] = (ActivationType.SQUARE,),
         bias=True,
-        activate=[ActivationType.SQUARE],
-        equilibria=0,
-        llo=False,
-        **kw
+        config: CegisConfig = CegisConfig(),
     ):
+
         LearnerNN.__init__(
             self,
             input_size,
             learn_method,
             *args,
+            activation=activation,
             bias=bias,
-            activate=activate,
-            equilibria=equilibria,
-            llo=llo,
-            **kw
+            config=config,
         )
-        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
+        self.ctrl_layers = config.CTRLAYER
 
         # if self.ctrl_layers is not None:
         #     self.ctrler = GeneralController(inputs=input_size, output=self.ctrl_layers[-1],
@@ -418,32 +375,16 @@ class CtrlLearnerCT(LearnerNN):
     def learn(self, net, optimizer, S, Sdot, xdot_func):
         return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
-    def compute_dV(self, gradV: torch.Tensor, Sdot: torch.Tensor) -> torch.Tensor:
-        """Computes the  lie derivative of the function.
 
-        Args:
-            gradV (torch.Tensor): gradient of the function
-            Sdot (torch.Tensor): df/dt
-
-        Returns:
-            torch.Tensor: dV/dt
-        """
-        # Vdot = gradV * f(x)
-        Vdot = torch.sum(torch.mul(gradV, Sdot), dim=1)
-        return Vdot
-
-
-class CtrlLearnerDT(LearnerNN):
+class CtrlLearnerDT(LearnerDT):
     def __init__(
         self,
         input_size,
         learn_method,
         *args,
+        activation: tuple[ActivationType, ...] = (ActivationType.SQUARE,),
         bias=True,
-        activate=[ActivationType.SQUARE],
-        equilibria=0,
-        llo=False,
-        **kw
+        config: CegisConfig = CegisConfig(),
     ):
 
         LearnerNN.__init__(
@@ -451,48 +392,15 @@ class CtrlLearnerDT(LearnerNN):
             input_size,
             learn_method,
             *args,
+            activation=activation,
             bias=bias,
-            activate=activate,
-            equilibria=equilibria,
-            llo=llo,
-            **kw
+            config=config,
         )
-        self.ctrl_layers = kw.get(CegisConfig.CTRLAYER.k, CegisConfig.CTRLAYER.v)
+        self.ctrl_layers = config.CTRLAYER
         # if self.ctrl_layers is not None:
         #     self.ctrler = GeneralController(inputs=input_size, output=self.ctrl_layers[-1],
         #                                     layers=self.ctrl_layers[:-1],
         #                                     activations=[ActivationType.LINEAR]*len(self.ctrl_layers))
-
-    def get_all(
-        self, S: torch.Tensor, Sdot: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Computes V, delta_V and circle.
-
-        Args:
-            S (torch.Tensor): samples over the domain
-            Sdot (torch.Tensor): f(x) evaluated at the samples
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                V (torch.Tensor): Value of the function.
-                delta V (torch.Tensor): One step difference of the function.
-                circle (torch.Tensor): Circle of the function.
-        """
-        assert len(S) == len(Sdot)
-
-        nn = self.forward(S)
-        nn_next = self.forward(Sdot)
-        # circle = x0*x0 + ... + xN*xN
-        circle = torch.pow(S, 2).sum(dim=1)
-
-        E = self.compute_factors(S)
-
-        # define E(x) := (x-eq_0) * ... * (x-eq_N)
-        # V = NN(x) * E(x)
-        V = nn
-        delta_V = nn_next - V
-
-        return V, delta_V, circle
 
     def get(self, **kw):
         return self.learn(
@@ -509,7 +417,7 @@ class CtrlLearnerDT(LearnerNN):
         return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
 
-def get_learner(time_domain: Literal, ctrl: Literal) -> Learner:
+def get_learner(time_domain: Literal, ctrl: Literal) -> LearnerNN:
     if ctrl and time_domain == TimeDomain.CONTINUOUS:
         return CtrlLearnerCT
     elif ctrl and time_domain == TimeDomain.DISCRETE:

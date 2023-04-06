@@ -31,19 +31,19 @@ class test_init(unittest.TestCase):
         ctrl_hidden_neurons = 2
         ctrl_inputs = 2
 
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.LLO.k: False,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.DREAL,
-            CegisConfig.ACTIVATION.k: lyap_activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
-            CegisConfig.CTRLAYER.k: [ctrl_hidden_neurons, ctrl_inputs],
-            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
-        }
-        c = Cegis(**opts)
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            LLO=False,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.DREAL,
+            ACTIVATION=lyap_activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=lyap_hidden_neurons,
+            CTRLAYER=[ctrl_hidden_neurons, ctrl_inputs],
+            CTRLACTIVATION=[ActivationType.LINEAR],
+        )
+        c = Cegis(opts)
 
         learner = c.learner
         # check type
@@ -75,20 +75,20 @@ class test_init(unittest.TestCase):
         ctrl_hidden_neurons = [5]
         ctrl_inputs = [2]
 
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-            CegisConfig.LLO.k: False,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.DREAL,
-            CegisConfig.ACTIVATION.k: lyap_activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
-            CegisConfig.CTRLAYER.k: ctrl_hidden_neurons + ctrl_inputs,
-            CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
-        }
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            CERTIFICATE=CertificateType.LYAPUNOV,
+            LLO=False,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.DREAL,
+            ACTIVATION=lyap_activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=lyap_hidden_neurons,
+            CTRLAYER=ctrl_hidden_neurons + ctrl_inputs,
+            CTRLACTIVATION=[ActivationType.LINEAR],
+        )
 
-        c = Cegis(**opts)
+        c = Cegis(opts)
 
         learner = c.learner
         # check features

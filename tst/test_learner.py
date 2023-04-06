@@ -3,6 +3,7 @@ import torch.nn as nn
 import unittest
 from unittest.mock import MagicMock
 from src.learner import LearnerNN, QuadraticFactor, LearnerCT, LearnerDT
+from src.shared.consts import *
 
 
 class TestLearnerNN(unittest.TestCase):
@@ -11,7 +12,9 @@ class TestLearnerNN(unittest.TestCase):
         self.input_size = 3
         self.learn_method = MagicMock(return_value=None)
         self.nn = LearnerNN(
-            self.input_size, self.learn_method, *[5], bias=False, llo=True
+            self.input_size,
+            self.learn_method,
+            *[5],
         )
 
     def test_forward(self):
@@ -65,7 +68,9 @@ class TestLearnerCT(unittest.TestCase):
         self.input_size = 3
         self.learn_method = MagicMock(return_value=None)
         self.nn = LearnerCT(
-            self.input_size, self.learn_method, *[5], bias=False, llo=True
+            self.input_size,
+            self.learn_method,
+            *[5],
         )
 
     def test_get_all(self):
@@ -91,9 +96,7 @@ class TestLearnerDT(unittest.TestCase):
     def setUp(self):
         self.input_size = 3
         self.learn_method = MagicMock(return_value=None)
-        self.nn = LearnerDT(
-            self.input_size, self.learn_method, *[5], bias=False, llo=True
-        )
+        self.nn = LearnerDT(self.input_size, self.learn_method, *[5])
 
     def test_get_all(self):
         # Define inputs

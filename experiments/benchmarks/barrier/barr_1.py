@@ -23,17 +23,17 @@ def main():
     activations = [ActivationType.LINEAR]
     hidden_neurons = [10] * len(activations)
     start = timeit.default_timer()
-    opts = {
-        CegisConfig.N_VARS.k: 2,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-        CegisConfig.SYMMETRIC_BELT.k: True,
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=2,
+        CERTIFICATE=CertificateType.BARRIER,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=hidden_neurons,
+        SYMMETRIC_BELT=True,
+    )
+    c = Cegis(opts)
     state, vars, f_learner, iters = c.solve()
     end = timeit.default_timer()
     print("Elapsed Time: {}".format(end - start))

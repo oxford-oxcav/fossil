@@ -33,19 +33,19 @@ def test_lnn():
     control_neurons = 3
 
     start = timeit.default_timer()
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.LLO.k: True,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: lyap_activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: lyap_hidden_neurons,
-        CegisConfig.CTRLAYER.k: [control_neurons, control_inputs],
-        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR],
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        LLO=True,
+        TIME_DOMAIN=TimeDomain.DISCRETE,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=lyap_activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=lyap_hidden_neurons,
+        CTRLAYER=[control_neurons, control_inputs],
+        CTRLACTIVATION=[ActivationType.LINEAR],
+    )
+    c = Cegis(opts)
     state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))

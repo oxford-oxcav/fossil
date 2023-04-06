@@ -19,18 +19,18 @@ def main():
     system = barr_4
     activations = [ActivationType.LIN_TO_CUBIC]
     hidden_neurons = [25]
-    opts = {
-        CegisConfig.N_VARS.k: 3,
-        CegisConfig.CERTIFICATE.k: CertificateType.BARRIER,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-    }
+    opts = CegisConfig(
+        N_VARS=3,
+        CERTIFICATE=CertificateType.BARRIER,
+        ACTIVATION=activations,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=hidden_neurons,
+    )
 
     start = timeit.default_timer()
-    c = Cegis(**opts)
+    c = Cegis(opts)
     state, vars, f, iters = c.solve()
     end = timeit.default_timer()
 

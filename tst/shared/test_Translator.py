@@ -51,8 +51,8 @@ class TranslatorTest(unittest.TestCase):
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = translator.TranslatorCT(lrner, self.x, self.xdot, None, 1)
-            res = regolo.get(**{"factors": None})
+            regolo = translator.TranslatorCT(self.x, self.xdot, None, 1, True)
+            res = regolo.get(**{"net": lrner})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
             # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are
@@ -107,8 +107,8 @@ class TranslatorDiscreteTest(unittest.TestCase):
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = translator.TranslatorDT(lrner, self.x, self.xdot, None, 1)
-            res = regolo.get(**{"factors": None})
+            regolo = translator.TranslatorDT(self.x, self.xdot, None, 1, True)
+            res = regolo.get(**{"net": lrner})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
             # given the benchamrk, the NN and the rounding, the correct expr of V and Vdot are

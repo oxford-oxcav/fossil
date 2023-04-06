@@ -31,23 +31,23 @@ def test_robustness(benchmark, n_vars, domain, hidden):
     activations = [ActivationType.SQUARE]
     n_hidden_neurons = [hidden] * len(activations)
 
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.SP_HANDLE.k: False,
-        CegisConfig.INNER_RADIUS.k: inner_radius,
-        CegisConfig.OUTER_RADIUS.k: outer_radius,
-        CegisConfig.LLO.k: True,
-        CegisConfig.VERBOSE.k: False,
-    }
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        SP_HANDLE=False,
+        INNER_RADIUS=inner_radius,
+        OUTER_RADIUS=outer_radius,
+        LLO=True,
+        VERBOSE=False,
+    )
 
     start = timeit.default_timer()
-    c = Cegis(**opts)
+    c = Cegis(opts)
     state, vars, f_learner, iters = c.solve()
     stop = timeit.default_timer()
 

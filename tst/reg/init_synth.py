@@ -76,16 +76,16 @@ def barrier_synthesis(benchmark, n_vars):
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-            CegisConfig.SP_SIMPLIFY.k: True,
-            CegisConfig.CEGIS_MAX_TIME_S.k: 30 * MIN_TO_SEC,
-        }
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=hidden_neurons,
+            SP_SIMPLIFY=True,
+            CEGIS_MAX_TIME_S=30 * MIN_TO_SEC,
+        )
         c = Cegis_for_bc(**opts)
         _, found, _ = c.solve()
         end = timeit.default_timer()

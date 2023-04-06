@@ -42,25 +42,21 @@ def optional_Marabou_import():
         logging.exception("Exception while importing Marabou")
 
 
-class VerifierConfig(Enum, settings=NoAlias):
-    DREAL_INFINITY = 1e300
+@dataclass
+class VerifierConfig:
+    DREAL_INFINITY: float = 1e300
     # dReal will return infinity when:
     # - no counterexamples are found
     # - a smaller counterexample also exists
     # check again for a counterexample with the bound below
-    DREAL_SECOND_CHANCE_BOUND = 1e3
+    DREAL_SECOND_CHANCE_BOUND: float = 1e3
 
-    @property
-    def k(self):
-        return self.name
-
-    @property
-    def v(self):
-        return self.value
+    def __getitem__(self, item):
+        return getattr(self, item)
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
         super().__init__()
         self.iter = -1
         self.n = n_vars
@@ -71,8 +67,8 @@ class Verifier(Component):
         self._solver_timeout = 30
         self._vars_bounds = vars_bounds
         self.constraints_method = constraints_method
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        self.optional_configs = kw
+        self.verbose = verbose
+        self.optional_configs = VerifierConfig()
 
         assert self.counterexample_n > 0
 
@@ -338,10 +334,8 @@ class VerifierDReal(Verifier):
     def _solver_solve(self, solver, fml):
         res = dr.CheckSatisfiability(fml, 0.00001)
         if self.is_sat(res) and not self.within_bounds(res):
-            new_bound = self.optional_configs.get(
-                VerifierConfig.DREAL_SECOND_CHANCE_BOUND.k,
-                VerifierConfig.DREAL_SECOND_CHANCE_BOUND.v,
-            )
+            logging.log(logging.INFO, "Second chance bound used")
+            new_bound = self.optional_configs.DREAL_SECOND_CHANCE_BOUND
             fml = dr.And(fml, *(dr.And(x < new_bound, x > -new_bound) for x in self.xs))
             res = dr.CheckSatisfiability(fml, 0.00001)
         return res
@@ -353,8 +347,8 @@ class VerifierDReal(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
-        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, config):
+        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, config)
 
 
 class VerifierZ3(Verifier):
@@ -413,8 +407,8 @@ class VerifierZ3(Verifier):
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, **kw):
-        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, **kw)
+    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, config):
+        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, config)
 
 
 class VerifierMarabou(Verifier):
@@ -519,10 +513,12 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         raise ValueError("No verifier of type {}".format(verifier))
 
 
-def get_verifier(verifier, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+def get_verifier(
+    verifier, n_vars, constraints_method, vars_bounds, solver_vars, verbose
+):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
         or verifier == VerifierMarabou
     ):
-        return verifier(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+        return verifier(n_vars, constraints_method, vars_bounds, solver_vars, verbose)

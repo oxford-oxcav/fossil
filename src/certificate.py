@@ -47,11 +47,11 @@ class Lyapunov(Certificate):
     XD = "lie-&-pos"
     SD = XD
 
-    def __init__(self, domains, **kw) -> None:
-        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
+    def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[Lyapunov.XD]
         self.bias = False
         self.pos_def = False
+        self.llo = CegisConfig.LLO
 
     def compute_loss(
         self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
@@ -184,13 +184,11 @@ class Barrier(Certificate):
     SI = XI
     SU = XU
 
-    def __init__(self, domains, **kw) -> None:
+    def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[Barrier.XD]
         self.initial_s = domains[Barrier.XI]
         self.unsafe_s = domains[Barrier.XU]
-        self.SYMMETRIC_BELT = kw.get(
-            CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v
-        )
+        self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
         self.bias = True
 
     def compute_loss(
@@ -783,14 +781,12 @@ class StableSafe(Certificate):
     XI = SI = "init"
     XU = SU = "unsafe"
 
-    def __init__(self, domains, **kw) -> None:
+    def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains["lie"]
         self.initial_s = domains["init"]
         self.unsafe_s = domains["unsafe"]
-        self.SYMMETRIC_BELT = kw.get(
-            CegisConfig.SYMMETRIC_BELT.k, CegisConfig.SYMMETRIC_BELT.v
-        )
-        self.llo = kw.get(CegisConfig.LLO.k, CegisConfig.LLO.v)
+        self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
+        self.llo = config.LLO
 
     def compute_lyap_loss(
         self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
