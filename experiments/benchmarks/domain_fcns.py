@@ -7,6 +7,7 @@
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
+import mpl_toolkits.mplot3d.art3d as art3d
 
 import src.verifier as verifier
 
@@ -20,7 +21,7 @@ def inf_bounds_n(n):
 
 def get_plot_colour(label):
     if label == "goal":
-        return "green", "goal"
+        return "green", "Goal"
     elif label == "unsafe":
         return "red", "Unsafe"
     elif label == "init":
@@ -421,6 +422,9 @@ class Rectangle(Set):
             anchor, width, height, fill=False, color=colour, label=label, linewidth=2.5
         )
         ax.add_artist(rect)
+
+        if ax.name == "3d":
+            art3d.pathpatch_2d_to_3d(rect, z=0, zdir="z")
         return fig, ax
 
 
@@ -513,16 +517,24 @@ class Sphere(Set):
         if self.dimension != 2:
             raise NotImplementedError("Plotting only supported for 2D sets")
         colour, label = get_plot_colour(label)
-        circle = plt.Circle(
-            self.centre,
-            self.radius,
-            color=colour,
-            fill=False,
-            label=label,
-            linewidth=2.5,
-        )
-        ax.add_artist(circle)
+        r = self.radius
+        theta = np.linspace(0, 2 * np.pi, 50)
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
         return fig, ax
+        # circle = plt.Circle(
+        #     self.centre,
+        #     self.radius,
+        #     color=colour,
+        #     fill=False,
+        #     label=label,
+        #     linewidth=2.5,
+        # )
+        # ax.add_patch(circle)
+        # if ax.name == "3d":
+        #     art3d.pathpatch_2d_to_3d(circle, z=0, zdir="z")
+        # return fig, ax
 
 
 class PositiveOrthantSphere(Set):
@@ -631,19 +643,17 @@ class Torus(Set):
         if self.dimension != 2:
             raise NotImplementedError("Plotting only supported for 2D sets")
         colour, label = get_plot_colour(label)
-        circle = plt.Circle(
-            self.centre,
-            self.outer_radius,
-            color=colour,
-            fill=False,
-            label=label,
-            linewidth=2.5,
-        )
-        ax.add_artist(circle)
-        circle = plt.Circle(
-            self.centre, self.inner_radius, color=colour, fill=False, linewidth=2.5
-        )
-        ax.add_artist(circle)
+        r = self.inner_radius
+        theta = np.linspace(0, 2 * np.pi, 50)
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+
+        r = self.outer_radius
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+
         return fig, ax
 
 

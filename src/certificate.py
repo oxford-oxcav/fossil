@@ -6,7 +6,7 @@
 
 
 from torch.optim import Optimizer
-from typing import Generator
+from typing import Generator, Type
 
 import torch
 from torch.optim import Optimizer
@@ -375,7 +375,7 @@ class BarrierAlt(Certificate):
     SI = XI
     SU = XU
 
-    def __init__(self, domains, **kw) -> None:
+    def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[BarrierAlt.XD]
         self.initial_s = domains[BarrierAlt.XI]
         self.unsafe_s = domains[BarrierAlt.XU]
@@ -473,7 +473,7 @@ class BarrierAlt(Certificate):
                 percent_belt,
                 lie_accuracy,
                 loss,
-            ) = self.compute_loss(Bdot_d, B_i, B_u)
+            ) = self.compute_loss(B_i, B_u, B_d, Bdot_d)
 
             # loss = loss + (100-percent_accuracy)
 
@@ -1031,7 +1031,7 @@ class StableSafe(Certificate):
             yield cs
 
 
-def get_certificate(certificate: CertificateType):
+def get_certificate(certificate: CertificateType) -> Type[Certificate]:
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov
     elif certificate == CertificateType.BARRIER:

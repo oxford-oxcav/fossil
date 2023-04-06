@@ -14,10 +14,13 @@ import mpl_toolkits.mplot3d.art3d as art3d
 from matplotlib import cm
 
 
-def plot_benchmark(
+def show():
+    plt.show()
+
+
+def benchmark_plane(
     model, domains, certificate=None, levels=[0], xrange=[-3, 3], yrange=[-3, 3]
 ):
-
     """Plot the benchmark. If certificate is provided, it is plotted as well.
 
     Plots the dynamical model phase plane and the domains with coloured labels.
@@ -32,19 +35,76 @@ def plot_benchmark(
         xrange (tuple, optional): Range of the x-axis. Defaults to None.
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
-    from matplotlib import pyplot as plt
 
     ax, fig = plt.subplots()
     ax = model.plot(ax, xrange=xrange, yrange=yrange)
     for lab, dom in domains.items():
         dom.plot(fig, ax, label=lab)
     if certificate is not None:
-        ax = plot_certificate(certificate, ax=ax, levels=levels)
-    ax.legend()
-    plt.show()
+        ax = certificate_countour(certificate, ax=ax, levels=levels)
+    ax.legend(loc="upper left")
+    return ax
 
 
-def plot_certificate(certificate, ax=None, levels=[0]):
+def benchmark_3d(certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3, 3]):
+    """Plot surface of the certificate benchmark.  If the domains are provided, they are plotted as well.
+
+    Plots the surface of a 2D learner.
+    If a certificate is provided, it plots the levelsets of the certificate, as
+    defined by the levels argument.
+
+    Args:
+        certificate (NNLearner): . Defaults to None.
+        sets (dict, option): label:set pairs of the domains.
+        levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
+        xrange (tuple, optional): Range of the x-axis. Defaults to None.
+        yrange (tuple, optional): Range of the y-axis. Defaults to None.
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax = certificate_surface(
+        certificate, ax=ax, levels=levels, xrange=xrange, yrange=yrange
+    )
+    for lab, dom in domains.items():
+        dom.plot(None, ax, label=lab)
+    ax.legend(loc="upper left")
+    return ax
+
+
+def certificate_surface(
+    certificate, ax=None, xrange=[-3, 3], yrange=[-3, 3], levels=[0]
+):
+    """Plot the surface of the certificate.
+    Args:
+        certificate (NNLearner): certificate to plot.
+        ax : matplotlib axis. Defaults to None, in which case an axis is created.
+        levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
+        xrange (tuple, optional): Range of the x-axis. Defaults to [-3, 3].
+        yrange (tuple, optional): Range of the y-axis. Defaults to [-3, 3].
+    """
+    ax = ax or plt.gca()
+    x = np.linspace(xrange[0], xrange[1], 100)
+    y = np.linspace(yrange[0], yrange[1], 100)
+    X, Y = np.meshgrid(x, y)
+    XT = torch.tensor(X, dtype=torch.float32)
+    YT = torch.tensor(Y, dtype=torch.float32)
+    ZT = certificate(torch.cat((XT.reshape(-1, 1), YT.reshape(-1, 1)), dim=1))
+    Z = ZT.detach().numpy().reshape(X.shape)
+    ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, alpha=0.7, rstride=5, cstride=5)
+    levels.sort()
+    ax.contour(
+        X,
+        Y,
+        Z,
+        levels=levels,
+        colors="k",
+        linestyles="dashed",
+        linewidths=2.5,
+    )
+    return ax
+
+
+def certificate_countour(certificate, ax=None, levels=[0]):
     """Plot contours of the certificate.
 
     Args:
@@ -52,7 +112,6 @@ def plot_certificate(certificate, ax=None, levels=[0]):
         ax : matplotlib axis. Defaults to None, in which case an axis is created.
         levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
     """
-    from matplotlib import pyplot as plt
 
     ax = ax or plt.gca()
     x = np.linspace(-5, 5, 100)

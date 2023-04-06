@@ -10,10 +10,11 @@ import timeit
 
 
 from src.shared.components.cegis import DoubleCegis
-from experiments.benchmarks.models import NonPoly0
+import experiments.benchmarks.models as models
 import experiments.benchmarks.domain_fcns as sets
 from src.shared.consts import *
-from src.plots.plot_fcns import plot_benchmark
+from src.plots.plot_fcns import benchmark_plane
+from src.plots.plot_lyap import plot_lyce
 
 
 def test_lnn():
@@ -24,7 +25,8 @@ def test_lnn():
     #############################################
     n_vars = 2
 
-    system = NonPoly0()
+    ol_system = models.Benchmark1()
+    system = lambda ctrl: models.GeneralClosedLoopModel(ol_system, ctrl)
     batch_size = 500
 
     XD = sets.Torus([0, 0], 1.1, 0.01)
@@ -39,13 +41,11 @@ def test_lnn():
     }
     domains = {lab: dom.generate_domain for lab, dom in D.items()}
     data = {lab: dom.generate_data(batch_size) for lab, dom in D.items()}
-    F = lambda *args: (system, domains, data, sets.inf_bounds_n(2))
+    F = lambda ctrl: (system(ctrl), domains, data, sets.inf_bounds_n(2))
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    activations_alt = [ActivationType.TANH]
     n_hidden_neurons = [12] * len(activations)
-    n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(
         N_VARS=n_vars,
@@ -53,26 +53,34 @@ def test_lnn():
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
-        ACTIVATION_ALT=activations_alt,
-        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         SYMMETRIC_BELT=False,
+        CTRLAYER=[15, 2],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     start = timeit.default_timer()
     c = DoubleCegis(opts)
-    c.solve()
+    state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
-    plot_benchmark(
-        system,
+    if len(vars) == 3:
+        plot_lyce(
+            np.array(vars),
+            state[CegisStateKeys.V][0],
+            state[CegisStateKeys.V_dot][0],
+            f,
+        )
+
+    benchmark_plane(
+        f,
         D,
-        certificate=c.barr_learner,
+        certificate=c.lyap_learner,
         xrange=[-1.1, 1.1],
         yrange=[-1.1, 1.1],
-        levels=[0],
+        levels=[0, 0.1, 0.2, 0.3, 0.4, 0.5],
     )
 
 

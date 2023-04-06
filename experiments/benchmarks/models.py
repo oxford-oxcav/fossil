@@ -206,6 +206,16 @@ class Eulerised:
 ############################################
 
 
+class Linear0(CTModel):
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([-x - y, x]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x - y, x]
+
+
 class NonPoly0(CTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def f_torch(self, v):
