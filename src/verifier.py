@@ -347,8 +347,8 @@ class VerifierDReal(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, config):
-        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, config)
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
+        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, verbose)
 
 
 class VerifierZ3(Verifier):
@@ -407,8 +407,8 @@ class VerifierZ3(Verifier):
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, config):
-        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, config)
+    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, verbose):
+        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, verbose)
 
 
 class VerifierMarabou(Verifier):

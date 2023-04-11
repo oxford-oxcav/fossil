@@ -12,7 +12,7 @@ from src.shared.components.cegis import Cegis
 from src.shared.consts import *
 
 from src.shared.components.cegis import Cegis
-from src.plots.plot_barriers import plot_darboux_bench
+import src.plots.plot_fcns as plotting
 import numpy as np
 import timeit
 import torch
@@ -40,8 +40,11 @@ def main():
     print("Found? {}".format(state[CegisStateKeys.found]))
 
     # plotting -- only for 2-d systems
-    if state[CegisStateKeys.found]:
-        plot_darboux_bench(np.array(vars), state[CegisStateKeys.V])
+    plotting.benchmark(
+        c.f,
+        c.learner,
+        {},
+    )
 
 
 if __name__ == "__main__":

@@ -553,35 +553,62 @@ class RWS(Certificate):
     XD = "lie"
     XI = "init"
     XS = "safe"
+    XU = "unsafe"
     dXS = "safe_border"
     XG = "goal"
     SD = XD
     SI = XI
     SS = XS
     SG = XG
+    SU = XU
 
-    def __init__(self, domains, **kw) -> None:
+    def __init__(self, domains, config: CegisConfig) -> None:
+        """initialise the RWA certificate
+        Domains should contain:
+            XI: compact initial set
+            XS: compact safe set
+            dXS: safe border
+            XG: compact goal set
+            XD: whole domain
+
+        Data sets for learn should contain:
+            SI: points from XI
+            SU: points from XD \ XS
+            SD: points from XS \ XG (domain less unsafe and goal set)
+
+        """
         self.domain = domains[RWS.XD]
-        self.initial_s = domains[RWS.XI]
-        self.safe_s = domains[RWS.XS]
+        self.initial = domains[RWS.XI]
+        self.safe = domains[RWS.XS]
         self.safe_border = domains[RWS.dXS]
         self.goal = domains[RWS.XG]
         self.bias = True
 
-    def compute_loss(self, Bdot_d, B_i, B_u):
-        margin = 0.1
-        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
-        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_i) + len(B_u))
-        slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
-        relu6 = torch.nn.ReLU6()
-        # saturated_leaky_relu = torch.nn.ReLU6() - 0.01*torch.relu()
-        loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean() + (
-            torch.relu(-B_u + margin) - slope * relu6(B_u + margin)
-        ).mean()
+    def compute_loss(self, V_i, V_u, V_d, Vdot_d):
+        margin = 0
+        learn_accuracy = sum(V_i <= -margin).item() + sum(V_u >= margin).item()
+        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(V_i) + len(V_u))
+        slope = 0  # 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+        relu = torch.nn.Softplus()
 
-        lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
+        init_loss = (torch.relu(V_i + margin) - slope * relu(-V_i + margin)).mean()
+        unsafe_loss = (torch.relu(-V_u + margin) - slope * relu(V_u + margin)).mean()
+        loss = init_loss + unsafe_loss
 
-        loss = loss - (relu6(-Bdot_d + margin)).mean()
+        # Penalise pos lie derivative for all points not in unsafe set or goal set where V <= 0
+        # This assumes V_d has no points in the unsafe set or goal set - is this reasonable?
+
+        lie_index = torch.nonzero(V_d < -margin)
+        if lie_index.nelement() != 0:
+            A_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
+            lie_accuracy = (sum(A_lie <= -margin)).item() * 100 / A_lie.shape[0]
+
+            lie_loss = (relu(A_lie + 0 * margin)).mean() - slope * relu(-Vdot_d).mean()
+            loss = loss + lie_loss
+        else:
+            lie_accuracy = 0.0
+
+        loss = loss
         return percent_accuracy_init_unsafe, loss, lie_accuracy
 
     def learn(
@@ -605,13 +632,9 @@ class RWS(Certificate):
         condition_old = False
         i1 = S[RWS.XD].shape[0]
         i2 = S[RWS.XI].shape[0]
-        # I think dicts remember insertion order now, though perhaps this should be done more thoroughly
-        # TODO: FIXME
-        # This is a really bad thing to do as it means the sets must be passed in this order within the dictionaries,
-        # which is not a good thing to rely on. Must be fixed for all cetificates.
-        label_order = [RWS.XD, RWS.XI, RWS.XS]
+        label_order = [RWS.XD, RWS.XI, RWS.XU]
         samples = torch.cat([S[label] for label in label_order])
-        # samples = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XS]))
+        # samples = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XU]))
 
         if f_torch:
             samples_dot = f_torch(samples)
@@ -623,17 +646,22 @@ class RWS(Certificate):
             if f_torch:
                 samples_dot = f_torch(samples)
 
-            B, Bdot, _ = learner.get_all(samples, samples_dot)
-            B_d, Bdot_d, = (
-                B[:i1],
-                Bdot[:i1],
+            V, Vdot, _ = learner.get_all(samples, samples_dot)
+            V_d, Vdot_d, = (
+                V[:i1],
+                Vdot[:i1],
             )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
+            V_i = V[i1 : i1 + i2]
+            V_u = V[i1 + i2 :]
 
             percent_accuracy_init_unsafe, loss, lie_accuracy = self.compute_loss(
-                Bdot_d, B_i, B_u
+                V_i, V_u, V_d, Vdot_d
             )
+
+            if f_torch:
+                s = samples[:i1]
+                sdot = samples_dot[:i1]
+                loss = loss + 0.0075 * (s @ sdot.T).diag().mean()
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 vprint(
@@ -643,7 +671,7 @@ class RWS(Certificate):
                         loss.item(),
                         "- accuracy init-unsafe:",
                         percent_accuracy_init_unsafe,
-                        "- accuracy belt:",
+                        "- accuracy lie:",
                         lie_accuracy,
                     ),
                     learner.verbose,
@@ -674,21 +702,23 @@ class RWS(Certificate):
         _Not = verifier.solver_fncts()["Not"]
         # Cdot <= 0 in C == 0
         # C <= 0 if x \in initial
-        initial_constr = _And(C > 0, self.initial_s)
+        initial_constr = _And(C > 0, self.initial)
         # C > 0 if x \in safe border
-        safe_constr = _And(C <= 0, self.safe_border)
+        unsafe_constr = _And(C <= 0, self.safe_border)
 
         # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
         gamma = 0
-        lie_constr = _And(_And(C >= 0, _Not(self.goal)), Cdot > gamma)
+
+        # Define A as the set of points where C <= 0, within the domain, not in the goal set, and not in the unsafe set
+        A = _And(C <= 0, self.safe, _Not(self.goal))
+        lie_constr = _And(A, Cdot > gamma)
 
         # add domain constraints
         inital_constr = _And(initial_constr, self.domain)
-        safe_constr = _And(safe_constr, self.domain)
-        lie_constr = _And(lie_constr, self.domain)
+        unsafe_constr = _And(unsafe_constr, self.domain)
 
         for cs in (
-            {RWS.XI: inital_constr, RWS.XS: safe_constr},
+            {RWS.XI: inital_constr, RWS.XU: unsafe_constr},
             {RWS.XD: lie_constr},
         ):
             yield cs
@@ -720,16 +750,17 @@ class RSWS(RWS):
 
     XD = "lie"
     XI = "init"
-    XU = "unsafe_border"
     XS = "safe"
+    XU = "unsafe"
+    dXS = "safe_border"
     XG = "goal"
-    dXG = "goal_border"
     SD = XD
     SI = XI
-    SU = "unsafe"
+    SS = XS
     SG = XG
+    SU = XU
 
-    def __init__(self, domains, **kw) -> None:
+    def __init__(self, domains, config: CegisConfig) -> None:
         """initialise the RSWS certificate
 
         Args:
@@ -743,7 +774,7 @@ class RSWS(RWS):
         self.goal_border = domains[RSWS.dXG]
         self.bias = True
 
-    def stay_in_goal_check(self, verifier, C, Cdot):
+    def stay_in_goal_check(self, verifier, C, Cdot, beta=-10):
         """Checks if the system stays in the goal region.
         True if it stays in the goal region, False otherwise.
 
@@ -763,15 +794,333 @@ class RSWS(RWS):
         """
         _And = verifier.solver_fncts()["And"]
         _Not = verifier.solver_fncts()["Not"]
-        beta = verifier.new_vars(1, base="b")[0]
-        B = _And(C <= beta, _And(self.domain, self.safe))
+        # beta = verifier.new_vars(1, base="b")[0]
+        B = _And(C <= beta, self.safe)
+        XG_less_B = _And(self.goal, _Not(B))
         dG = self.goal_border  # Border of goal set
-        border_condition = _And(C > beta, dG)
-        lie_condition = _And(_And(self.goal, _Not(B)), Cdot <= 0)
+        border_condition = _And(C <= beta, dG)
+        lie_condition = _And(XG_less_B, Cdot > 0)
         F = _And(border_condition, lie_condition)
         s = verifier.new_solver()
         res, timedout = verifier.solve_with_timeout(s, F)
-        return verifier.is_sat(res)
+        return verifier.is_unsat(res)
+
+    def beta_search(self, verifier, C, Cdot):
+        """Searches for a beta to prove that the system stays in the goal region.
+
+        Args:
+            verifier (Verifier): verifier object
+            C: SMT formula of certificate function
+            Cdot: SMT formula of certificate lie derivative
+
+        Returns:
+            bool, float: res, beta
+        """
+        # In Verdier, Mazo they do a line search over Beta. I'm not sure how to do that currently.
+        # I'm not even sure if beta should be negative or positive, or on its scale.
+        # We could also do a exists forall query with dreal, but it would scale poorly.
+
+        beta = 0
+
+        while True:
+            if self.stay_in_goal_check(verifier, C, Cdot, beta=beta):
+                return True, beta
+            beta += 0.1
+
+
+class RWA(Certificate):
+    """Certificate to satisfy a reach-while-avoid property.
+
+    This is identical to the RWS certificate, except framed in terms of an avoid set.
+
+    Reach While stay must satisfy:
+    \forall x in XI, V <= 0,
+    \forall x in boundary of XS, V > 0,
+    \forall x in A \ XG, dV/dt <= 0
+    A = {x \in XS| V <=0 }
+
+    """
+
+    XD = "lie"
+    XI = "init"
+    XU = "unsafe"
+    dXU = "unsafe_border"
+    XG = "goal"
+    SD = XD
+    SI = XI
+    SS = XU
+    SG = XG
+
+    def __init__(self, domains, config: CegisConfig) -> None:
+        """initialise the RWA certificate
+        Domains should contain:
+            XI: compact initial set
+            XU: open, bounded unsafe set
+            dXU: unsafe border
+            XG: compact goal set
+            XD: whole domain
+
+        Data sets for learn should contain:
+            SI: points from inital set
+            SU: points from unsafe set
+            SD: points from domain less unsafe and goal set
+
+        """
+        self.domain = domains[RWA.XD]
+        self.initial = domains[RWA.XI]
+        self.unsafe = domains[RWA.XU]
+        self.unsafe_border = domains[RWA.dXU]
+        self.goal = domains[RWA.XG]
+        self.bias = True
+
+    def compute_loss(self, V_i, V_u, V_d, Vdot_d):
+        margin = 0
+        learn_accuracy = sum(V_i <= -margin).item() + sum(V_u >= margin).item()
+        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(V_i) + len(V_u))
+        slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+        relu6 = torch.nn.Softplus()
+
+        init_loss = (torch.relu(V_i + margin) - slope * relu6(-V_i + margin)).mean()
+        unsafe_loss = (torch.relu(-V_u + margin) - slope * relu6(V_u + margin)).mean()
+        loss = init_loss + unsafe_loss
+
+        # Penalise lie derivative for all points not in unsafe set or goal set where V <= 0
+        # This assumes B_d has no points in the unsafe set or goal set - is this reasonable?
+
+        lie_index = torch.nonzero(V_d < -margin)
+        if lie_index.nelement() != 0:
+            A_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
+            lie_accuracy = (sum(A_lie <= -margin)).item() * 100 / A_lie.shape[0]
+
+            lie_loss = (relu6(A_lie + 0 * margin)).mean() - slope * relu6(
+                -Vdot_d
+            ).mean()
+            loss = loss + lie_loss
+        else:
+            lie_accuracy = 0.0
+
+        loss = loss
+        return percent_accuracy_init_unsafe, loss, lie_accuracy
+
+    def learn(
+        self,
+        learner: learner.Learner,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
+    ) -> dict:
+        """
+        :param learner: learner object
+        :param optimizer: torch optimiser
+        :param S: list of tensors of data
+        :param Sdot: list of tensors containing f(data)
+        :return: --
+        """
+        assert len(S) == len(Sdot)
+
+        learn_loops = 1000
+        condition_old = False
+        i1 = S[RWA.XD].shape[0]
+        i2 = S[RWA.XI].shape[0]
+        label_order = [RWA.XD, RWA.XI, RWA.XU]
+        samples = torch.cat([S[label] for label in label_order])
+        # samples = torch.cat((S[RWA.XD], S[RWA.XI], S[RWA.XU]))
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = torch.cat([Sdot[label] for label in label_order])
+
+        for t in range(learn_loops):
+            optimizer.zero_grad()
+            if f_torch:
+                samples_dot = f_torch(samples)
+
+            V, Vdot, _ = learner.get_all(samples, samples_dot)
+            V_d, Vdot_d, = (
+                V[:i1],
+                Vdot[:i1],
+            )
+            V_i = V[i1 : i1 + i2]
+            V_u = V[i1 + i2 :]
+
+            percent_accuracy_init_unsafe, loss, lie_accuracy = self.compute_loss(
+                V_i, V_u, V_d, Vdot_d
+            )
+
+            if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
+                vprint(
+                    (
+                        t,
+                        "- loss:",
+                        loss.item(),
+                        "- accuracy init-unsafe:",
+                        percent_accuracy_init_unsafe,
+                        "- accuracy lie:",
+                        lie_accuracy,
+                    ),
+                    learner.verbose,
+                )
+
+            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
+                condition = True
+            else:
+                condition = False
+
+            if condition and condition_old:
+                break
+            condition_old = condition
+
+            loss.backward()
+            optimizer.step()
+
+        return {}
+
+    def get_constraints(self, verifier, C, Cdot) -> Generator:
+        """
+        :param verifier: verifier object
+        :param C: SMT formula of Barrier function
+        :param Cdot: SMT formula of Barrier lie derivative
+        :return: tuple of dictionaries of Barrier conditons
+        """
+        _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        # Cdot <= 0 in C == 0
+        # C <= 0 if x \in initial
+        initial_constr = _And(C > 0, self.initial)
+        # C > 0 if x \in safe border
+        unsafe_constr = _And(C <= 0, self.unsafe_border)
+
+        # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
+        gamma = 0
+
+        # Define A as the set of points where C <= 0, within the domain, not in the goal set, and not in the unsafe set
+        A = _And(C <= 0, self.domain, _Not(self.goal), _Not(self.unsafe))
+        lie_constr = _And(A, Cdot > gamma)
+
+        # add domain constraints
+        inital_constr = _And(initial_constr, self.domain)
+        unsafe_constr = _And(unsafe_constr, self.domain)
+
+        for cs in (
+            {RWA.XI: inital_constr, RWA.XU: unsafe_constr},
+            {RWA.XD: lie_constr},
+        ):
+            yield cs
+
+
+class RSWA(RWA):
+    """Reach and Stay While Avoid Certificate
+
+    Firstly satisfies reach while avoid conditions, given by:
+        forall x in XI, V <= 0,
+        forall x in boundary of XS, V > 0,
+        forall x in A \ XG, dV/dt <= 0
+        A = {x \in XS| V <=0 }
+
+    http://arxiv.org/abs/1812.02711
+    In addition to the RWS properties, to satisfy RSWS:
+    forall x in border XG: V > \beta
+    forall x in XG \ int(B): dV/dt <= 0
+    B = {x in XS | V <= \beta}
+    Best to ask SMT solver if a beta exists such that the above holds -
+    but currently we don't train for this condition.
+
+    Crucially, this relies only on the border of the safe set,
+    rather than the safe set itself.
+    Since the border must be positive (and the safe invariant negative), this is inline
+    with making the complement (the unsafe set) positive. Therefore, the implementation
+    requires an unsafe set to be passed in, and assumes its border is the same of the border of the safe set.
+    """
+
+    XD = "lie"
+    XI = "init"
+    XU = "unsafe_border"
+    XS = "safe"
+    XG = "goal"
+    dXG = "goal_border"
+    SD = XD
+    SI = XI
+    SU = "unsafe"
+    SG = XG
+
+    def __init__(self, domains, config: CegisConfig) -> None:
+        """initialise the RWA certificate
+        Domains should contain:
+            XI: compact initial set
+            XU: open, bounded unsafe set
+            dXU: unsafe border
+            XG: compact goal set
+            XD: whole domain
+            dXG: goal border
+
+        Data sets for learn should contain:
+            SI: points from inital set
+            SU: points from unsafe set
+            SD: points from domain \setminus unsafe and goal set
+
+        """
+        self.domain = domains[RSWS.XD]
+        self.initial_s = domains[RSWS.XI]
+        self.unsafe_border = domains[RSWS.XU]
+        self.safe = domains[RSWS.XS]
+        self.goal = domains[RSWS.XG]
+        self.goal_border = domains[RSWS.dXG]
+        self.bias = True
+
+    def stay_in_goal_check(self, verifier, C, Cdot, beta=-10):
+        """Checks if the system stays in the goal region.
+        True if it stays in the goal region, False otherwise.
+
+        This check involves finding a beta such that:
+
+        \forall x in border XG: V > \beta
+        \forall x in XG \ int(B): dV/dt <= 0
+        B = {x in XS | V <= \beta}
+
+        Args:
+            verifier (Verifier): verifier object
+            C: SMT formula of certificate function
+            Cdot: SMT formula of certificate lie derivative
+
+        Returns:
+            bool: True if sat
+        """
+        _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        # beta = verifier.new_vars(1, base="b")[0]
+        B = _And(C <= beta, self.domain, _Not(self.unsafe))
+        XG_less_B = _And(self.goal, _Not(B))
+        dG = self.goal_border  # Border of goal set
+        border_condition = _And(C <= beta, dG)
+        lie_condition = _And(XG_less_B, Cdot > 0)
+        F = _And(border_condition, lie_condition)
+        s = verifier.new_solver()
+        res, timedout = verifier.solve_with_timeout(s, F)
+        return verifier.is_unsat(res)
+
+    def beta_search(self, verifier, C, Cdot):
+        """Searches for a beta to prove that the system stays in the goal region.
+
+        Args:
+            verifier (Verifier): verifier object
+            C: SMT formula of certificate function
+            Cdot: SMT formula of certificate lie derivative
+
+        Returns:
+            bool, float: res, beta
+        """
+        # In Verdier, Mazo they do a line search over Beta. I'm not sure how to do that currently.
+        # I'm not even sure if beta should be negative or positive, or on its scale.
+        # We could also do a exists forall query with dreal, but it would scale poorly.
+
+        beta = 0
+
+        while True:
+            if self.stay_in_goal_check(verifier, C, Cdot, beta=beta):
+                return True, beta
+            beta += 0.1
 
 
 class StableSafe(Certificate):
@@ -1038,6 +1387,10 @@ def get_certificate(certificate: CertificateType) -> Type[Certificate]:
         return Barrier
     elif certificate == CertificateType.BARRIERALT:
         return BarrierAlt
+    elif certificate == CertificateType.RWA:
+        return RWA
+    elif certificate == CertificateType.RSWA:
+        return RSWA
     elif certificate == CertificateType.RWS:
         return RWS
     elif certificate == CertificateType.RSWS:

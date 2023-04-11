@@ -89,7 +89,7 @@ class CTModel:
             density=1.5,
             arrowstyle="fancy",
             arrowsize=1.5,
-            # color=color,
+            color="tab:gray",
         )
         return ax
 

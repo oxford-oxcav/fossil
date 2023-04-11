@@ -18,6 +18,27 @@ def show():
     plt.show()
 
 
+def benchmark(model, certificate, domains, levels=[0], xrange=[-3, 3], yrange=[-3, 3]):
+    """Helper function to plot all salient plots.
+
+    Plots the phase plane, the certificate and its lie derivative.
+
+    Args:
+        model (CTModel): Dynamical model of the benchmark.
+        sets (dict): label:set pairs of the domains.
+        certificate (NNLearner, optional): . Defaults to None.
+        levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
+        xrange (tuple, optional): Range of the x-axis. Defaults to None.
+        yrange (tuple, optional): Range of the y-axis. Defaults to None.
+    """
+    ax1 = benchmark_plane(model, domains, certificate, levels, xrange, yrange)
+
+    ax2 = benchmark_3d(certificate, domains, levels, xrange, yrange)
+
+    ax3 = benchmark_lie(model, certificate, domains, levels, xrange, yrange)
+    show()
+
+
 def benchmark_plane(
     model, domains, certificate=None, levels=[0], xrange=[-3, 3], yrange=[-3, 3]
 ):
@@ -43,6 +64,7 @@ def benchmark_plane(
     if certificate is not None:
         ax = certificate_countour(certificate, ax=ax, levels=levels)
     ax.legend(loc="upper left")
+    ax.set_title("Phase Plane")
     return ax
 
 
@@ -68,6 +90,29 @@ def benchmark_3d(certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3
     for lab, dom in domains.items():
         dom.plot(None, ax, label=lab)
     ax.legend(loc="upper left")
+    ax.set_title("Certificate")
+    return ax
+
+
+def benchmark_lie(
+    model, certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3, 3]
+):
+    """Plot the lie derivative of the certificate benchmark.  If the domains are provided, they are plotted as well.
+    Args:
+    certificate (NNLearner): . Defaults to None.
+    sets (dict, option): label:set pairs of the domains.
+    levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
+    xrange (tuple, optional): Range of the x-axis. Defaults to None.
+    yrange (tuple, optional): Range of the y-axis. Defaults to None.
+    """
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax = certificate_lie(certificate, model, ax=ax, xrange=xrange, yrange=yrange)
+    for lab, dom in domains.items():
+        dom.plot(None, ax, label=lab)
+    ax.legend(loc="upper left")
+    ax.set_title("Lie Derivative")
     return ax
 
 
@@ -97,6 +142,42 @@ def certificate_surface(
         Y,
         Z,
         levels=levels,
+        colors="k",
+        linestyles="dashed",
+        linewidths=2.5,
+    )
+    return ax
+
+
+def certificate_lie(certificate, model, ax=None, xrange=[-3, 3], yrange=[-3, 3]):
+    """Plot the surface of the lie derivative of the certificate."""
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+    x = np.linspace(xrange[0], xrange[1], 100)
+    y = np.linspace(yrange[0], yrange[1], 100)
+    X, Y = np.meshgrid(x, y)
+    XT = torch.tensor(X, dtype=torch.float32)
+    YT = torch.tensor(Y, dtype=torch.float32)
+    ZT = certificate.compute_net_gradnet(
+        torch.cat((XT.reshape(-1, 1), YT.reshape(-1, 1)), dim=1)
+    )[1]
+    Z = ZT.detach().numpy()
+    dx, dy = (
+        model.f_torch(torch.stack([XT.ravel(), YT.ravel()]).T.float())
+        .detach()
+        .numpy()
+        .T
+    )
+    df = np.stack([dx, dy], axis=1)
+    lie = (df @ Z.T).diagonal()
+    lie = lie.reshape(X.shape)
+    ax.plot_surface(X, Y, lie, cmap=cm.coolwarm, alpha=0.7, rstride=5, cstride=5)
+    ax.contour(
+        X,
+        Y,
+        lie,
+        levels=[0],
         colors="k",
         linestyles="dashed",
         linewidths=2.5,

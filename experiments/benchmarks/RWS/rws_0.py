@@ -9,7 +9,7 @@ import torch
 import timeit
 
 
-from src.shared.components.cegis import DoubleCegis
+from src.shared.components.cegis import Cegis
 from experiments.benchmarks.models import NonPoly0
 import experiments.benchmarks.domain_fcns as sets
 from src.shared.consts import *
@@ -18,64 +18,79 @@ import src.plots.plot_fcns as plotting
 
 def test_lnn():
     ###########################################
-    ### Converges in 1.6s in second step
+    ### Converges in 2.5 s on 8th loop
     ### Trivial example
-    ### Currently DoubleCegis does not work with consolidator
+    ###
     #############################################
     n_vars = 2
 
     system = NonPoly0()
     batch_size = 500
 
-    XD = sets.Torus([0, 0], 1.1, 0.01)
-
-    # XU = sets.SetMinus(sets.Rectangle([0, 0], [1.2, 1.2]), sets.Sphere([0.6, 0.6], 0.4))
-    XU = sets.Sphere([0.4, 0.4], 0.1)
+    XD = sets.Sphere([0, 0], 1.1)
+    XS = sets.Sphere([-0.3, -0.3], 0.6)
     XI = sets.Sphere([-0.6, -0.6], 0.01)
+    XG = sets.Sphere([0, 0], 0.1)
+
+    SU = sets.SetMinus(XD, XS)  # Data for unsafe set
+    SD = sets.SetMinus(XS, XG)  # Data for lie set
+
     D = {
         "lie": XD,
         "init": XI,
-        "unsafe": XU,
+        "safe": XS,
+        "goal": XG,
     }
-    domains = {lab: dom.generate_domain for lab, dom in D.items()}
-    data = {lab: dom.generate_data(batch_size) for lab, dom in D.items()}
-    F = lambda *args: (system, domains, data, sets.inf_bounds_n(2))
+    symbolic_domains = {
+        "lie": XD.generate_domain,
+        "init": XI.generate_domain,
+        "safe_border": XS.generate_boundary,
+        "safe": XS.generate_domain,
+        "goal": XG.generate_domain,
+    }
+    data = {
+        "lie": SD.generate_data(batch_size),
+        "init": XI.generate_data(100),
+        "unsafe": SU.generate_data(1000),
+    }
+    F = lambda *args: (system, symbolic_domains, data, sets.inf_bounds_n(2))
+
+    # plot_benchmark_plane(
+    #     system,
+    #     D,
+    #     xrange=[-1.1, 1.1],
+    #     yrange=[-1.1, 1.1],
+    # )
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    activations_alt = [ActivationType.TANH]
-    n_hidden_neurons = [12] * len(activations)
-    n_hidden_neurons_alt = [5] * len(activations_alt)
+    activations = [ActivationType.LIN_TO_QUARTIC]
+    n_hidden_neurons = [16] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.STABLESAFE,
+        CERTIFICATE=CertificateType.RWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
-        ACTIVATION_ALT=activations_alt,
-        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        SYMMETRIC_BELT=False,
+        CEGIS_MAX_ITERS=10,
     )
 
     start = timeit.default_timer()
-    c = DoubleCegis(opts)
+    c = Cegis(opts)
     c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
     plotting.benchmark(
         system,
-        c.barr_learner,
+        c.learner,
         D,
         xrange=[-1.1, 1.1],
         yrange=[-1.1, 1.1],
         levels=[0],
     )
-
-    plotting.show()
 
 
 if __name__ == "__main__":

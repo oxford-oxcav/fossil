@@ -13,7 +13,7 @@ from src.shared.components.cegis import Cegis
 from experiments.benchmarks.models import LoktaVolterra
 import experiments.benchmarks.domain_fcns as sets
 from src.shared.consts import *
-from src.plots.plot_fcns import plot_benchmark
+import src.plots.plot_fcns as plotting
 
 
 def test_lnn():
@@ -59,12 +59,12 @@ def test_lnn():
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
-    plot_benchmark(
+    plotting.benchmark(
         system,
+        c.learner,
         D,
-        certificate=c.learner,
-        xrange=[0, 1.5],
-        yrange=[0, 1.5],
+        xrange=[0, 0.7],
+        yrange=[0, 0.7],
         levels=[0],
     )
 

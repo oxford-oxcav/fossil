@@ -6,16 +6,15 @@
 
 # pylint: disable=not-callable
 
-import torch
-import numpy as np
 import timeit
 
+import numpy as np
+import torch
+
+import src.plots.plot_fcns as plotting
 from experiments.benchmarks.benchmarks_bc import barr_3
 from src.shared.components.cegis import Cegis
-
 from src.shared.consts import *
-
-from src.plots.plot_barriers import plot_pjmod_bench
 
 
 def main():
@@ -42,8 +41,7 @@ def main():
     print("Found? {}".format(state[CegisStateKeys.found]))
 
     # plotting -- only for 2-d systems
-    if state[CegisStateKeys.found]:
-        plot_pjmod_bench(np.array(vars), state[CegisStateKeys.V])
+    plotting.benchmark(f, c.learner, {}, levels=[0])
 
 
 if __name__ == "__main__":

@@ -192,7 +192,7 @@ class Cegis:
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    if self.config.CERTIFICATE == CertificateType.RSWS:
+                    if self.config.CERTIFICATE == CertificateType.RSWA:
                         stop = self.certificate.stay_in_goal_check(
                             self.verifier,
                             state[CegisStateKeys.V],
@@ -507,7 +507,7 @@ class DoubleCegis(Cegis):
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    if self.config.CERTIFICATE == CertificateType.RSWS:
+                    if self.config.CERTIFICATE == CertificateType.RSWA:
                         stop = self.certificate.stay_in_goal_check(
                             self.verifier,
                             state[CegisStateKeys.V],

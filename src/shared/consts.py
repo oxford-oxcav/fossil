@@ -53,6 +53,8 @@ class CertificateType(Enum):
     BARRIER = auto()
     BARRIERALT = auto()
     LYAPUNOV = auto()
+    RWA = auto()
+    RSWA = auto()
     RWS = auto()
     RSWS = auto()
     STABLESAFE = auto()

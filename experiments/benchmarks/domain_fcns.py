@@ -24,6 +24,8 @@ def get_plot_colour(label):
         return "green", "Goal"
     elif label == "unsafe":
         return "red", "Unsafe"
+    elif label == "safe":
+        return "tab:cyan", "Safe"
     elif label == "init":
         return "blue", "Initial"
     else:

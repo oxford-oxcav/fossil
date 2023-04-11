@@ -14,8 +14,7 @@ from src.shared.components.cegis import Cegis
 
 from src.shared.consts import *
 
-from src.plots.plot_barriers import plot_exponential_bench
-from src.plots.plot_fcns import benchmark_plane
+import src.plots.plot_fcns as plotting
 import numpy as np
 
 
@@ -46,7 +45,7 @@ def main():
     print("Elapsed Time: {}".format(end - start))
     print("Found? {}".format(state[CegisStateKeys.found]))
 
-    benchmark_plane(f, {}, c.learner, levels=[0])
+    plotting.benchmark(f, c.learner, {}, levels=[0])
 
     # plotting -- only for 2-d systems
     # if state[CegisStateKeys.found]:
