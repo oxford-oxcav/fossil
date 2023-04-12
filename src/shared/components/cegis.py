@@ -203,8 +203,13 @@ class Cegis:
                                 f"Found a valid {self.config.CERTIFICATE.name} certificate"
                             )
                     else:
+                        if isinstance(self.f, GeneralClosedLoopModel):
+                            ctrl = " and controller"
+                        else:
+                            ctrl = ""
                         print(
                             f"Found a valid {self.config.CERTIFICATE.name} certificate"
+                            + ctrl
                         )
                         stop = True
 

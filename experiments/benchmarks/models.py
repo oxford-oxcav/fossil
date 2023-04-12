@@ -968,6 +968,20 @@ class LoktaVolterra(CTModel):
         return [0.6 * x - x * y, -0.6 * y + x * y]
 
 
+class VanDerPol(CTModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.n_vars = 2
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return torch.stack([y, -0.5 * (1 - x**2) * y - x]).T
+
+    def f_smt(self, v):
+        x, y = v
+        return [y, -0.5 * (1 - x**2) * y - x]
+
+
 def read_model(model_string: str) -> CTModel:
     """Read model from string and return model object"""
     for M in dir(sys.modules[__name__]):
@@ -986,7 +1000,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model", type=str)
+    parser.add_argument("-m", "--model", type=str, default="VanDerPol")
     args = parser.parse_args()
     model = read_model(args.model)
     ax = model.plot()

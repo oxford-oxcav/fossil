@@ -72,11 +72,11 @@ class Lyapunov(Certificate):
         leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
         # compute loss function. if last layer of ones (llo), can drop parts with V
         if self.llo:
-            learn_accuracy = sum(Vdot <= -margin).item()
+            learn_accuracy = (Vdot <= -margin).sum().item()
             loss = (leaky_relu(Vdot + margin * circle)).mean()
         else:
             learn_accuracy = 0.5 * (
-                sum(Vdot <= -margin).item() + sum(V >= margin).item()
+                (Vdot <= -margin).sum().item() + (V >= margin).sum().item()
             )
             loss = (leaky_relu(Vdot + margin * circle)).mean() + (
                 leaky_relu(-V + margin * circle)
@@ -213,7 +213,10 @@ class Barrier(Certificate):
         """
         margin = 0
         slope = 1 / 10**4
-        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+
+        ### We spend A LOT of time computing the accuracies and belt percent.
+        ### Changing from builtins sum to torch.sum() makes the whole code 4x faster.
+        learn_accuracy = (B_i <= -margin).sum().item() + (B_u >= margin).sum().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
 
         relu6 = torch.nn.Softplus()
@@ -230,8 +233,8 @@ class Barrier(Certificate):
 
         if belt_index.nelement() != 0:
             dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
-            learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
-            percent_belt = 100 * (sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
+            learn_accuracy = learn_accuracy + ((dB_belt <= -margin).sum()).item()
+            percent_belt = 100 * ((dB_belt <= -margin).sum()).item() / dB_belt.shape[0]
 
             lie_loss = (relu6(dB_belt + 0 * margin)).mean() - slope * relu6(
                 -dB_belt
@@ -403,7 +406,7 @@ class BarrierAlt(Certificate):
         """
         margin = 0.1
 
-        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+        learn_accuracy = (B_i <= -margin).sum().item() + (B_u >= margin).sum().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
         slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu6 = torch.nn.ReLU6()
@@ -416,7 +419,7 @@ class BarrierAlt(Certificate):
         # set two belts
         percent_belt = 0
 
-        lie_accuracy = 100 * (sum(Bdot_d <= -margin)).item() / Bdot_d.shape[0]
+        lie_accuracy = 100 * ((Bdot_d <= -margin).sum()).item() / Bdot_d.shape[0]
 
         loss = init_loss + unsafe_loss + lie_loss
         return percent_accuracy_init_unsafe, percent_belt, lie_accuracy, loss
@@ -586,7 +589,7 @@ class RWS(Certificate):
 
     def compute_loss(self, V_i, V_u, V_d, Vdot_d):
         margin = 0
-        learn_accuracy = sum(V_i <= -margin).item() + sum(V_u >= margin).item()
+        learn_accuracy = (V_i <= -margin).sum().item() + (V_u >= margin).sum().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(V_i) + len(V_u))
         slope = 0  # 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu = torch.nn.Softplus()
@@ -601,7 +604,7 @@ class RWS(Certificate):
         lie_index = torch.nonzero(V_d < -margin)
         if lie_index.nelement() != 0:
             A_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
-            lie_accuracy = (sum(A_lie <= -margin)).item() * 100 / A_lie.shape[0]
+            lie_accuracy = ((A_lie <= -margin).sum()).item() * 100 / A_lie.shape[0]
 
             lie_loss = (relu(A_lie + 0 * margin)).mean() - slope * relu(-Vdot_d).mean()
             loss = loss + lie_loss
@@ -875,7 +878,7 @@ class RWA(Certificate):
 
     def compute_loss(self, V_i, V_u, V_d, Vdot_d):
         margin = 0
-        learn_accuracy = sum(V_i <= -margin).item() + sum(V_u >= margin).item()
+        learn_accuracy = (V_i <= -margin).sum().item() + (V_u >= margin).sum().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(V_i) + len(V_u))
         slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu6 = torch.nn.Softplus()
@@ -890,7 +893,7 @@ class RWA(Certificate):
         lie_index = torch.nonzero(V_d < -margin)
         if lie_index.nelement() != 0:
             A_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
-            lie_accuracy = (sum(A_lie <= -margin)).item() * 100 / A_lie.shape[0]
+            lie_accuracy = ((A_lie <= -margin).sum()).item() * 100 / A_lie.shape[0]
 
             lie_loss = (relu6(A_lie + 0 * margin)).mean() - slope * relu6(
                 -Vdot_d
@@ -1156,11 +1159,11 @@ class StableSafe(Certificate):
         leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
         # compute loss function. if last layer of ones (llo), can drop parts with V
         if self.llo:
-            learn_accuracy = sum(Vdot <= -margin).item()
+            learn_accuracy = (Vdot <= -margin).sum().item()
             loss = (leaky_relu(Vdot + margin * circle)).mean()
         else:
             learn_accuracy = 0.5 * (
-                sum(Vdot <= -margin).item() + sum(V >= margin).item()
+                (Vdot <= -margin).sum().item() + (V >= margin).sum().item()
             )
             loss = (leaky_relu(Vdot + margin * circle)).mean() + (
                 leaky_relu(-V + margin * circle)
@@ -1190,7 +1193,7 @@ class StableSafe(Certificate):
         """
         margin = 0
         slope = 1 / 10**4
-        learn_accuracy = sum(B_i <= -margin).item() + sum(B_u >= margin).item()
+        learn_accuracy = (B_i <= -margin).sum().item() + (B_u >= margin).sum().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
 
         relu6 = torch.nn.Softplus()
@@ -1207,8 +1210,8 @@ class StableSafe(Certificate):
 
         if belt_index.nelement() != 0:
             dB_belt = torch.index_select(Bdot_d, dim=0, index=belt_index[:, 0])
-            learn_accuracy = learn_accuracy + (sum(dB_belt <= -margin)).item()
-            percent_belt = 100 * (sum(dB_belt <= -margin)).item() / dB_belt.shape[0]
+            learn_accuracy = learn_accuracy + ((dB_belt <= -margin).sum()).item()
+            percent_belt = 100 * ((dB_belt <= -margin).sum()).item() / dB_belt.shape[0]
 
             lie_loss = (relu6(dB_belt + 0 * margin)).mean() - slope * relu6(
                 -dB_belt
