@@ -50,7 +50,6 @@ class LearnerNN(nn.Module, Learner):
 
         self.input_size = input_size
         n_prev = self.input_size
-        self.eq = config.EQUILIBRIUM
         self._diagonalise = False
         self.acts = activation
         self._is_there_bias = bias
@@ -194,6 +193,24 @@ class LearnerNN(nn.Module, Learner):
             return self.factor(S), self.factor.derivative(S)
         else:
             return 1, 0
+
+    def compute_minimum(self, S: torch.Tensor) -> tuple[float, float]:
+        """Computes the minimum of the learner over the input set.
+
+        Also returns the argmin of the minimum.
+
+        Args:
+            S (torch.Tensor): _description_
+
+        Returns:
+            tuple[float, float]: _description_
+        """
+        C = self(S)
+        minimum = torch.min(C, 0)
+        value = minimum.values.item()
+        index = minimum.indices.item()
+        argmin = S[index]
+        return value, argmin
 
     def find_closest_unsat(self, S, Sdot):
         min_dist = float("inf")
@@ -344,7 +361,6 @@ class CtrlLearnerCT(LearnerCT):
         bias=True,
         config: CegisConfig = CegisConfig(),
     ):
-
         LearnerNN.__init__(
             self,
             input_size,
@@ -386,7 +402,6 @@ class CtrlLearnerDT(LearnerDT):
         bias=True,
         config: CegisConfig = CegisConfig(),
     ):
-
         LearnerNN.__init__(
             self,
             input_size,

@@ -39,7 +39,7 @@ def test_robustness(benchmark, n_vars, domain, hidden):
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        SP_HANDLE=False,
+        
         INNER_RADIUS=inner_radius,
         OUTER_RADIUS=outer_radius,
         LLO=True,

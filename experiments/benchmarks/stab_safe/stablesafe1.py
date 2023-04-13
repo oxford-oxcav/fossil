@@ -14,6 +14,7 @@ from experiments.benchmarks.models import NonPoly0
 import experiments.benchmarks.domain_fcns as sets
 from src.shared.consts import *
 import src.plots.plot_fcns as plotting
+from experiments.analysis import Recorder
 
 
 def test_lnn():
@@ -62,9 +63,11 @@ def test_lnn():
 
     start = timeit.default_timer()
     c = DoubleCegis(opts)
-    c.solve()
+    state, _, _, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
+    rec = Recorder()
+    rec.record(opts, state, stop - start, iters)
 
     plotting.benchmark(
         system,

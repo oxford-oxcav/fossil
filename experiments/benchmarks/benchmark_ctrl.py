@@ -267,7 +267,7 @@ def car_traj_control():
     )
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         "lie": XD.generate_domain,

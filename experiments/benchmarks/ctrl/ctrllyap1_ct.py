@@ -51,6 +51,8 @@ def test_lnn():
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )
+    f_sym = c.f.to_sympy()
+    print(f_sym)
 
 
 if __name__ == "__main__":

@@ -18,41 +18,43 @@ import src.plots.plot_fcns as plotting
 
 def test_lnn():
     ###########################################
-    ### Converges in 1 s on 1st loop
-    ### Trivial example
+    ### Converes in 3s on second iter.
+    ### The beta search seems to be a bit more robust now.
     #############################################
     n_vars = 2
 
     system = NonPoly0()
     batch_size = 500
 
-    XD = sets.Sphere([0, 0], 1.1)
-
-    # XU = sets.SetMinus(sets.Rectangle([0, 0], [1.2, 1.2]), sets.Sphere([0.6, 0.6], 0.4))
-    XU = sets.Sphere([0.4, 0.4], 0.1)
+    XD = sets.Sphere([0, 0], 1.15)
+    XS = sets.Sphere([-0.3, -0.3], 0.7)
     XI = sets.Sphere([-0.6, -0.6], 0.01)
-    goal = sets.Sphere([0, 0], 0.1)
-    SD = sets.SetMinus(sets.SetMinus(XD, goal), XU)
+    XG = sets.Sphere([0, 0], 0.1)
 
-    from matplotlib import pyplot as plt
+    SU = sets.SetMinus(XD, XS)  # Data for unsafe set
+    SD = XS  # Data for lie set
 
     D = {
         "lie": XD,
         "init": XI,
-        "unsafe": XU,
-        "goal": goal,
+        "safe": XS,
+        "goal": XG,
     }
     symbolic_domains = {
         "lie": XD.generate_domain,
         "init": XI.generate_domain,
-        "unsafe_border": XU.generate_boundary,
-        "unsafe": XU.generate_interior,
-        "goal": goal.generate_domain,
+        "safe_border": XS.generate_boundary,
+        "safe": XS.generate_domain,
+        "goal": XG.generate_domain,
+        "goal_border": XG.generate_boundary,
     }
     data = {
         "lie": SD.generate_data(batch_size),
         "init": XI.generate_data(100),
-        "unsafe": XU.generate_data(100),
+        "unsafe": SU.generate_data(1000),
+        "safe": XS.generate_data(100),  # These are just for the beta search
+        "goal_border": XG.sample_border(200),
+        "goal": XG.generate_data(300),
     }
     F = lambda *args: (system, symbolic_domains, data, sets.inf_bounds_n(2))
 
@@ -64,18 +66,18 @@ def test_lnn():
     # )
 
     # define NN parameters
-    activations = [ActivationType.LIN_TO_QUARTIC]
-    n_hidden_neurons = [12] * len(activations)
+    activations = [ActivationType.LIN_TO_SEXTIC]
+    n_hidden_neurons = [16] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWA,
+        CERTIFICATE=CertificateType.RSWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        CEGIS_MAX_ITERS=10,
+        CEGIS_MAX_ITERS=20,
     )
 
     start = timeit.default_timer()

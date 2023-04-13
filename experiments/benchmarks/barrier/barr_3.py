@@ -20,7 +20,7 @@ from src.shared.consts import *
 def main():
     system = barr_3
     activations = [ActivationType.TANH]
-    hidden_neurons = [20] * len(activations)
+    hidden_neurons = [18] * len(activations)
     opts = CegisConfig(
         N_VARS=2,
         CERTIFICATE=CertificateType.BARRIER,
@@ -45,5 +45,6 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.set_num_threads(1)
     torch.manual_seed(167)
     main()

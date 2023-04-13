@@ -13,6 +13,7 @@ from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
 
 import src.shared.control as control
+from src.shared.consts import ActivationType
 from src.certificate import Lyapunov, Barrier
 
 ###############################
@@ -28,7 +29,7 @@ from src.certificate import Lyapunov, Barrier
 
 def nonpoly0_lyap():
     p = models.NonPoly0()
-    domain = Torus([0, 0], 1, 0.1)
+    domain = Torus([0, 0], 1, 0.01)
 
     return (
         p,
@@ -387,7 +388,7 @@ def control_ct():
     ctrler = control.StabilityCT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         Lyapunov.XD: XD.generate_domain,
@@ -409,7 +410,7 @@ def control_dt():
     ctrler = control.StabilityDT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         Lyapunov.XD: XD.generate_domain,

@@ -36,7 +36,6 @@ def test_robustness(h):
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=hidden_neurons,
-        SP_SIMPLIFY=True,
         VERBOSE=False,
     )
     c = Cegis(opts)

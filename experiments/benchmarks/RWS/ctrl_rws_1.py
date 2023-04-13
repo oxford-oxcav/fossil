@@ -10,92 +10,84 @@ import timeit
 
 
 from src.shared.components.cegis import Cegis
-import experiments.benchmarks.models as models
+from experiments.benchmarks.models import Linear1
 import experiments.benchmarks.domain_fcns as sets
+from experiments.benchmarks import models
 from src.shared.consts import *
 import src.plots.plot_fcns as plotting
 
 
 def test_lnn():
     ###########################################
-    ### DOES NOT WORK
-    ### MODEL IS CLEARLY INCORRECT.
-    ### Think this is due to incorrect certificate conditions from safe and unsafe discrepancy (will talk)
+    ###
     #############################################
     n_vars = 2
 
-    ol_system = models.Benchmark1()
+    ol_system = Linear1()
     system = lambda ctrl: models.GeneralClosedLoopModel(ol_system, ctrl)
-    batch_size = 500
 
-    XD = sets.Sphere([0, 0], 1.1)
+    XD = sets.Rectangle([-1.5, -1.5], [1.5, 1.5])
+    XS = sets.Rectangle([-1, -1], [1, 1])
+    XI = sets.Rectangle([-0.5, -0.5], [0.5, 0.5])
+    XG = sets.Rectangle([-0.1, -0.1], [0.1, 0.1])
 
-    # XU = sets.SetMinus(sets.Rectangle([0, 0], [1.2, 1.2]), sets.Sphere([0.6, 0.6], 0.4))
-    XU = sets.Sphere([0.4, 0.4], 0.1)
-    XI = sets.Sphere([-0.6, -0.6], 0.01)
-
-    # XU = sets.SetMinus(sets.Rectangle([0, 0], [1.2, 1.2]), sets.Sphere([0.6, 0.6], 0.4))
-    XG = sets.Sphere([0, 0], 0.1)
-    SD = sets.SetMinus(sets.SetMinus(XD, XG), XU)
+    SU = sets.SetMinus(XD, XS)  # Data for unsafe set
+    SD = sets.SetMinus(XS, XG)  # Data for lie set
 
     D = {
         "lie": XD,
         "init": XI,
-        "unsafe": XU,
+        "safe": XS,
         "goal": XG,
     }
     symbolic_domains = {
         "lie": XD.generate_domain,
         "init": XI.generate_domain,
-        "unsafe_border": XU.generate_boundary,
-        "unsafe": XU.generate_interior,
+        "safe_border": XS.generate_boundary,
+        "safe": XS.generate_domain,
         "goal": XG.generate_domain,
     }
     data = {
-        "lie": SD.generate_data(batch_size),
-        "init": XI.generate_data(100),
-        "unsafe": XU.generate_data(100),
+        "lie": XD.generate_data(1000),
+        "init": XI.generate_data(1000),
+        "unsafe": SU.generate_data(1000),
     }
-    F = lambda ctrl: (system(ctrl), symbolic_domains, data, sets.inf_bounds_n(2))
-
-    # plot_benchmark_plane(
-    #     system,
-    #     D,
-    #     xrange=[-1.1, 1.1],
-    #     yrange=[-1.1, 1.1],
-    # )
+    F = lambda *args: (system(*args), symbolic_domains, data, sets.inf_bounds_n(2))
 
     # define NN parameters
     activations = [ActivationType.LIN_TO_QUARTIC]
-    n_hidden_neurons = [10] * len(activations)
+    n_hidden_neurons = [18] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWA,
+        CERTIFICATE=CertificateType.RWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=10,
-        CTRLAYER=[15, 2],
+        CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     start = timeit.default_timer()
     c = Cegis(opts)
-    state, vars, f, iters = c.solve()
+    c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
     plotting.benchmark(
-        f,
+        c.f,
         c.learner,
         D,
         xrange=[-1.1, 1.1],
         yrange=[-1.1, 1.1],
         levels=[0],
     )
+
+    f_sym = c.f.to_sympy()
+    print(f_sym)
 
 
 if __name__ == "__main__":

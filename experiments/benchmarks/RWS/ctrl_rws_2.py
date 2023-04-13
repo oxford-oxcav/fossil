@@ -10,32 +10,29 @@ import timeit
 
 
 from src.shared.components.cegis import Cegis
-import experiments.benchmarks.models as models
+from experiments.benchmarks.models import SecondOrder
 import experiments.benchmarks.domain_fcns as sets
+from experiments.benchmarks import models
 from src.shared.consts import *
 import src.plots.plot_fcns as plotting
 
 
 def test_lnn():
     ###########################################
-    ### Converes in 6s on 14th loop
-    ### This is super brittle with control. The dynamics often just become unstable and messy.
-    ### I've added a term to the loss to try to encourage stability, but the balance of the hyperparameters is tricky.
+    ###
     #############################################
     n_vars = 2
 
-    ol_system = models.Benchmark1()
+    ol_system = SecondOrder()
     system = lambda ctrl: models.GeneralClosedLoopModel(ol_system, ctrl)
 
-    batch_size = 500
-
-    XD = sets.Sphere([0, 0], 1.5)
-    XS = sets.Sphere([-0.3, -0.3], 0.7)
-    XI = sets.Sphere([-0.6, -0.6], 0.01)
-    XG = sets.Sphere([0, 0], 0.1)
+    XD = sets.Rectangle([-1.5, -1.5], [1.5, 1.5])
+    XS = sets.Rectangle([-1, -1], [1, 1])
+    XI = sets.Rectangle([-0.5, -0.5], [0.5, 0.5])
+    XG = sets.Rectangle([-0.05, -0.05], [0.05, 0.05])
 
     SU = sets.SetMinus(XD, XS)  # Data for unsafe set
-    SD = sets.SetMinus(XS, XG)  # Data for lie set (domain less unsafe and goal)
+    SD = sets.SetMinus(XS, XG)  # Data for lie set
 
     D = {
         "lie": XD,
@@ -51,22 +48,15 @@ def test_lnn():
         "goal": XG.generate_domain,
     }
     data = {
-        "lie": SD.generate_data(100),
-        "init": XI.generate_data(100),
-        "unsafe": SU.generate_data(100),
+        "lie": SD.generate_data(1000),
+        "init": XI.generate_data(1000),
+        "unsafe": SU.generate_data(1000),
     }
     F = lambda *args: (system(*args), symbolic_domains, data, sets.inf_bounds_n(2))
 
-    # plot_benchmark_plane(
-    #     system,
-    #     D,
-    #     xrange=[-1.1, 1.1],
-    #     yrange=[-1.1, 1.1],
-    # )
-
     # define NN parameters
-    activations = [ActivationType.LIN_TO_QUARTIC]
-    n_hidden_neurons = [10] * len(activations)
+    activations = [ActivationType.SQUARE_DEC]
+    n_hidden_neurons = [18] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
@@ -76,8 +66,8 @@ def test_lnn():
         ACTIVATION=activations,
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        CEGIS_MAX_ITERS=15,
-        CTRLAYER=[5, 2],
+        CEGIS_MAX_ITERS=10,
+        CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
@@ -87,12 +77,15 @@ def test_lnn():
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
 
+    f_sym = c.f.to_sympy()
+    print(f_sym)
+
     plotting.benchmark(
         c.f,
         c.learner,
         D,
-        xrange=[-1.5, 1.5],
-        yrange=[-1.5, 1.5],
+        xrange=[-1.1, 1.1],
+        yrange=[-1.1, 1.1],
         levels=[0],
     )
 

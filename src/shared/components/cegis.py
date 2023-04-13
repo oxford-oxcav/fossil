@@ -8,7 +8,10 @@ from itertools import chain
 import numpy as np
 import torch
 
-from experiments.benchmarks.models import ClosedLoopModel, GeneralClosedLoopModel
+from experiments.benchmarks.models import (
+    _PreTrainedModel,
+    GeneralClosedLoopModel,
+)
 import src.certificate as certificate
 import src.learner as learner
 from src.shared.components.consolidator import Consolidator
@@ -89,7 +92,7 @@ class Cegis:
         )
 
         self.optimizer = torch.optim.AdamW(
-            chain(self.learner.parameters(), self.f.parameters),
+            [{"params": self.learner.parameters()}, {"params": self.f.parameters}],
             lr=self.config.LEARNING_RATE,
         )
 
@@ -104,14 +107,12 @@ class Cegis:
             # self.learner,
             self.x,
             self.xdot,
-            self.config.EQUILIBRIUM,
             self.config.ROUNDING,
-            verbose=self.config.VERBOSE,
+            config=self.config,
         )
         self._result = None
 
     def solve(self):
-
         Sdot = {lab: self.f(S) for lab, S in self.S.items()}
         S = self.S
 
@@ -147,7 +148,6 @@ class Cegis:
             CegisStateKeys.optimizer: self.optimizer,
             CegisStateKeys.S: S,
             CegisStateKeys.S_dot: Sdot,
-            CegisStateKeys.factors: self.config.FACTORS,
             CegisStateKeys.V: None,
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
@@ -192,15 +192,22 @@ class Cegis:
                 }
 
                 if state[CegisStateKeys.found] and component_idx == len(components) - 1:
-                    if self.config.CERTIFICATE == CertificateType.RSWA:
-                        stop = self.certificate.stay_in_goal_check(
+                    if self.config.CERTIFICATE == CertificateType.RSWS:
+                        stay = self.certificate.beta_search(
+                            self.learner,
                             self.verifier,
                             state[CegisStateKeys.V],
                             state[CegisStateKeys.V_dot],
+                            S,
                         )
-                        if stop:
+                        stop = True
+                        if stay:
                             print(
                                 f"Found a valid {self.config.CERTIFICATE.name} certificate"
+                            )
+                        else:
+                            print(
+                                f"Found a valid certificate, but could not prove the final stay condition"
                             )
                     else:
                         if isinstance(self.f, GeneralClosedLoopModel):
@@ -242,7 +249,7 @@ class Cegis:
                     state[CegisStateKeys.S_dot],
                     state[CegisStateKeys.cex],
                 )
-                if isinstance(self.f, ClosedLoopModel) or isinstance(
+                if isinstance(self.f, _PreTrainedModel) or isinstance(
                     self.f, GeneralClosedLoopModel
                 ):
                     pass
@@ -425,13 +432,11 @@ class DoubleCegis(Cegis):
             self.translator_type,
             self.x,
             self.xdot,
-            self.config.EQUILIBRIUM,
             self.config.ROUNDING,
-            verbose=self.config.VERBOSE,
+            config=self.config,
         )
 
     def solve(self):
-
         Sdot = {lab: self.f(S) for lab, S in self.S.items()}
         S = self.S
 
@@ -558,7 +563,7 @@ class DoubleCegis(Cegis):
                     state[CegisStateKeys.S_dot],
                     state[CegisStateKeys.cex],
                 )
-                if isinstance(self.f, ClosedLoopModel) or isinstance(
+                if isinstance(self.f, _PreTrainedModel) or isinstance(
                     self.f, GeneralClosedLoopModel
                 ):
                     pass

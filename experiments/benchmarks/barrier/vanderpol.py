@@ -47,7 +47,7 @@ def test_lnn():
 
     # define NN parameters
     activations = [ActivationType.TANH]
-    n_hidden_neurons = [20] * len(activations)
+    n_hidden_neurons = [16] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
@@ -58,7 +58,7 @@ def test_lnn():
         SYSTEM=F,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         SYMMETRIC_BELT=False,
-        CEGIS_MAX_ITERS=10,
+        CEGIS_MAX_ITERS=15,
     )
 
     start = timeit.default_timer()
@@ -78,5 +78,6 @@ def test_lnn():
 
 
 if __name__ == "__main__":
+    torch.set_num_threads(1)
     torch.manual_seed(167)
     test_lnn()

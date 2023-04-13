@@ -25,7 +25,7 @@ def main():
 
     system = barr_2
     activations = [ActivationType.TANH]
-    hidden_neurons = [8]
+    hidden_neurons = [12]
     opts = CegisConfig(
         N_VARS=2,
         CERTIFICATE=CertificateType.BARRIER,
@@ -54,4 +54,5 @@ def main():
 
 if __name__ == "__main__":
     torch.manual_seed(167)
+    torch.set_num_threads(1)
     main()

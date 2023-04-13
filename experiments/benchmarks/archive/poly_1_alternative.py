@@ -16,7 +16,6 @@ from functools import partial
 
 
 def test_lnn():
-
     n_vars = 3
     system = poly_1
 
@@ -32,8 +31,6 @@ def test_lnn():
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        SP_HANDLE=True,
-        SP_SIMPLIFY=True,
         LLO=True,
     )
 

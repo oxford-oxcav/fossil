@@ -12,6 +12,7 @@ from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
 
 
 from src.shared.consts import *
+from experiments.analysis import Recorder
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -44,12 +45,16 @@ def test_lnn():
     state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
+    rec = Recorder()
+    rec.record(opts, state, iters, stop - start)
 
     # plotting -- only for 2-d systems
     if len(vars) == 2:
         plot_lyce(
             np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
         )
+    f_sym = c.f.to_sympy()
+    print(f_sym)
 
 
 if __name__ == "__main__":

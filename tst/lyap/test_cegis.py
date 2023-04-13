@@ -48,7 +48,6 @@ class test_cegis(unittest.TestCase):
         )
 
     def assertLyapunovOverPositiveOrthant(self, system, c):
-
         f, domain, _, _ = system()
         domain = domain["lie-&-pos"](list(c.x_map.values()))
         tr = translator.TranslatorCT(c.x, c.xdot, None, 3, False)
@@ -74,14 +73,9 @@ class test_cegis(unittest.TestCase):
     def test_poly_2(self):
         torch.manual_seed(167)
 
-        batch_size = 500
         benchmark = poly_2
         n_vars = 2
         system = benchmark
-
-        # define domain constraints
-        outer_radius = 10
-        inner_radius = 0.01
 
         # define NN parameters
         activations = [ActivationType.SQUARE]
@@ -95,9 +89,6 @@ class test_cegis(unittest.TestCase):
             ACTIVATION=activations,
             SYSTEM=system,
             N_HIDDEN_NEURONS=n_hidden_neurons,
-            SP_HANDLE=False,
-            INNER_RADIUS=inner_radius,
-            OUTER_RADIUS=outer_radius,
             LLO=True,
         )
 
@@ -110,14 +101,11 @@ class test_cegis(unittest.TestCase):
 
     def test_non_poly_0(self):
         torch.manual_seed(167)
-        batch_size = 500
         benchmark = nonpoly0_lyap
         n_vars = 2
         system = benchmark
 
         # define domain constraints
-        outer_radius = 10
-        inner_radius = 0.01
 
         # define NN parameters
         activations = [ActivationType.SQUARE]
@@ -132,9 +120,6 @@ class test_cegis(unittest.TestCase):
             ACTIVATION=activations,
             SYSTEM=system,
             N_HIDDEN_NEURONS=n_hidden_neurons,
-            SP_HANDLE=False,
-            INNER_RADIUS=inner_radius,
-            OUTER_RADIUS=outer_radius,
             LLO=True,
         )
         c = Cegis(opts)
@@ -145,14 +130,9 @@ class test_cegis(unittest.TestCase):
 
     def test_non_poly_1(self):
         torch.manual_seed(167)
-        batch_size = 500
         benchmark = nonpoly1
         n_vars = 2
         system = benchmark
-
-        # define domain constraints
-        outer_radius = 10
-        inner_radius = 0.01
 
         # define NN parameters
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
@@ -166,9 +146,6 @@ class test_cegis(unittest.TestCase):
             ACTIVATION=activations,
             SYSTEM=system,
             N_HIDDEN_NEURONS=n_hidden_neurons,
-            SP_HANDLE=False,
-            INNER_RADIUS=inner_radius,
-            OUTER_RADIUS=outer_radius,
             LLO=True,
         )
         start = timeit.default_timer()
@@ -180,14 +157,9 @@ class test_cegis(unittest.TestCase):
 
     def test_non_poly_2(self):
         torch.manual_seed(167)
-        batch_size = 750
         benchmark = nonpoly2
         n_vars = 3
         system = benchmark
-
-        # define domain constraints
-        outer_radius = 10
-        inner_radius = 0.01
 
         # define NN parameters
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
@@ -203,9 +175,6 @@ class test_cegis(unittest.TestCase):
             ACTIVATION=activations,
             SYSTEM=system,
             N_HIDDEN_NEURONS=n_hidden_neurons,
-            SP_HANDLE=False,
-            INNER_RADIUS=inner_radius,
-            OUTER_RADIUS=outer_radius,
             LLO=True,
         )
         c = Cegis(opts)

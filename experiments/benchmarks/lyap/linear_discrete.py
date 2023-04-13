@@ -19,7 +19,6 @@ from src.plots.plot_lyap import plot_lyce_discrete
 
 
 def test_lnn():
-
     n_vars = 2
     system = linear_discrete
 
@@ -35,8 +34,6 @@ def test_lnn():
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        SP_HANDLE=False,
-        SP_SIMPLIFY=False,
         LLO=True,
     )
 

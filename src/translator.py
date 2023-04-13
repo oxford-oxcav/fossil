@@ -39,29 +39,22 @@ class TranslatorNN(Component):
     Base class for translators that rely on SMT.
     It provides the basic init and get methods."""
 
-    def __init__(self, x, xdot, eq, rounding, verbose):
+    def __init__(self, x, xdot, rounding, config):
         super().__init__()
         # self.net = net
         self.x = np.array(x).reshape(-1, 1)
         self.xdot = np.array(xdot).reshape(-1, 1)
-        self.eq = eq
         self.round = rounding
-        self.verbose = verbose
+        self.config = config
+        self.verbose = config.VERBOSE
 
     @timer(T)
     def get(self, **kw):
         # to disable rounded numbers, set rounding=-1
-        sp_handle = kw.get(CegisStateKeys.sp_handle, False)
         net = kw.get(CegisStateKeys.net)
         fcts = kw.get(CegisStateKeys.factors)
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(net, self.x, self.xdot, lf=fcts)
-
-        if sp_handle:
-            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
-            x_map = kw[CegisStateKeys.x_v_map]
-            V = sympy_converter(x_map, V)
-            Vdot = sympy_converter(x_map, Vdot)
 
         vprint(["Candidate: {}".format(V)], self.verbose)
 
@@ -88,9 +81,6 @@ class TranslatorCT(TranslatorNN):
 
     Calculates the symbolic formula for V and Vdot.
     """
-
-    def __init__(self, x, xdot, eq, rounding, verbose):
-        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
 
     def get_symbolic_formula(self, net, x, xdot, lf=None):
         """
@@ -166,9 +156,6 @@ class TranslatorDT(TranslatorNN):
 
     This calculates V(k+1) - V(k) instead of Vdot(x)"""
 
-    def __init__(self, x, xdot, eq, rounding, verbose):
-        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
-
     def get_symbolic_formula(self, net, x, xdot, lf=None):
         """
         :param net:
@@ -243,17 +230,10 @@ class TranslatorCTDouble(TranslatorCT):
         # to disable rounded numbers, set rounding=-1
         net = kw[CegisStateKeys.net]
         lyap_net, barr_net = net[0], net[1]
-        sp_handle = kw.get(CegisStateKeys.sp_handle, False)
         fcts = kw.get(CegisStateKeys.factors)
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(lyap_net, self.x, self.xdot, lf=fcts)
         B, Bdot = self.get_symbolic_formula(barr_net, self.x, self.xdot, lf=fcts)
-
-        if sp_handle:
-            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
-            x_map = kw[CegisStateKeys.x_v_map]
-            V = sympy_converter(x_map, V)
-            Vdot = sympy_converter(x_map, Vdot)
 
         vprint(["Candidate: {}".format((V, B))], self.verbose)
 
@@ -342,12 +322,12 @@ def get_translator_type(time_domain: Literal, verifier: Literal) -> Component:
         TypeError("Not Implemented Translator")
 
 
-def get_translator(translator_type: Component, x, xdot, eq, rounding, **kw):
+def get_translator(translator_type: Component, x, xdot, rounding, **kw):
     if (
         translator_type == TranslatorCT
         or translator_type == TranslatorDT
         or translator_type == TranslatorCTDouble
     ):
-        return translator_type(x, xdot, eq, rounding, **kw)
+        return translator_type(x, xdot, rounding, **kw)
     elif translator_type == MarabouTranslator:
         return translator_type(x.shape[0])

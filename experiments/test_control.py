@@ -4,51 +4,63 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import timeit
-
 # pylint: disable=not-callable
 import torch
-
-from experiments.benchmarks.benchmarks_lyap import *
-from experiments.analysis import Recorder
+import timeit
 from src.shared.components.cegis import Cegis
+from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
+
+
 from src.shared.consts import *
+from experiments.analysis import Recorder
+from src.plots.plot_lyap import plot_lyce
+import numpy as np
 
 
 def test_lnn():
-    benchmark = nonpoly0_lyap
-    X = Torus([0, 0], 1, 0.01)
+    # TEST for Control Lyapunov
+    # pass the ctrl parameters from here (i.e. the main)
+    benchmark = trivial_ctrllyap
     n_vars = 2
     system = benchmark
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    n_hidden_neurons = [4] * len(activations)
 
     start = timeit.default_timer()
     opts = CegisConfig(
         N_VARS=n_vars,
         CERTIFICATE=CertificateType.LYAPUNOV,
+        LLO=True,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.DREAL,
+        VERIFIER=VerifierType.Z3,
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        LLO=True,
-        CEGIS_MAX_ITERS=1,
-        XD=X,  # This doesn't do anything, just convienient for recording
+        CTRLAYER=[15, 2],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
     c = Cegis(opts)
     state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
-    elapsed = stop - start
-    print("Elapsed Time: {}".format(elapsed))
+    print("Elapsed Time: {}".format(stop - start))
     rec = Recorder()
-    rec.record(opts, state, elapsed, iters)
+    rec.record(opts, state, iters, stop - start)
+
+    # plotting -- only for 2-d systems
+    return state["found"], stop - start
 
 
 if __name__ == "__main__":
+    torch.manual_seed(169)
+    torch.set_num_threads(1)
+    success = 0
+    sum_T = 0
     for i in range(10):
-        torch.manual_seed(167 + i)
-        torch.set_num_threads(1)
-        test_lnn()
+        res, T = test_lnn()
+        if res:
+            success += 1
+        sum_T += T
+    print("Success rate: {}".format(success / 10))
+    print("Average time: {}".format(sum_T / 10))

@@ -50,6 +50,7 @@ class VerifierConfig:
     # - a smaller counterexample also exists
     # check again for a counterexample with the bound below
     DREAL_SECOND_CHANCE_BOUND: float = 1e3
+    DELTA: float = 1e-4
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -153,8 +154,8 @@ class Verifier(Component):
                         V_ctx, Vdot_ctx = self.replace_point(
                             C, self.xs, original_point.numpy().T
                         ), self.replace_point(dC, self.xs, original_point.numpy().T)
-                        print("\nV_ctx: ", V_ctx)
-                        print("\nVdot_ctx: ", Vdot_ctx)
+                        vprint(["\nV_ctx: {} ".format(V_ctx)], self.verbose)
+                        vprint(["\nVdot_ctx: {} ".format(Vdot_ctx)], self.verbose)
                     ces[label] = self.randomise_counterex(original_point)
                 else:
                     vprint([res], self.verbose)
@@ -332,12 +333,12 @@ class VerifierDReal(Verifier):
         )
 
     def _solver_solve(self, solver, fml):
-        res = dr.CheckSatisfiability(fml, 0.00001)
+        res = dr.CheckSatisfiability(fml, 0.0001)
         if self.is_sat(res) and not self.within_bounds(res):
             logging.log(logging.INFO, "Second chance bound used")
             new_bound = self.optional_configs.DREAL_SECOND_CHANCE_BOUND
             fml = dr.And(fml, *(dr.And(x < new_bound, x > -new_bound) for x in self.xs))
-            res = dr.CheckSatisfiability(fml, 0.00001)
+            res = dr.CheckSatisfiability(fml, 0.0001)
         return res
 
     def _solver_model(self, solver, res):
@@ -478,7 +479,6 @@ class VerifierMarabou(Verifier):
         # TODO: This now covers all 2^n orthants, but excludes a small 'cross' region around the axis - I think this is why
         # your approach is to add regions that overlap. Will add this but not urgent just yet (seems to work for very low inner cords)
         for i, orthant in enumerate(orthants):
-
             for j, var in enumerate(V_input_vars):
                 V_tuple[i].setLowerBound(
                     var, min(orthant[j] * inner, orthant[j] * outer)

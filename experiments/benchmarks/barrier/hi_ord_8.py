@@ -15,7 +15,6 @@ import torch
 
 
 def main():
-
     system = hi_ord_8
     activations = [ActivationType.LINEAR]
     hidden_neurons = [10]
@@ -28,8 +27,6 @@ def main():
         SYSTEM=system,
         N_HIDDEN_NEURONS=hidden_neurons,
         SYMMETRIC_BELT=False,
-        SP_HANDLE=True,
-        SP_SIMPLIFY=True,
         ROUNDING=2,
     )
 

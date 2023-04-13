@@ -1,10 +1,10 @@
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 
 from src.shared.activations import activation
 from src.shared.activations_symbolic import activation_sym
 from src.shared.consts import TimeDomain
+from src.shared.utils import vprint
 
 
 class BaseController(torch.nn.Module):
@@ -51,15 +51,14 @@ class BaseController(torch.nn.Module):
         return z
 
 
-"""
-GeneralController generalises the Controller module in the dimensionality definition. 
-The 'learn' method is empty, because it doesnt "learn" per se, but always in order to 
-make the Lyapunov conditions valid.
-Might merge the Base and Generalised Controller in the future...  
-"""
-
-
 class GeneralController(torch.nn.Module):
+    """
+    GeneralController generalises the Controller module in the dimensionality definition.
+    The 'learn' method is empty, because it doesnt "learn" per se, but always in order to
+    make the Lyapunov conditions valid.
+    Might merge the Base and Generalised Controller in the future...
+    """
+
     def __init__(self, inputs, output, layers, activations) -> None:
         super(GeneralController, self).__init__()
         self.inp = inputs
@@ -90,7 +89,7 @@ class GeneralController(torch.nn.Module):
     def learn(self, x: torch.Tensor, f_open: torch.Tensor, optimizer: torch.optim):
         pass
 
-    def to_symbolic(self, x):
+    def to_symbolic(self, x, verbose=False):
         y = np.atleast_2d(x).T
         rounding = 5
 
@@ -103,7 +102,7 @@ class GeneralController(torch.nn.Module):
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
         z = W @ y  # + b
 
-        print(f"Controller: \n{z}")
+        vprint(f"Controller: \n{z}", verbose)
 
         return z
 
@@ -167,13 +166,12 @@ class SafeStableCT(BaseController):
         return self.XU.check_containment(S_tau).int().sum()
 
 
-"""
-TrajectorySafeStable computes the trajectory of a model, 
-penalises the entry in the unsafe set and pushes the trajectory in the safe set 
-"""
-
-
 class TrajectorySafeStableCT(GeneralController):
+    """
+    TrajectorySafeStable computes the trajectory of a model,
+    penalises the entry in the unsafe set and pushes the trajectory in the safe set
+    """
+
     def __init__(
         self, inputs, outputs, layers, activations, time_domain, goal, unsafe, steps=10
     ) -> None:
@@ -206,7 +204,6 @@ class TrajectorySafeStableCT(GeneralController):
                 )
 
     def trajectory_compute(self, f_open, S):
-
         Sdot = torch.zeros((self.steps, S.shape[0], S.shape[1]))
         for s in range(self.steps):
             # compute f(x)
@@ -267,7 +264,6 @@ class TrajectoryStable(GeneralController):
                 print(f"Control Learning Loss: {loss.item()}")
 
     def trajectory_compute(self, f_open, S):
-
         Sdot = torch.zeros((self.steps, S.shape[0], S.shape[1]))
         for s in range(self.steps):
             # compute f(x)
@@ -316,3 +312,44 @@ class TrajectoryStable(GeneralController):
         desired_trajectory = expdecay.T * init_pos
 
         return (traj - desired_trajectory).norm(2, dim=-1).sum()
+
+
+def nonzero_loss1(S: torch.Tensor, Sdot: torch.Tensor):
+    # penalise zero control not near the origin
+    gamma = torch.norm(S, p=2, dim=1) ** 2
+    return (-gamma * torch.norm(Sdot, p=2, dim=1)).mean()
+
+
+def nonzero_loss1b(S: torch.Tensor, Sdot: torch.Tensor):
+    # penalise zero control not near the origin
+    # gamma = torch.norm(S, p=2, dim=1) ** 2
+    relu = torch.relu
+    bias = 0.1
+    nonzero_penalty = relu(-torch.norm(Sdot, p=2, dim=1) + bias)
+    return (nonzero_penalty).mean()
+
+
+def nonzero_loss2(S: torch.Tensor, Sdot: torch.Tensor):
+    # penalise difference between control in each dimension
+    # \sum_i=/=j |u_i - u_j|
+    l = 0
+    for i in range(S.shape[1] - 1):
+        j = i + 1
+        l += (torch.abs(Sdot[:, i]) / torch.abs(Sdot[:, j]) - 1).mean()
+    return l
+
+
+def ridge_reg(S: torch.Tensor, Sdot: torch.Tensor):
+    return torch.norm(Sdot, p=2, dim=1).mean()
+
+
+def ridge_reg_param(W: list[torch.Tensor]):
+    s = 0
+    s = s + torch.mean(torch.stack([torch.norm(Wi, p=2) for Wi in W]))
+    return s
+
+
+def cosine_reg(S: torch.Tensor, Sdot: torch.Tensor):
+    l = torch.cosine_similarity(S, Sdot, dim=1)
+    l = torch.relu(l) + torch.relu(-l - 0.5)
+    return l.mean()

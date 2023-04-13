@@ -32,7 +32,7 @@ def get_plot_colour(label):
         return "black", None
 
 
-def square_init_data(domain, batch_size):
+def square_init_data(domain, batch_size, on_border=False):
     """
     :param domain: list = [lower_bounds, upper_bounds]
                     lower_bounds, upper_bounds are lists
@@ -47,7 +47,7 @@ def square_init_data(domain, batch_size):
 
 
 # n-dim generalisation of circle and sphere
-def round_init_data(centre, r, batch_size):
+def round_init_data(centre, r, batch_size, on_border=False):
     """
     :param centre:
     :param r:
@@ -58,11 +58,11 @@ def round_init_data(centre, r, batch_size):
     if dim == 1:
         return segment([centre[0] - r, centre[0] + r], batch_size)
     elif dim == 2:
-        return circle_init_data(centre, r, batch_size)
+        return circle_init_data(centre, r, batch_size, on_border=on_border)
     elif dim == 3:
-        return sphere_init_data(centre, r, batch_size)
+        return sphere_init_data(centre, r, batch_size, on_border=on_border)
     else:
-        return n_dim_sphere_init_data(centre, r, batch_size)
+        return n_dim_sphere_init_data(centre, r, batch_size, on_border=on_border)
 
 
 def slice_nd_init_data(centre, r, batch_size):
@@ -100,7 +100,7 @@ def slice_init_data(centre, r, batch_size):
 
 
 # generates data for (X - centre)**2 <= radius
-def circle_init_data(centre, r, batch_size):
+def circle_init_data(centre, r, batch_size, on_border=False):
     """
     :param centre: list/tuple/tensor containing the 'n' coordinates of the centre
     :param radius: int
@@ -111,7 +111,10 @@ def circle_init_data(centre, r, batch_size):
     internal_batch = batch_size - border_batch
     r = np.sqrt(r)
     angle = (2 * np.pi) * torch.rand(internal_batch, 1)
-    radius = r * torch.rand(internal_batch, 1)
+    if on_border:
+        radius = r * torch.ones(internal_batch, 1)
+    else:
+        radius = r * torch.rand(internal_batch, 1)
     x_coord = radius * np.cos(angle)
     y_coord = radius * np.sin(angle)
     offset = torch.cat([x_coord, y_coord], dim=1)
@@ -126,7 +129,7 @@ def circle_init_data(centre, r, batch_size):
 
 
 # generates data for (X - centre)**2 <= radius
-def sphere_init_data(centre, r, batch_size):
+def sphere_init_data(centre, r, batch_size, on_border=False):
     """
     :param centre: list/tupe/tensor containing the 3 coordinates of the centre
     :param radius: int
@@ -140,7 +143,10 @@ def sphere_init_data(centre, r, batch_size):
     theta = (2 * np.pi) * torch.rand(batch_size, 1)
     phi = np.pi * torch.rand(batch_size, 1)
     r = np.sqrt(r)
-    radius = r * torch.rand(batch_size, 1)
+    if on_border:
+        radius = r * torch.ones(batch_size, 1)
+    else:
+        radius = r * torch.rand(batch_size, 1)
     x_coord = radius * np.sin(theta) * np.cos(phi)
     y_coord = radius * np.sin(theta) * np.sin(phi)
     z_coord = radius * np.cos(theta)
@@ -154,14 +160,17 @@ def sphere_init_data(centre, r, batch_size):
 # method 20: Muller generalised
 
 
-def n_dim_sphere_init_data(centre, radius, batch_size):
+def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
 
     dim = len(centre)
     u = torch.randn(
         batch_size, dim
     )  # an array of d normally distributed random variables
     norm = torch.sum(u**2, dim=1) ** (0.5)
-    r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
+    if on_border:
+        r = radius * torch.ones(batch_size, dim) ** (1.0 / dim)
+    else:
+        r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
     x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)
 
     return x
@@ -269,6 +278,9 @@ class Union(Set):
         self.S1 = S1
         self.S2 = S2
 
+    def __repr__(self) -> str:
+        return f"({self.S1} | {self.S2})"
+
     def generate_domain(self, x):
         f = self.set_functions(x)
         return f["Or"](self.S1.generate_domain(x), self.S2.generate_domain(x))
@@ -287,6 +299,9 @@ class Intersection(Set):
     def __init__(self, S1: Set, S2: Set) -> None:
         self.S1 = S1
         self.S2 = S2
+
+    def __repr__(self) -> str:
+        return f"({self.S1} & {self.S2})"
 
     def generate_domain(self, x):
         f = self.set_functions(x)
@@ -308,6 +323,9 @@ class SetMinus(Set):
     def __init__(self, S1: Set, S2: Set) -> None:
         self.S1 = S1
         self.S2 = S2
+
+    def __repr__(self):
+        return f"({self.S1} \ {self.S2})"
 
     def generate_domain(self, x):
         f = self.set_functions(x)
@@ -332,6 +350,9 @@ class Rectangle(Set):
         self.upper_bounds = ub
         self.dimension = len(lb)
         self.dim_select = dim_select
+
+    def __repr__(self):
+        return f"Rectangle{self.lower_bounds, self.upper_bounds}"
 
     def generate_domain(self, x):
         """
@@ -388,6 +409,18 @@ class Rectangle(Set):
         """
         return square_init_data([self.lower_bounds, self.upper_bounds], batch_size)
 
+    def sample_border(self, batch_size):
+        """Samples boundary points
+
+        Args:
+            batch_size (int): number of points to sample
+
+        Returns:
+            torch.Tensor: sampled boundary points
+        """
+        # Any idea how to do this for arbitrary dimension?
+        raise NotImplementedError
+
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
@@ -436,6 +469,9 @@ class Sphere(Set):
         self.radius = radius
         self.dimension = len(centre)
         self.dim_select = dim_select
+
+    def __repr__(self) -> str:
+        return f"Sphere{self.centre, self.radius}"
 
     def generate_domain(self, x):
         """
@@ -499,6 +535,15 @@ class Sphere(Set):
         """
         return round_init_data(self.centre, self.radius**2, batch_size)
 
+    def sample_border(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        return round_init_data(
+            self.centre, self.radius**2, batch_size, on_border=True
+        )
+
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
@@ -546,6 +591,9 @@ class PositiveOrthantSphere(Set):
         self.radius = radius
         self.dimension = len(centre)
 
+    def __repr__(self) -> str:
+        return f"PositiveOrthantSphere{self.centre, self.radius}"
+
     def generate_domain(self, x):
         """
         param x: data point x
@@ -557,7 +605,7 @@ class PositiveOrthantSphere(Set):
         return _And(
             *[x_i > 0 for x_i in x],
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
-            <= self.radius**2
+            <= self.radius**2,
         )
 
     def generate_data(self, batch_size):
@@ -581,6 +629,9 @@ class Torus(Set):
         self.dim_select = dim_select
 
         assert outer_radius > inner_radius
+
+    def __repr__(self) -> str:
+        return f"Torus{self.centre, self.outer_radius, self.inner_radius}"
 
     def generate_domain(self, x):
         """
@@ -668,6 +719,9 @@ class Bean2D(Set):
         self.radius = radius
         self.dimension = len(centre)
 
+    def __repr__(self) -> str:
+        return f"Bean2D{self.centre, self.radius}"
+
     def generate_domain(self, x):
         """
         param x: data point x
@@ -716,6 +770,9 @@ class Bean2D(Set):
 class EmptySet(Set):
     """Empty Set. Generates domains s.t. negations are always unsat."""
 
+    def __repr__(self) -> str:
+        return "EmptySet"
+
     def generate_domain(self, x):
         f = self.set_functions(x)
         return f["False"]
@@ -734,6 +791,9 @@ class Reals(Set):
     def __init__(self, dim):
         self.dim = dim
 
+    def __repr__(self) -> str:
+        return f"R^{self.dim}"
+
     def generate_domain(self, x):
         f = self.set_functions(x)
         return f["True"]
@@ -744,6 +804,9 @@ class Complement(Set):
 
     def __init__(self, set: Set):
         self.set = set
+
+    def __repr__(self) -> str:
+        return f"Complement({self.set})"
 
     def generate_domain(self, x):
         f = self.set_functions(x)
@@ -772,12 +835,10 @@ if __name__ == "__main__":
     import z3
 
     x = [z3.Real("x" + str(i)) for i in range(2)]
-    P = Bean2D([1, -1], 1)
-    fig, ax = plt.subplots()
-    # set axis limits
-    ax.set_xlim(-2, 2)
-    ax.set_ylim(-2, 2)
-    P.plot(fig, ax)
-    print(P.generate_domain(x))
-    print(P.generate_boundary(x))
+    P = Sphere([0, 0, 0, 0], 1)
+    S = P.sample_border(200)
+
+    from matplotlib import pyplot as plt
+
+    plt.plot(S[:, 0], S[:, 1], ".")
     plt.show()

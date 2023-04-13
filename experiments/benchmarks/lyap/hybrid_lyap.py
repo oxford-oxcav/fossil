@@ -21,7 +21,6 @@ import torch
 
 
 def main():
-
     system = twod_hybrid
     activations = [ActivationType.SQUARE]
     hidden_neurons = [10] * len(activations)
@@ -37,8 +36,6 @@ def main():
         N_HIDDEN_NEURONS=hidden_neurons,
         INNER_RADIUS=0.0,
         OUTER_RADIUS=10.0,
-        SP_HANDLE=False,
-        SP_SIMPLIFY=False,
         LLO=True,
     )
     c = Cegis(opts)
