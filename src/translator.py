@@ -12,43 +12,50 @@ import numpy as np
 import sympy as sp
 import torch
 
-try:
-    from maraboupy.Marabou import read_onnx
-    from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
-    marabou = True
-except ImportError as e:
-    logging.exception("Exception while importing Marabou")
-    marabou = False
-
 
 import src.learner as learner
 from src.shared.activations_symbolic import activation_der_sym, activation_sym
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.consts import LearningFactors, TimeDomain, VerifierType
+from src.shared.consts import *
 from src.shared.sympy_converter import sympy_converter
 from src.shared.utils import Timer, timer, vprint
 
 T = Timer()
 
 
-class TranslatorCT(Component):
-    def __init__(self, net, x, xdot, eq, rounding, **kw):
+def optional_Marabou_import():
+    try:
+        from maraboupy.Marabou import read_onnx
+        from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
+
+        marabou = True
+    except ImportError as e:
+        logging.exception("Exception while importing Marabou")
+
+
+class TranslatorNN(Component):
+    """Translator for neural networks
+
+    Base class for translators that rely on SMT.
+    It provides the basic init and get methods."""
+
+    def __init__(self, x, xdot, eq, rounding, verbose):
         super().__init__()
-        self.net = net
+        # self.net = net
         self.x = np.array(x).reshape(-1, 1)
         self.xdot = np.array(xdot).reshape(-1, 1)
         self.eq = eq
         self.round = rounding
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
+        self.verbose = verbose
 
     @timer(T)
     def get(self, **kw):
         # to disable rounded numbers, set rounding=-1
         sp_handle = kw.get(CegisStateKeys.sp_handle, False)
+        net = kw.get(CegisStateKeys.net)
         fcts = kw.get(CegisStateKeys.factors)
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
-        V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
+        V, Vdot = self.get_symbolic_formula(net, self.x, self.xdot, lf=fcts)
 
         if sp_handle:
             V, Vdot = sp.simplify(V), sp.simplify(Vdot)
@@ -60,7 +67,32 @@ class TranslatorCT(Component):
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 
-    def get_symbolic_formula(self, x, xdot, lf=None):
+    def compute_factors(self, x, lf):
+        """
+        :param x:
+        :param lf: linear factors
+        :return:
+        """
+        if lf == LearningFactors.QUADRATIC:
+            return np.sum(x**2), 2 * x
+        else:
+            return 1, 0
+
+    @staticmethod
+    def get_timer():
+        return T
+
+
+class TranslatorCT(TranslatorNN):
+    """Translator for continuous time models
+
+    Calculates the symbolic formula for V and Vdot.
+    """
+
+    def __init__(self, x, xdot, eq, rounding, verbose):
+        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
+
+    def get_symbolic_formula(self, net, x, xdot, lf=None):
         """
         :param net:
         :param x:
@@ -68,12 +100,12 @@ class TranslatorCT(Component):
         :return:
         """
 
-        z, jacobian = self.network_until_last_layer(x)
+        z, jacobian = self.network_until_last_layer(net, x)
 
         if self.round < 0:
-            last_layer = self.net.layers[-1].weight.data.numpy()
+            last_layer = net.layers[-1].weight.data.numpy()
         else:
-            last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
+            last_layer = np.round(net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
         jacobian = last_layer @ jacobian  # jacobian now contains the grad V
@@ -98,15 +130,15 @@ class TranslatorCT(Component):
 
         return V, Vdot
 
-    def network_until_last_layer(self, x):
+    def network_until_last_layer(self, net, x):
         """
         :param x:
         :return:
         """
         z = x
-        jacobian = np.eye(self.net.input_size, self.net.input_size)
+        jacobian = np.eye(net.input_size, net.input_size)
 
-        for idx, layer in enumerate(self.net.layers[:-1]):
+        for idx, layer in enumerate(net.layers[:-1]):
             if self.round < 0:
                 w = layer.weight.data.numpy()
                 if layer.bias is not None:
@@ -121,77 +153,23 @@ class TranslatorCT(Component):
                     b = np.zeros((layer.out_features, 1))
 
             zhat = w @ z + b
-            z = activation_sym(self.net.acts[idx], zhat)
+            z = activation_sym(net.acts[idx], zhat)
             # Vdot
             jacobian = w @ jacobian
-            jacobian = (
-                np.diagflat(activation_der_sym(self.net.acts[idx], zhat)) @ jacobian
-            )
+            jacobian = np.diagflat(activation_der_sym(net.acts[idx], zhat)) @ jacobian
 
         return z, jacobian
 
-    def compute_factors(self, x, lf):
-        """
-        :param x:
-        :param lf: linear factors
-        :return:
-        """
-        if lf == LearningFactors.QUADRATIC:  # quadratic terms
-            E, temp = 1, []
-            factors = np.full(
-                shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0
-            )
-            for idx in range(self.eq.shape[0]):  # number of equilibrium points
-                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[
-                    0, 0
-                ]
-                factors[idx] = x.T - self.eq[idx, :].reshape(x.T.shape)
-            # derivative = 2*(x-eq)*E/E_i
-            grad_e = sp.zeros(1, x.shape[0])
-            for var in range(x.shape[0]):
-                for idx in range(self.eq.shape[0]):
-                    grad_e[var] += sp.simplify(
-                        E
-                        * factors[idx, var]
-                        / sum(
-                            np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T
-                        )[0, 0]
-                    )
-            derivative_e = 2 * grad_e
-        else:  # no factors
-            E, derivative_e = 1.0, 0.0
 
-        return E, derivative_e
+class TranslatorDT(TranslatorNN):
+    """Translator for discrete time models
 
-    @staticmethod
-    def get_timer():
-        return T
+    This calculates V(k+1) - V(k) instead of Vdot(x)"""
 
+    def __init__(self, x, xdot, eq, rounding, verbose):
+        TranslatorNN.__init__(self, x, xdot, eq, rounding, verbose)
 
-class TranslatorDT(TranslatorCT):
-    def __init__(self, net, x, xdot, eq, rounding, **kw):
-        super().__init__(net, x, xdot, eq, rounding, **kw)
-
-    @timer(T)
-    def get(self, **kw):
-        # to disable rounded numbers, set rounding=-1
-        sp_handle = kw.get(CegisStateKeys.sp_handle, False)
-        fcts = kw.get(CegisStateKeys.factors)
-        # this updates the contents of f_smt when the controller is updated
-        self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
-        V, Vdot = self.get_symbolic_formula(self.x, self.xdot, lf=fcts)
-
-        if sp_handle:
-            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
-            x_map = kw[CegisStateKeys.x_v_map]
-            V = sympy_converter(x_map, V)
-            Vdot = sympy_converter(x_map, Vdot)
-
-        vprint(["Candidate: {}".format(V)], self.verbose)
-
-        return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
-
-    def get_symbolic_formula(self, x, xdot, lf=None):
+    def get_symbolic_formula(self, net, x, xdot, lf=None):
         """
         :param net:
         :param x:
@@ -199,21 +177,21 @@ class TranslatorDT(TranslatorCT):
         :return:
         """
 
-        z, z_xdot = self.network_until_last_layer(x), self.network_until_last_layer(
-            xdot
-        )
+        z, z_xdot = self.network_until_last_layer(
+            net, x
+        ), self.network_until_last_layer(net, xdot)
 
         if self.round < 0:
-            last_layer = self.net.layers[-1].weight.data.numpy()
+            last_layer = net.layers[-1].weight.data.numpy()
         else:
-            last_layer = np.round(self.net.layers[-1].weight.data.numpy(), self.round)
+            last_layer = np.round(net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
         z_xdot = last_layer @ z_xdot
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)
-        E = self.compute_factors(np.array(x).reshape(1, -1), lf)
+        E, _ = self.compute_factors(np.array(x).reshape(1, -1), lf)
 
         # gradV = der(NN) * E + dE/dx * NN
 
@@ -226,14 +204,14 @@ class TranslatorDT(TranslatorCT):
 
         return V, z_xdot - V
 
-    def network_until_last_layer(self, x):
+    def network_until_last_layer(self, net, x):
         """
         :param x:
         :return:
         """
         z = x
 
-        for idx, layer in enumerate(self.net.layers[:-1]):
+        for idx, layer in enumerate(net.layers[:-1]):
             if self.round < 0:
                 w = layer.weight.data.numpy()
                 if layer.bias is not None:
@@ -248,96 +226,101 @@ class TranslatorDT(TranslatorCT):
                     b = np.zeros((layer.out_features, 1))
 
             zhat = w @ z + b
-            z = activation_sym(self.net.acts[idx], zhat)
+            z = activation_sym(net.acts[idx], zhat)
             # Vdot
         return z
 
-    def compute_factors(self, x, lf):
+
+class TranslatorCTDouble(TranslatorCT):
+    """Translator for continuous time DoubleCegis.
+
+    This calculates symbolic formula for both a Lyapunov function
+    and a barrier function.
+    """
+
+    @timer(T)
+    def get(self, **kw):
+        # to disable rounded numbers, set rounding=-1
+        net = kw[CegisStateKeys.net]
+        lyap_net, barr_net = net[0], net[1]
+        sp_handle = kw.get(CegisStateKeys.sp_handle, False)
+        fcts = kw.get(CegisStateKeys.factors)
+        self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
+        V, Vdot = self.get_symbolic_formula(lyap_net, self.x, self.xdot, lf=fcts)
+        B, Bdot = self.get_symbolic_formula(barr_net, self.x, self.xdot, lf=fcts)
+
+        if sp_handle:
+            V, Vdot = sp.simplify(V), sp.simplify(Vdot)
+            x_map = kw[CegisStateKeys.x_v_map]
+            V = sympy_converter(x_map, V)
+            Vdot = sympy_converter(x_map, Vdot)
+
+        vprint(["Candidate: {}".format((V, B))], self.verbose)
+
+        return {CegisStateKeys.V: (V, B), CegisStateKeys.V_dot: (Vdot, Bdot)}
+
+
+class _DiffNet(torch.nn.Module):
+    """Private class to provide forward method of delta_V for Marabou
+
+    V (NNDiscrete): Candidate Lyapunov ReluNet
+    f (EstimNet): Estimate of system dynamics ReluNet
+    """
+
+    def __init__(self, V: learner.LearnerDT, f) -> None:
+        super(_DiffNet, self).__init__()
+        self.V = V
+        # Means forward can only be called with batchsize = 1
+        self.factor = torch.nn.Parameter(-1 * torch.ones([1, 1]))
+        self.F = f
+
+    def forward(self, S, Sdot) -> torch.Tensor:
+        return self.V(self.F(S), self.F(Sdot))[0] + self.factor @ self.V(S, Sdot)[0]
+
+
+class MarabouTranslator(Component):
+    """Takes an torch nn.module object and converts it to an onnx file to be read by marabou
+
+    dimension (int): Dimension of dynamical system
+    """
+
+    def __init__(self, dimension: int):
+        optional_Marabou_import()
+        self.dimension = dimension
+
+    @timer(T)
+    def get(
+        self, net: learner.LearnerDT = None, ENet=None, **kw
+    ) -> Tuple["MarabouNetworkONNX", "MarabouNetworkONNX"]:
         """
-        :param x:
-        :param lf: linear factors
-        :return:
+        net (NNDiscrete): PyTorch candidate Lyapunov Neural Network
+        ENet (EstimNet): dynamical system as PyTorch Neural Network
         """
-        if lf == LearningFactors.QUADRATIC:  # quadratic terms
-            E, temp = 1, []
-            factors = np.full(
-                shape=(self.eq.shape[0], x.shape[0]), dtype=object, fill_value=0
-            )
-            for idx in range(self.eq.shape[0]):  # number of equilibrium points
-                E *= sum(np.power((x.T - self.eq[idx, :].reshape(x.T.shape)), 2).T)[
-                    0, 0
-                ]
-                factors[idx] = x.T - self.eq[idx, :].reshape(x.T.shape)
-            # derivative = 2*(x-eq)*E/E_i
-        else:  # no factors
-            E = 1.0
+        tf_V = tempfile.NamedTemporaryFile(suffix=".onnx")
+        tf_DV = tempfile.NamedTemporaryFile(suffix=".onnx")
+        model = _DiffNet(net, ENet)
+        self.export_net_to_file(net, tf_V, "V")
+        self.export_net_to_file(model, tf_DV, "dV")
 
-        return E
+        V_net = read_onnx(tf_V.name, outputName="V")
+        dV_net = read_onnx(tf_DV.name, outputName="dV")
+        return {CegisStateKeys.V: V_net, CegisStateKeys.V_dot: dV_net}
 
-    @staticmethod
-    def get_timer():
-        return T
-
-
-if marabou:
-
-    class _DiffNet(torch.nn.Module):
-        """Private class to provide forward method of delta_V for Marabou
-
-        V (NNDiscrete): Candidate Lyapunov ReluNet
-        f (EstimNet): Estimate of system dynamics ReluNet
-        """
-
-        def __init__(self, V: learner.LearnerDT, f) -> None:
-            super(_DiffNet, self).__init__()
-            self.V = V
-            # Means forward can only be called with batchsize = 1
-            self.factor = torch.nn.Parameter(-1 * torch.ones([1, 1]))
-            self.F = f
-
-        def forward(self, S, Sdot) -> torch.Tensor:
-            return self.V(self.F(S), self.F(Sdot))[0] + self.factor @ self.V(S, Sdot)[0]
-
-
-    class MarabouTranslator(Component):
-        """Takes an torch nn.module object and converts it to an onnx file to be read by marabou
-
-        dimension (int): Dimension of dynamical system
-        """
-
-        def __init__(self, dimension: int):
-            self.dimension = dimension
-
-        @timer(T)
-        def get(
-            self, net: learner.LearnerDT = None, ENet=None, **kw
-        ) -> Tuple[MarabouNetworkONNX, MarabouNetworkONNX]:
-            """
-            net (NNDiscrete): PyTorch candidate Lyapunov Neural Network
-            ENet (EstimNet): dynamical system as PyTorch Neural Network
-            """
-            tf_V = tempfile.NamedTemporaryFile(suffix=".onnx")
-            tf_DV = tempfile.NamedTemporaryFile(suffix=".onnx")
-            model = _DiffNet(net, ENet)
-            self.export_net_to_file(net, tf_V, "V")
-            self.export_net_to_file(model, tf_DV, "dV")
-
-            V_net = read_onnx(tf_V.name, outputName="V")
-            dV_net = read_onnx(tf_DV.name, outputName="dV")
-            return {CegisStateKeys.V: V_net, CegisStateKeys.V_dot: dV_net}
-
-        def export_net_to_file(
-            self, net: Union[_DiffNet, learner.LearnerDT], tf, output: str
-        ) -> None:
-            dummy_input = (torch.rand([1, self.dimension]), torch.rand([1, self.dimension]))
-            torch.onnx.export(
-                net,
-                dummy_input,
-                tf,
-                input_names=["S", "Sdot"],
-                output_names=[output],
-                opset_version=11,
-            )
+    def export_net_to_file(
+        self, net: Union[_DiffNet, learner.LearnerDT], tf, output: str
+    ) -> None:
+        dummy_input = (
+            torch.rand([1, self.dimension]),
+            torch.rand([1, self.dimension]),
+        )
+        torch.onnx.export(
+            net,
+            dummy_input,
+            tf,
+            input_names=["S", "Sdot"],
+            output_names=[output],
+            opset_version=11,
+        )
 
     @staticmethod
     def get_timer():
@@ -359,8 +342,12 @@ def get_translator_type(time_domain: Literal, verifier: Literal) -> Component:
         TypeError("Not Implemented Translator")
 
 
-def get_translator(translator_type: Component, net, x, xdot, eq, rounding, **kw):
-    if translator_type == TranslatorCT or translator_type == TranslatorDT:
-        return translator_type(net, x, xdot, eq, rounding, **kw)
+def get_translator(translator_type: Component, x, xdot, eq, rounding, **kw):
+    if (
+        translator_type == TranslatorCT
+        or translator_type == TranslatorDT
+        or translator_type == TranslatorCTDouble
+    ):
+        return translator_type(x, xdot, eq, rounding, **kw)
     elif translator_type == MarabouTranslator:
         return translator_type(x.shape[0])

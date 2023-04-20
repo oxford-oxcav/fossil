@@ -19,40 +19,44 @@ try:
     import dreal as dr
 except ModuleNotFoundError:
     logging.exception("No dreal")
-try:
-    from maraboupy import Marabou
-except ImportError as e:
-    logging.exception("Exception while importing Marabou")
-    Marabou = None
 
-
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
 from src.shared.component import Component
-from src.shared.consts import VerifierType
-from src.shared.utils import (Timer, contains_object, dreal_replacements,
-                              timer, vprint, z3_replacements)
+from src.shared.consts import *
+from src.shared.utils import (
+    Timer,
+    contains_object,
+    dreal_replacements,
+    timer,
+    vprint,
+    z3_replacements,
+)
 
 T = Timer()
 
 
-class VerifierConfig(Enum, settings=NoAlias):
-    DREAL_INFINITY = 1e300
+def optional_Marabou_import():
+    """Function to import Marabou only if needed."""
+    try:
+        from maraboupy import Marabou
+    except ImportError as e:
+        logging.exception("Exception while importing Marabou")
+
+
+@dataclass
+class VerifierConfig:
+    DREAL_INFINITY: float = 1e300
     # dReal will return infinity when:
     # - no counterexamples are found
     # - a smaller counterexample also exists
     # check again for a counterexample with the bound below
-    DREAL_SECOND_CHANCE_BOUND = 1e3
+    DREAL_SECOND_CHANCE_BOUND: float = 1e3
 
-    @property
-    def k(self):
-        return self.name
+    def __getitem__(self, item):
+        return getattr(self, item)
 
-    @property
-    def v(self):
-        return self.value
 
 class Verifier(Component):
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
         super().__init__()
         self.iter = -1
         self.n = n_vars
@@ -63,8 +67,8 @@ class Verifier(Component):
         self._solver_timeout = 30
         self._vars_bounds = vars_bounds
         self.constraints_method = constraints_method
-        self.verbose = kw.get(CegisConfig.VERBOSE.k, CegisConfig.VERBOSE.v)
-        self.optional_configs = kw
+        self.verbose = verbose
+        self.optional_configs = VerifierConfig()
 
         assert self.counterexample_n > 0
 
@@ -143,9 +147,14 @@ class Verifier(Component):
                 if self.is_sat(res):
                     vprint([label + ": "], self.verbose)
                     original_point = self.compute_model(solvers[label], res)
-                    V_ctx, Vdot_ctx = self.replace_point(C, self.xs, original_point.numpy().T), self.replace_point(dC, self.xs, original_point.numpy().T)
-                    print("\nV_ctx: ", V_ctx)
-                    print("\nVdot_ctx: ", Vdot_ctx)
+                    # This next bit is hard to handle if C, dC are tuples of formula
+                    # For now, just check it's not a tuple
+                    if type(C) is not tuple:
+                        V_ctx, Vdot_ctx = self.replace_point(
+                            C, self.xs, original_point.numpy().T
+                        ), self.replace_point(dC, self.xs, original_point.numpy().T)
+                        print("\nV_ctx: ", V_ctx)
+                        print("\nVdot_ctx: ", Vdot_ctx)
                     ces[label] = self.randomise_counterex(original_point)
                 else:
                     vprint([res], self.verbose)
@@ -275,7 +284,7 @@ class Verifier(Component):
 
 class VerifierDReal(Verifier):
     @staticmethod
-    def new_vars(n, base='x'):
+    def new_vars(n, base="x"):
         return [dr.Variable(base + str(i)) for i in range(n)]
 
     def new_solver(self):
@@ -300,6 +309,8 @@ class VerifierDReal(Verifier):
             "If": dr.if_then_else,
             "Check": VerifierDReal.check_type,
             "Not": dr.Not,
+            "False": dr.Formula.FALSE(),
+            "True": dr.Formula.TRUE(),
         }
 
     def is_sat(self, res) -> bool:
@@ -323,10 +334,8 @@ class VerifierDReal(Verifier):
     def _solver_solve(self, solver, fml):
         res = dr.CheckSatisfiability(fml, 0.00001)
         if self.is_sat(res) and not self.within_bounds(res):
-            new_bound = self.optional_configs.get(
-                VerifierConfig.DREAL_SECOND_CHANCE_BOUND.k,
-                VerifierConfig.DREAL_SECOND_CHANCE_BOUND.v,
-            )
+            logging.log(logging.INFO, "Second chance bound used")
+            new_bound = self.optional_configs.DREAL_SECOND_CHANCE_BOUND
             fml = dr.And(fml, *(dr.And(x < new_bound, x > -new_bound) for x in self.xs))
             res = dr.CheckSatisfiability(fml, 0.00001)
         return res
@@ -338,13 +347,13 @@ class VerifierDReal(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
-        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
+        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, verbose)
 
 
 class VerifierZ3(Verifier):
     @staticmethod
-    def new_vars(n, base='x'):
+    def new_vars(n, base="x"):
         return [z3.Real(base + str(i)) for i in range(n)]
 
     def new_solver(self):
@@ -366,6 +375,8 @@ class VerifierZ3(Verifier):
             "If": z3.If,
             "Check": VerifierZ3.check_type,
             "Not": z3.Not,
+            "False": False,
+            "True": True,
         }
 
     @staticmethod
@@ -396,99 +407,100 @@ class VerifierZ3(Verifier):
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, **kw):
-        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, **kw)
+    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, verbose):
+        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, verbose)
 
 
-if Marabou:
-    class VerifierMarabou(Verifier):
-        def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
-            self.inner = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
-            self.outer = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
-            super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+class VerifierMarabou(Verifier):
+    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+        self.inner = kw.get(CegisConfig.INNER_RADIUS.k, CegisConfig.INNER_RADIUS.v)
+        self.outer = kw.get(CegisConfig.OUTER_RADIUS.k, CegisConfig.OUTER_RADIUS.v)
+        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+        optional_Marabou_import()
 
-        @staticmethod
-        def new_vars(n):
-            return range(n)
+    @staticmethod
+    def new_vars(n):
+        return range(n)
 
-        def new_solver(self):
-            return Marabou.createOptions(verbosity=0)
+    def new_solver(self):
+        return Marabou.createOptions(verbosity=0)
 
-        @staticmethod
-        def solver_fncts() -> Dict[str, Callable]:
-            return {"And": None, "Or": None, "Estim_Activation": np.max}
+    @staticmethod
+    def solver_fncts() -> Dict[str, Callable]:
+        return {"And": None, "Or": None, "Estim_Activation": np.max}
 
-        def is_sat(self, res: Dict) -> bool:
-            return bool(res)
+    def is_sat(self, res: Dict) -> bool:
+        return bool(res)
 
-        def is_unsat(self, res: Dict) -> bool:
-            return not bool(res)
+    def is_unsat(self, res: Dict) -> bool:
+        return not bool(res)
 
-        def _solver_solve(self, solver, fml):
-            results = [
-                quadrant.solve(options=solver, verbose=False)[0] for quadrant in fml
-            ]  # List of dicts of counter examples for each quadrant
-            combined_results = {}
-            for result in results:
-                combined_results.update(
-                    result
-                )  # This means counterexamples are lost - not a permanent solution
-            return combined_results
+    def _solver_solve(self, solver, fml):
+        results = [
+            quadrant.solve(options=solver, verbose=False)[0] for quadrant in fml
+        ]  # List of dicts of counter examples for each quadrant
+        combined_results = {}
+        for result in results:
+            combined_results.update(
+                result
+            )  # This means counterexamples are lost - not a permanent solution
+        return combined_results
 
-        def _solver_model(self, solver, res):
-            return res
+    def _solver_model(self, solver, res):
+        return res
 
-        def _model_result(self, solver, model, x, i):
-            return model[x]
+    def _model_result(self, solver, model, x, i):
+        return model[x]
 
-        def domain_constraints(
-            self, V: Marabou.MarabouNetworkONNX, Vdot: Marabou.MarabouNetworkONNX
-        ):
-            """
-            :param V:
-            :param Vdot:
-            :return: tuple of Marabou ONNX networks with appropriately set input/ output bounds
-            """
-            inner = self.inner
-            outer = self.outer
+    def domain_constraints(
+        self, V: "Marabou.MarabouNetworkONNX", Vdot: "Marabou.MarabouNetworkONNX"
+    ):
+        """
+        :param V:
+        :param Vdot:
+        :return: tuple of Marabou ONNX networks with appropriately set input/ output bounds
+        """
+        inner = self.inner
+        outer = self.outer
 
-            orthants = list(product(*[[1.0, -1.0] for i in range(self.n)]))
-            V_input_vars = V.inputVars[0][0]
-            Vdot_input_vars = Vdot.inputVars[0][0]
-            V_output_vars = V.outputVars[0]
-            Vdot_output_vars = Vdot.outputVars[0]
+        orthants = list(product(*[[1.0, -1.0] for i in range(self.n)]))
+        V_input_vars = V.inputVars[0][0]
+        Vdot_input_vars = Vdot.inputVars[0][0]
+        V_output_vars = V.outputVars[0]
+        Vdot_output_vars = Vdot.outputVars[0]
 
-            V_tuple = tuple(deepcopy(V) for i in range(len(orthants)))
-            Vdot_tuple = tuple(
-                deepcopy(Vdot) for i in range(len(orthants))
-            )  # Definitely bad usage of memory - a generator would be better
-            assert (V_input_vars == Vdot_input_vars).all()
+        V_tuple = tuple(deepcopy(V) for i in range(len(orthants)))
+        Vdot_tuple = tuple(
+            deepcopy(Vdot) for i in range(len(orthants))
+        )  # Definitely bad usage of memory - a generator would be better
+        assert (V_input_vars == Vdot_input_vars).all()
 
-            # TODO: This now covers all 2^n orthants, but excludes a small 'cross' region around the axis - I think this is why
-            # your approach is to add regions that overlap. Will add this but not urgent just yet (seems to work for very low inner cords)
-            for i, orthant in enumerate(orthants):
+        # TODO: This now covers all 2^n orthants, but excludes a small 'cross' region around the axis - I think this is why
+        # your approach is to add regions that overlap. Will add this but not urgent just yet (seems to work for very low inner cords)
+        for i, orthant in enumerate(orthants):
 
-                for j, var in enumerate(V_input_vars):
-                    V_tuple[i].setLowerBound(
-                        var, min(orthant[j] * inner, orthant[j] * outer)
-                    )
-                    V_tuple[i].setUpperBound(
-                        var, max(orthant[j] * inner, orthant[j] * outer)
-                    )
-                    Vdot_tuple[i].setLowerBound(
-                        var, min(orthant[j] * inner, orthant[j] * outer)
-                    )
-                    Vdot_tuple[i].setUpperBound(
-                        var, max(orthant[j] * inner, orthant[j] * outer)
-                    )
+            for j, var in enumerate(V_input_vars):
+                V_tuple[i].setLowerBound(
+                    var, min(orthant[j] * inner, orthant[j] * outer)
+                )
+                V_tuple[i].setUpperBound(
+                    var, max(orthant[j] * inner, orthant[j] * outer)
+                )
+                Vdot_tuple[i].setLowerBound(
+                    var, min(orthant[j] * inner, orthant[j] * outer)
+                )
+                Vdot_tuple[i].setUpperBound(
+                    var, max(orthant[j] * inner, orthant[j] * outer)
+                )
 
-                V_tuple[i].setUpperBound(V_output_vars[0], 0)
-                Vdot_tuple[i].setLowerBound(Vdot_output_vars[0], 0)
+            V_tuple[i].setUpperBound(V_output_vars[0], 0)
+            Vdot_tuple[i].setLowerBound(Vdot_output_vars[0], 0)
 
-            pass
+        pass
 
-            for cs in ({"lyap": (*V_tuple, *Vdot_tuple)},):
-                yield cs
+        for cs in ({"lyap": (*V_tuple, *Vdot_tuple)},):
+            yield cs
+
 
 def get_verifier_type(verifier: Literal) -> Verifier:
     if verifier == VerifierType.DREAL:
@@ -501,10 +513,12 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         raise ValueError("No verifier of type {}".format(verifier))
 
 
-def get_verifier(verifier, n_vars, constraints_method, vars_bounds, solver_vars, **kw):
+def get_verifier(
+    verifier, n_vars, constraints_method, vars_bounds, solver_vars, verbose
+):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
         or verifier == VerifierMarabou
     ):
-        return verifier(n_vars, constraints_method, vars_bounds, solver_vars, **kw)
+        return verifier(n_vars, constraints_method, vars_bounds, solver_vars, verbose)

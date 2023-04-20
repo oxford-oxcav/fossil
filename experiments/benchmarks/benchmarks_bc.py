@@ -11,9 +11,9 @@ import dreal
 
 from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-from src.shared.activations import ActivationType
+
 import src.shared.control as control
-from src.shared.consts import TimeDomain
+from src.shared.consts import *
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
@@ -41,7 +41,7 @@ def barr_3():
             _Or = f["Or"]
             _And = f["And"]
             return _Or(
-                _And((x - 1.5) ** 2 + y ** 2 <= 0.25),
+                _And((x - 1.5) ** 2 + y**2 <= 0.25),
                 _And(x >= -1.8, x <= -1.2, y >= -0.1, y <= 0.1),
                 _And(x >= -1.4, x <= -1.2, y >= -0.5, y <= 0.1),
             )
@@ -113,7 +113,7 @@ def barr_1():
     class UnsafeDomain(Set):
         def generate_domain(self, v):
             x, y = v
-            return x + y ** 2 <= 0
+            return x + y**2 <= 0
 
         def generate_data(self, batch_size):
             points = []
@@ -216,7 +216,7 @@ def obstacle_avoidance():
     class UnsafeDomain(Set):
         def generate_domain(self, v):
             x, y, _phi = v
-            return x ** 2 + y ** 2 <= 0.04
+            return x**2 + y**2 <= 0.04
 
         def generate_data(self, batch_size):
             xy = circle_init_data((0.0, 0.0), 0.04, batch_size)
@@ -371,7 +371,7 @@ def car_control():
     batch_size = 1000
     open_loop = models.Car()
     XD = Torus([0.0, 0.0, 0.0], outer, 0.1)
-    XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
+    XI = Sphere([0.7, 0.7, 0.7], 0.2)
     XU = Sphere([-0.7, -0.7, -0.7], 0.2)
     ctrler = control.SafeStableCT(3, [1], [ActivationType.LINEAR], XU)
     optim = torch.optim.AdamW(ctrler.parameters())
@@ -398,13 +398,19 @@ def car_traj_control():
     open_loop = models.Car()
 
     XD = Torus([0.0, 0.0, 0.0], outer, 0.1)
-    XI = Sphere([0.7, 0.7, 0.7 ], 0.2)
+    XI = Sphere([0.7, 0.7, 0.7], 0.2)
     XU = Sphere([-0.7, -0.7, -0.7], 0.2)
     XG = Sphere([0.3, 0.3, 0.3], 0.05)
 
-    ctrler = control.TrajectorySafeStableCT(dim=3, layers=[3], activations=[ActivationType.LINEAR],
-                                            time_domain=TimeDomain.CONTINUOUS,
-                                            goal=XG, unsafe=XU, steps=20)
+    ctrler = control.TrajectorySafeStableCT(
+        dim=3,
+        layers=[3],
+        activations=[ActivationType.LINEAR],
+        time_domain=TimeDomain.CONTINUOUS,
+        goal=XG,
+        unsafe=XU,
+        steps=20,
+    )
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
     f = models.ClosedLoopModel(open_loop, ctrler)
@@ -422,10 +428,12 @@ def car_traj_control():
 
     return f, domains, data, inf_bounds_n(3)
 
+
 if __name__ == "__main__":
-    f, X, S,  bounds = safe_control_ct()
+    f, X, S, bounds = safe_control_ct()
     from src.plots.plot_fcns import vector_field
     from matplotlib import pyplot as plt
+
     torch.manual_seed(169)
     xx = np.linspace(-10, 10, 20)
     yy = np.linspace(-10, 10, 20)

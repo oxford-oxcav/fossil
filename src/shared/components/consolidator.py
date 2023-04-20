@@ -7,7 +7,7 @@
 # pylint: disable=not-callable
 import torch
 
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import CegisStateKeys
 from src.shared.component import Component
 from src.shared.activations import activation, activation_der
 from src.shared.utils import Timer, timer

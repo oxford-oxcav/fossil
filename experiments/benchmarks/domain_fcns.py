@@ -6,8 +6,30 @@
 
 import torch
 import numpy as np
+from matplotlib import pyplot as plt
+import mpl_toolkits.mplot3d.art3d as art3d
 
 import src.verifier as verifier
+
+inf = 1e300
+inf_bounds = [-inf, inf]
+
+
+def inf_bounds_n(n):
+    return [inf_bounds] * n
+
+
+def get_plot_colour(label):
+    if label == "goal":
+        return "green", "Goal"
+    elif label == "unsafe":
+        return "red", "Unsafe"
+    elif label == "safe":
+        return "tab:cyan", "Safe"
+    elif label == "init":
+        return "blue", "Initial"
+    else:
+        return "black", None
 
 
 def square_init_data(domain, batch_size):
@@ -138,7 +160,7 @@ def n_dim_sphere_init_data(centre, radius, batch_size):
     u = torch.randn(
         batch_size, dim
     )  # an array of d normally distributed random variables
-    norm = torch.sum(u ** 2, dim=1) ** (0.5)
+    norm = torch.sum(u**2, dim=1) ** (0.5)
     r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
     x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)
 
@@ -276,7 +298,6 @@ class Intersection(Set):
         s2 = self.S2.generate_data(batch_size)
         s2 = s2[self.S1.check_containment(s2)]
         return torch.cat([s1, s2])
-       
 
 
 class SetMinus(Set):
@@ -290,26 +311,32 @@ class SetMinus(Set):
 
     def generate_domain(self, x):
         f = self.set_functions(x)
-        return f["And"](self.S1.generate_domain(x), f["Not"](self.S2.generate_domain(x)))
+        return f["And"](
+            self.S1.generate_domain(x), f["Not"](self.S2.generate_domain(x))
+        )
 
     def generate_data(self, batch_size):
         data = self.S1.generate_data(batch_size)
         data = data[~self.S2.check_containment(data)]
         return data
 
+    def plot(self, *args, **kwargs):
+        self.S1.plot(*args, **kwargs)
+        self.S2.plot(*args, **kwargs)
+
 
 class Rectangle(Set):
-    def __init__(self, lb, ub, dim_select=None):
+    def __init__(self, lb: tuple[float, ...], ub: tuple[float, ...], dim_select=None):
         self.name = "square"
         self.lower_bounds = lb
         self.upper_bounds = ub
         self.dimension = len(lb)
-        self.dim_select= dim_select
+        self.dim_select = dim_select
 
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         f = self.set_functions(x)
         lower = f["And"](*[self.lower_bounds[i] <= x[i] for i in range(self.dimension)])
@@ -323,7 +350,7 @@ class Rectangle(Set):
             x (List): symbolic data point
 
         Returns:
-            Formula for boundary of the rectangle
+            symbolic formula for boundary of the rectangle
         """
 
         f = self.set_functions(x)
@@ -343,14 +370,14 @@ class Rectangle(Set):
         return f["And"](lower, upper)
 
     def generate_complement(self, x):
-        """Generates complement of the set as a formulas 
+        """Generates complement of the set as a symbolic formulas
 
         Args:
             x (list): symbolic data point
 
         Returns:
             SMT variable: symbolic representation of complement of the rectangle
-        """        
+        """
         f = self.set_functions(x)
         return f["Not"](self.generate_domain(x))
 
@@ -364,7 +391,9 @@ class Rectangle(Set):
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
-        all_constr = torch.logical_and(torch.tensor(self.upper_bounds) >= x, torch.tensor(self.lower_bounds) <= x)
+        all_constr = torch.logical_and(
+            torch.tensor(self.upper_bounds) >= x, torch.tensor(self.lower_bounds) <= x
+        )
         ans = torch.zeros((x.shape[0]))
         for idx in range(all_constr.shape[0]):
             ans[idx] = all_constr[idx, :].all()
@@ -378,9 +407,27 @@ class Rectangle(Set):
 
         # returns 0 if it IS contained, a positive number otherwise
         return torch.relu(
-            torch.sum(x - torch.tensor(self.upper_bounds), dim=1)) + \
-               torch.relu(
-                   torch.sum(torch.tensor(self.lower_bounds) - x, dim=1))
+            torch.sum(x - torch.tensor(self.upper_bounds), dim=1)
+        ) + torch.relu(torch.sum(torch.tensor(self.lower_bounds) - x, dim=1))
+
+    def plot(self, fig, ax, label=None):
+        """
+        Plots the set
+        """
+        if self.dimension != 2:
+            raise NotImplementedError("Plotting is only implemented for 2D sets")
+        anchor = (self.lower_bounds[0], self.lower_bounds[1])
+        width = self.upper_bounds[0] - self.lower_bounds[0]
+        height = self.upper_bounds[1] - self.lower_bounds[1]
+        colour, label = get_plot_colour(label)
+        rect = plt.Rectangle(
+            anchor, width, height, fill=False, color=colour, label=label, linewidth=2.5
+        )
+        ax.add_artist(rect)
+
+        if ax.name == "3d":
+            art3d.pathpatch_2d_to_3d(rect, z=0, zdir="z")
+        return fig, ax
 
 
 class Sphere(Set):
@@ -388,32 +435,32 @@ class Sphere(Set):
         self.centre = centre
         self.radius = radius
         self.dimension = len(centre)
-        self.dim_select= dim_select
+        self.dim_select = dim_select
 
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return f["And"](
             sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
-            <= self.radius ** 2
+            <= self.radius**2
         )
 
     def generate_boundary(self, x):
         """
         param x: data point x
-        returns: formula for domain boundary
+        returns: symbolic formula for domain boundary
         """
         f = self.set_functions(x)
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         return f["And"](
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
-            == self.radius ** 2
+            == self.radius**2
         )
 
     def generate_interior(self, x):
@@ -422,26 +469,26 @@ class Sphere(Set):
         Args:
             x (List): symbolic data point x
 
-        Returns: 
-            Formula for interior of the sphere
+        Returns:
+            symbolic formula for interior of the sphere
         """
         f = self.set_functions(x)
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         return f["And"](
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
-            < self.radius ** 2
+            < self.radius**2
         )
-    
+
     def generate_complement(self, x):
-        """Generates complement of the set as a formulas 
+        """Generates complement of the set as a symbolic formulas
 
         Args:
             x (list): symbolic data point
 
         Returns:
             SMT variable: symbolic representation of complement of the sphere
-        """        
+        """
         f = self.set_functions(x)
         return f["Not"](self.generate_domain(x))
 
@@ -450,13 +497,13 @@ class Sphere(Set):
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return round_init_data(self.centre, self.radius ** 2, batch_size)
+        return round_init_data(self.centre, self.radius**2, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
-        return (x-c).norm(2, dim=-1) <= self.radius
+        return (x - c).norm(2, dim=-1) <= self.radius
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
         # check containment and return a tensor with gradient
@@ -466,12 +513,35 @@ class Sphere(Set):
             c = [self.centre[i] for i in self.dim_select]
             c = torch.tensor(c).reshape(1, -1)
         # returns 0 if it IS contained, a positive number otherwise
-        return torch.relu((x-c).norm(2, dim=-1) - self.radius)
+        return torch.relu((x - c).norm(2, dim=-1) - self.radius)
+
+    def plot(self, fig, ax, label=None):
+        if self.dimension != 2:
+            raise NotImplementedError("Plotting only supported for 2D sets")
+        colour, label = get_plot_colour(label)
+        r = self.radius
+        theta = np.linspace(0, 2 * np.pi, 50)
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+        return fig, ax
+        # circle = plt.Circle(
+        #     self.centre,
+        #     self.radius,
+        #     color=colour,
+        #     fill=False,
+        #     label=label,
+        #     linewidth=2.5,
+        # )
+        # ax.add_patch(circle)
+        # if ax.name == "3d":
+        #     art3d.pathpatch_2d_to_3d(circle, z=0, zdir="z")
+        # return fig, ax
 
 
 class PositiveOrthantSphere(Set):
     def __init__(self, centre, radius):
-        self.name = 'positive_sphere'
+        self.name = "positive_sphere"
         self.centre = centre
         self.radius = radius
         self.dimension = len(centre)
@@ -480,13 +550,14 @@ class PositiveOrthantSphere(Set):
         """
         param x: data point x
         param _And: And function for verifier
-        returns: formula for domain
+        returns: symbolic formula for domain
         """
         fcns = self.set_functions(x)
-        _And = fcns['And']
+        _And = fcns["And"]
         return _And(
             *[x_i > 0 for x_i in x],
-            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)]) <= self.radius ** 2
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            <= self.radius**2
         )
 
     def generate_data(self, batch_size):
@@ -494,7 +565,7 @@ class PositiveOrthantSphere(Set):
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return slice_nd_init_data(self.centre, self.radius ** 2, batch_size)
+        return slice_nd_init_data(self.centre, self.radius**2, batch_size)
 
 
 class Torus(Set):
@@ -507,38 +578,38 @@ class Torus(Set):
         self.outer_radius = outer_radius
         self.inner_radius = inner_radius
         self.dimension = len(centre)
-        self.dim_select=dim_select
+        self.dim_select = dim_select
 
         assert outer_radius > inner_radius
 
     def generate_domain(self, x):
         """
         param x: data point x
-        returns: formula for domain of hyper torus
+        returns: symbolic formula for domain of hyper torus
         """
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return f["And"](
-            self.inner_radius ** 2
+            self.inner_radius**2
             <= sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))]),
             sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
-            <= self.outer_radius ** 2,
+            <= self.outer_radius**2,
         )
 
     def generate_boundary(self, x):
         """
         param x: data point x
-        returns: formula for domain boundary
+        returns: symbolic formula for domain boundary
         """
         f = self.set_functions(x)
         return f["Or"](
             (
                 sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
-                == self.inner_radius ** 2
+                == self.inner_radius**2
             ),
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
-            == self.outer_radius ** 2,
+            == self.outer_radius**2,
         )
 
     def generate_data(self, batch_size):
@@ -546,13 +617,16 @@ class Torus(Set):
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return round_init_data(self.centre, self.outer_radius ** 2, batch_size)
+        return round_init_data(self.centre, self.outer_radius**2, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
-        return torch.logical_and((self.inner_radius <= (x-c).norm(2, dim=1)), (x-c).norm(2, dim=1) <= self.outer_radius)
+        return torch.logical_and(
+            (self.inner_radius <= (x - c).norm(2, dim=1)),
+            (x - c).norm(2, dim=1) <= self.outer_radius,
+        )
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
         # check containment and return a tensor with gradient
@@ -563,24 +637,147 @@ class Torus(Set):
             c = torch.tensor(c).reshape(1, -1)
 
         # returns 0 if it IS contained, a positive number otherwise
-        return torch.relu(self.inner_radius - (x-c).norm(2, dim=-1)) \
-               + torch.relu((x-c).norm(2, dim=-1) - self.outer_radius)
+        return torch.relu(self.inner_radius - (x - c).norm(2, dim=-1)) + torch.relu(
+            (x - c).norm(2, dim=-1) - self.outer_radius
+        )
+
+    def plot(self, fig, ax, label=None):
+        if self.dimension != 2:
+            raise NotImplementedError("Plotting only supported for 2D sets")
+        colour, label = get_plot_colour(label)
+        r = self.inner_radius
+        theta = np.linspace(0, 2 * np.pi, 50)
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+
+        r = self.outer_radius
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+
+        return fig, ax
+
+
+class Bean2D(Set):
+    """2D Bean shaped (nonconvex) set."""
+
+    def __init__(self, centre: list, radius: float):
+        assert len(centre) == 2
+        self.centre = centre
+        self.radius = radius
+        self.dimension = len(centre)
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain of hyper torus
+        """
+        x, y = x
+        x = x - self.centre[0]
+        y = y - self.centre[1]
+        boundary = (x**2 + y**2) ** 2 - self.radius * (x**3 - y**3)
+        return boundary <= 0
+
+    def generate_boundary(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain boundary
+        """
+        x, y = x
+        x = x - self.centre[0]
+        y = y - self.centre[1]
+        boundary = (x**2 + y**2) ** 2 - self.radius * (x**3 - y**3)
+        return boundary == 0
+
+    def generate_data(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        raise NotImplementedError
+
+    def plot(self, fig, ax):
+        """
+        Plot the set
+        """
+        x = np.linspace(-10, 10, 500)
+        y = np.linspace(-10, 10, 500)
+        X, Y = np.meshgrid(x, y)
+        xs = self.centre[0]
+        ys = self.centre[1]
+        Z = ((X - xs) ** 2 + (Y - ys) ** 2) ** 2 - self.radius * (
+            (X - xs) ** 3 + (Y - ys) ** 3
+        )
+        ax.contour(X, Y, Z, levels=[0], colors="r")
+        return fig, ax
+
+
+class EmptySet(Set):
+    """Empty Set. Generates domains s.t. negations are always unsat."""
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["False"]
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(x.shape[0], dtype=torch.bool)
+
+    def generate_data(self, batch_size):
+        return None
+
+
+class Reals(Set):
+    """Set of R^n"""
+
+    # I think this set is useless because its negation is always False
+    def __init__(self, dim):
+        self.dim = dim
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["True"]
+
+
+class Complement(Set):
+    """Complement of a set."""
+
+    def __init__(self, set: Set):
+        self.set = set
+
+    def generate_domain(self, x):
+        f = self.set_functions(x)
+        return f["Not"](self.set.generate_domain(x))
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        return ~self.set.check_containment(x)
+
+    def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
+        return -self.set.check_containment_grad(x)
+
+    def generate_boundary(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain boundary
+        """
+        return self.set.generate_boundary(x)
+
+    def plot(self, *args, **kwargs):
+        return self.set.plot(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    # X = n_dim_sphere_init_data(centre=(0, 0, 0, 0), radius=3, batch_size=100000)
-    # # print(X)
-    # print(f"max module: {torch.sqrt(torch.max(torch.sum(X**2, dim=1)))}")
-    # print(f"min module: {torch.sqrt(torch.min(torch.sum(X ** 2, dim=1)))}")
+    A = torch.tensor([[0, 1.0], [1.0, 0], [0, -1.0], [-1.0, 0]])
+    c = torch.tensor([[1.0], [1.0], [1.0], [1.0]])
+    import z3
 
-    # t = SetMinus(Sphere([0, 0], 2), Sphere([1.5, 1.5], 1))
-    t = Torus([0,0], 3, 2)
-    t = Sphere([-3, -3], 1)
-    x = t.generate_data(5000)
-    
-
-    x2 = x[t.check_containment(x)]
-    from matplotlib import pyplot as plt
-    plt.plot(x2[:,0], x2[:, 1], 'x')
+    x = [z3.Real("x" + str(i)) for i in range(2)]
+    P = Bean2D([1, -1], 1)
+    fig, ax = plt.subplots()
+    # set axis limits
+    ax.set_xlim(-2, 2)
+    ax.set_ylim(-2, 2)
+    P.plot(fig, ax)
+    print(P.generate_domain(x))
+    print(P.generate_boundary(x))
     plt.show()
-

@@ -10,9 +10,9 @@ import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import general_linear_unstable
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -28,16 +28,16 @@ def test_lnn():
     n_hidden_neurons = [7] * len(activations)
 
     start = timeit.default_timer()
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.LYAPUNOV,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.CONTINUOUS,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+    )
+    c = Cegis(opts)
     state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))

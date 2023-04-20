@@ -16,8 +16,7 @@ import torch
 
 from src.shared.activations import activation, activation_der
 from src.shared.activations_symbolic import activation_sym, activation_der_sym
-from src.shared.cegis_values import CegisStateKeys
-from src.shared.consts import LearningFactors
+from src.shared.consts import CegisStateKeys, LearningFactors
 
 
 def check_sympy_expression(state, system):
@@ -491,7 +490,7 @@ class Timer:
 
     def reset(self):
         """min diff, in seconds"""
-        self.min = 2 ** 63  # arbitrary
+        self.min = 2**63  # arbitrary
         """max diff, in seconds"""
         self.max = 0
         """number of times the timer has been stopped"""
@@ -525,8 +524,8 @@ class Timer:
         return self._sum
 
     def __repr__(self):
-        return "total={}s,min={}s,max={}s,avg={}s".format(
-            self._sum, self.min, self.max, self.avg
+        return "total={}s,min={}s,max={}s,avg={}s, N={}".format(
+            self._sum, self.min, self.max, self.avg, self.n_updates
         )
 
 

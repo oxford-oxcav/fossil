@@ -10,9 +10,9 @@ import torch
 import timeit
 from src.shared.components.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, TimeDomain, CertificateType
+
+
+from src.shared.consts import *
 from src.plots.plot_lyap import plot_lyce
 import numpy as np
 
@@ -29,19 +29,19 @@ def test_lnn():
     n_hidden_neurons = [4] * len(activations)
 
     start = timeit.default_timer()
-    opts = {
-        CegisConfig.N_VARS.k: n_vars,
-        CegisConfig.CERTIFICATE.k: CertificateType.CTRLLYAP,
-        CegisConfig.LLO.k: False,
-        CegisConfig.TIME_DOMAIN.k: TimeDomain.DISCRETE,
-        CegisConfig.VERIFIER.k: VerifierType.DREAL,
-        CegisConfig.ACTIVATION.k: activations,
-        CegisConfig.SYSTEM.k: system,
-        CegisConfig.N_HIDDEN_NEURONS.k: n_hidden_neurons,
-        CegisConfig.CTRLAYER.k: [15, 2],
-        CegisConfig.CTRLACTIVATION.k: [ActivationType.LINEAR]
-    }
-    c = Cegis(**opts)
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        LLO=False,
+        TIME_DOMAIN=TimeDomain.DISCRETE,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        CTRLAYER=[15, 2],
+        CTRLACTIVATION=[ActivationType.LINEAR],
+    )
+    c = Cegis(opts)
     state, vars, f, iters = c.solve()
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))

@@ -9,9 +9,8 @@ from unittest import mock
 from functools import partial
 import src.learner as learner
 from src.shared.components.consolidator import Consolidator
-from src.shared.activations import ActivationType
 from experiments.benchmarks.benchmarks_lyap import nonpoly0_lyap
-from src.shared.cegis_values import CegisStateKeys
+from src.shared.consts import CegisStateKeys, ActivationType
 import torch
 
 
@@ -59,9 +58,7 @@ class ConsolidatorTest(unittest.TestCase):
             # evaluate the points in Vdot(trajectory)
             v_dots = []
             for idx in range(len(trajectory)):
-                v_dots.append(
-                    traj.forward_Vdot(lrner, trajectory[idx].detach()).item()
-                )
+                v_dots.append(traj.forward_Vdot(lrner, trajectory[idx].detach()).item())
 
             # check that Vdot(trajectory) is an increasing sequence
             self.assertTrue(
