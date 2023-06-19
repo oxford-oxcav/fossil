@@ -11,7 +11,7 @@ import time
 import sympy as sp
 from z3 import *
 
-from src.shared.utils import Timer, timer, z3_to_string
+from src.utils import Timer, timer, z3_to_string
 
 
 class UtilsTest(unittest.TestCase):

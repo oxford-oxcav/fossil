@@ -1,33 +1,12 @@
 import math
+
 import torch
 
-from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-
-import src.shared.control as control
-from src.shared.consts import *
-from src.certificate import Lyapunov, RSWS, Barrier
-
-
-def trivial_ctrllyap(ctrler):
-    outer = 10.0
-    inner = 0.1
-    batch_size = 5000
-    open_loop = models.Benchmark1()
-
-    XD = Torus([0.0, 0.0], outer, inner)
-    equilibrium = torch.zeros((1, 2))
-
-    f = models.GeneralClosedLoopModel(open_loop, ctrler)
-
-    domains = {
-        Lyapunov.XD: XD.generate_domain,
-    }
-    data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
-    }
-
-    return f, domains, data, inf_bounds_n(2)
+import src.control as control
+from src import certificate
+from src.consts import *
+from src.domains import *
 
 
 def ctrllyap_identity(ctrler):
@@ -42,10 +21,10 @@ def ctrllyap_identity(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -62,10 +41,10 @@ def ctrllyap_nonpolylyap(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -83,17 +62,16 @@ def ctrllyap_unstable(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def ctrllyap_inv_pendulum(ctrler):
-
     outer = 1
     inner = 0.1
     batch_size = 1500
@@ -105,17 +83,16 @@ def ctrllyap_inv_pendulum(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def ctrllyap_lorenz_sys(ctrler):
-
     outer = 5.0
     inner = 0.1
     batch_size = 6000
@@ -127,10 +104,10 @@ def ctrllyap_lorenz_sys(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
@@ -185,10 +162,10 @@ def linear_unstable_trajectory():
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -217,10 +194,10 @@ def general_linear_unstable_trajectory():
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -237,10 +214,10 @@ def ctrllyap_linear_dt(ctrler):
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -306,10 +283,10 @@ def inv_pendulum_ctrl():
     f = models.GeneralClosedLoopModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -318,7 +295,6 @@ def inv_pendulum_ctrl():
 # taken from Tedrake's lecture notes and the code at
 # https://github.com/RussTedrake/underactuated/blob/master/underactuated/quadrotor2d.py
 def quadrotor2d_ctrl(ctrler):
-
     batch_size = 5000
     ins = 6
 
@@ -358,7 +334,6 @@ def quadrotor2d_ctrl(ctrler):
 
 
 def linear_satellite(ctrler):
-
     batch_size = 1500
     ins = 6
 
@@ -425,7 +400,6 @@ def linear_satellite(ctrler):
             )
 
         def check_containment(self, x: torch.Tensor) -> torch.Tensor:
-
             return torch.logical_or(
                 (x).norm(2, dim=-1) <= self.inner_radius,
                 (x).norm(2, dim=-1) <= self.outer_radius,
@@ -464,7 +438,6 @@ def linear_satellite(ctrler):
 
 
 def ctrl_obstacle_avoidance(ctrler):
-
     batch_size = 1000
     open_loop = models.CtrlObstacleAvoidance()
 

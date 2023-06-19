@@ -6,15 +6,14 @@
 
 import math
 
-import matplotlib.pyplot as plt
 import dreal
+import matplotlib.pyplot as plt
 
-from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-
-import src.shared.control as control
-from src.shared.consts import *
-from src.certificate import RWS, RSWS
+import src.certificate as certificate
+import src.control as control
+from src.consts import *
+from src.domains import *
 
 
 def rsws_demo():
@@ -27,18 +26,18 @@ def rsws_demo():
     XU = Rectangle([2, 2], [3, 3])
     XG = Sphere([0.0, 0.0], 0.01)
     domains = {
-        RSWS.XD: XD.generate_domain,
-        RSWS.XI: XI.generate_domain,
-        RSWS.XU: XU.generate_boundary,
-        RSWS.XS: XU.generate_complement,
-        RSWS.XG: XG.generate_domain,
-        RSWS.dXG: XG.generate_boundary,
+        certificate.XD: XD.generate_domain,
+        certificate.XI: XI.generate_domain,
+        certificate.XU: XU.generate_boundary,
+        certificate.XS: XU.generate_complement,
+        certificate.XG: XG.generate_domain,
+        certificate.XG_BORDER: XG.generate_boundary,
     }
     data = {
-        RSWS.SD: XD.generate_data(batch_size),
-        RSWS.SI: XI.generate_data(batch_size),
-        RSWS.SU: XU.generate_data(batch_size),
-        RSWS.SG: XG.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
+        certificate.XI: XI.generate_data(batch_size),
+        certificate.XU: XU.generate_data(batch_size),
+        certificate.XG: XG.generate_data(batch_size),
     }
     return f, domains, data, inf_bounds_n(2)
 
@@ -51,18 +50,18 @@ def rws_linear(controller):
     XI = Rectangle([-0.5, -0.5], [0.5, 0.5])
     XG = Rectangle([-0.1, -0.1], [0.1, 0.1])
     domains = {
-        RWS.XD: XD.generate_domain,
-        RWS.XI: XI.generate_domain,
-        RWS.XS: XS.generate_domain,
-        RWS.dXS: XS.generate_boundary,
-        RWS.XG: XG.generate_domain,
+        certificate.XD: XD.generate_domain,
+        certificate.XI: XI.generate_domain,
+        certificate.XS: XS.generate_domain,
+        certificate.XS_BORDER: XS.generate_boundary,
+        certificate.XG: XG.generate_domain,
     }
 
     f = models.GeneralClosedLoopModel(open_loop, controller)
     data = {
-        RWS.SD: XD.generate_data(batch_size),
-        RWS.SI: XI.generate_data(batch_size),
-        RWS.SS: XS.generate_data(batch_size),
-        RWS.SG: XG.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
+        certificate.XI: XI.generate_data(batch_size),
+        certificate.XS: XS.generate_data(batch_size),
+        certificate.XG: XG.generate_data(batch_size),
     }
     return f, domains, data, inf_bounds_n(2)

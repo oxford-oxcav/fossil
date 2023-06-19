@@ -8,9 +8,9 @@ import unittest
 from unittest import mock
 from functools import partial
 import src.learner as learner
-from src.shared.components.consolidator import Consolidator
+from src.consolidator import Consolidator
 from experiments.benchmarks.benchmarks_lyap import nonpoly0_lyap
-from src.shared.consts import CegisStateKeys, ActivationType
+from src.consts import CegisStateKeys, ActivationType
 import torch
 
 

@@ -3,16 +3,16 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Literal, Callable
+from typing import Callable, Literal
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from src.shared.activations import activation
-from src.shared.component import Component
-from src.shared.consts import *
-from src.shared.utils import Timer, timer
+from src.activations import activation
+from src.component import Component
+from src.consts import *
+from src.utils import Timer, timer
 
 T = Timer()
 
@@ -249,6 +249,10 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.SQUARE_DEC,
         ]
         return (activations[-1] in pd_acts) and (layers[-1].bias is None)
+
+    def clean(self):
+        """Prepares object for pickling by removing unpicklable attributes."""
+        self.learn_method = None
 
     @staticmethod
     def order_of_magnitude(number):

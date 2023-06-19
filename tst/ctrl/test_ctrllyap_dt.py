@@ -8,10 +8,10 @@ import unittest
 import torch
 import timeit
 import dreal as dr
-from src.shared.components.cegis import Cegis
-from src.shared.consts import *
+from src.cegis import Cegis
+from src.consts import *
 from src.learner import CtrlLearnerDT
-from src.shared.control import GeneralController
+from src.control import GeneralController
 from experiments.benchmarks.benchmark_ctrl import ctrllyap_identity, ctrllyap_linear_dt
 import src.translator as translator
 
@@ -62,7 +62,6 @@ class test_init(unittest.TestCase):
         return c
 
     def bigger_init(self):
-
         benchmark = ctrllyap_identity
         n_vars = 2
         system = benchmark
@@ -239,7 +238,6 @@ class test_init(unittest.TestCase):
         assert res is None
 
     def test_learning(self):
-
         c = self.init_unstable()
         learner = c.learner
         opt = c.optimizer

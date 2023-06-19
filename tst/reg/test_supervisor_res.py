@@ -4,22 +4,23 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import timeit
+
 # pylint: disable=not-callable
 import torch
-import timeit
-from time import sleep
-from src.shared.components.cegis import Cegis
-from src.shared.CegisSupervisor import CegisSupervisorQ, CegisSupervisor
+
+import src.plotting as plotting
+from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
 from experiments.benchmarks.benchmarks_lyap import *
-from src.shared.consts import *
-import src.plots.plot_fcns as plotting
+from src.cegis_supervisor import CegisSupervisorQ
+from src.consts import *
 
 
 def test_lnn():
     benchmark = nonpoly0_lyap
     n_vars = 2
     system = benchmark
-    f = system()[0]
+    f = system
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
@@ -37,29 +38,46 @@ def test_lnn():
         LLO=True,
         CEGIS_MAX_ITERS=1,
     )
-    sup = CegisSupervisorQ(max_P=4)
-    res = sup.run(opts)
-    print(res)
+    sup = CegisSupervisorQ(max_P=1)
+    res = sup.solve(opts)
     stop = timeit.default_timer()
     print("Elapsed Time: {}".format(stop - start))
+    print(res)
 
-    i = res["id"]
-    for key in res.keys():
-        assert str(i) in key or "id" in key
 
-    cert = res["cert" + str(i)]
+def test_lnn_ctrl():
+    benchmark = trivial_ctrllyap
+    n_vars = 2
+    system = benchmark
+    f = system
 
-    plotting.benchmark(
-        f,
-        cert,
-        {},
-        levels=[0.1, 0.5, 1],
-        xrange=[-3, 3],
-        yrange=[-3, 3],
+    # define NN parameters
+    activations = [ActivationType.SQUARE]
+    n_hidden_neurons = [2] * len(activations)
+
+    start = timeit.default_timer()
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=activations,
+        SYSTEM=system,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        LLO=True,
+        CEGIS_MAX_ITERS=1,
+        CTRLAYER=[15, 2],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
+    sup = CegisSupervisorQ(max_P=4)
+    res = sup.solve(opts)
+    stop = timeit.default_timer()
+    print("Elapsed Time: {}".format(stop - start))
+    print(res)
 
 
 if __name__ == "__main__":
-    # torch.manual_seed(167)
+    torch.manual_seed(167)
     torch.set_num_threads(1)
     test_lnn()
+    test_lnn_ctrl()

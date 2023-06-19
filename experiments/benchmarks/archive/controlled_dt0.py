@@ -7,11 +7,11 @@
 # pylint: disable=not-callable
 import torch
 import timeit
-from src.shared.components.cegis import Cegis
+from src.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 
 
-from src.shared.consts import *
+from src.consts import *
 from src.plots.plot_lyap import plot_lyce
 
 

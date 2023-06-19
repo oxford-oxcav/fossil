@@ -10,17 +10,19 @@ from typing import Generator, Type
 import torch
 from torch.optim import Optimizer
 
+import src.control as control
 import src.learner as learner
-from src.shared.consts import CegisConfig, CertificateType
-from src.shared.utils import vprint
-import src.shared.control as control
+from src.consts import CegisConfig, CertificateType
+from src.utils import vprint
 
 XD = "lie"
 XI = "init"
 XU = "unsafe"
+XS = "safe"
 XG = "goal"
-D_XG = "goal_border"
-D_XS = "safe_border"
+XG_BORDER = "goal_border"
+XS_BORDER = "safe_border"
+XF = "final"
 
 
 class Certificate:
@@ -51,11 +53,8 @@ class Lyapunov(Certificate):
 
     """
 
-    XD = "lie-&-pos"
-    SD = XD
-
     def __init__(self, domains, config: CegisConfig) -> None:
-        self.domain = domains[Lyapunov.XD]
+        self.domain = domains[XD]
         self.bias = False
         self.pos_def = False
         self.llo = CegisConfig.LLO
@@ -109,14 +108,14 @@ class Lyapunov(Certificate):
         :return: --
         """
 
-        batch_size = len(S[Lyapunov.SD])
+        batch_size = len(S[XD])
         learn_loops = 1000
-        samples = S[Lyapunov.SD]
+        samples = S[XD]
 
         if f_torch:
             samples_dot = f_torch(samples)
         else:
-            samples_dot = Sdot[Lyapunov.SD]
+            samples_dot = Sdot[XD]
 
         assert len(samples) == len(samples_dot)
 
@@ -174,7 +173,7 @@ class Lyapunov(Certificate):
         else:
             lyap_negated = _Or(V <= 0, Vdot > 0)
         lyap_condition = _And(self.domain, lyap_negated)
-        for cs in ({Lyapunov.SD: lyap_condition},):
+        for cs in ({XD: lyap_condition},):
             yield cs
 
 
@@ -190,17 +189,10 @@ class Barrier(Certificate):
 
     """
 
-    XD = "lie"
-    XI = "init"
-    XU = "unsafe"
-    SD = XD
-    SI = XI
-    SU = XU
-
     def __init__(self, domains, config: CegisConfig) -> None:
-        self.domain = domains[Barrier.XD]
-        self.initial_s = domains[Barrier.XI]
-        self.unsafe_s = domains[Barrier.XU]
+        self.domain = domains[XD]
+        self.initial_s = domains[XI]
+        self.unsafe_s = domains[XU]
         self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
         self.bias = True
 
@@ -281,10 +273,10 @@ class Barrier(Certificate):
 
         learn_loops = 1000
         condition_old = False
-        i1 = S[Barrier.XD].shape[0]
-        i2 = S[Barrier.XI].shape[0]
+        i1 = S[XD].shape[0]
+        i2 = S[XI].shape[0]
         # samples = torch.cat([s for s in S.values()])
-        label_order = [self.XD, self.XI, self.XU]
+        label_order = [XD, XI, XU]
         samples = torch.cat([S[label] for label in label_order])
 
         if f_torch:
@@ -375,8 +367,8 @@ class Barrier(Certificate):
         unsafe_constr = _And(unsafe_constr, self.domain)
 
         for cs in (
-            {Barrier.SI: inital_constr, Barrier.SU: unsafe_constr},
-            {Barrier.SD: lie_constr},
+            {XI: inital_constr, XU: unsafe_constr},
+            {XD: lie_constr},
         ):
             yield cs
 
@@ -393,17 +385,10 @@ class BarrierAlt(Certificate):
 
     """
 
-    XD = "lie"
-    XI = "init"
-    XU = "unsafe"
-    SD = XD
-    SI = XI
-    SU = XU
-
     def __init__(self, domains, config: CegisConfig) -> None:
-        self.domain = domains[BarrierAlt.XD]
-        self.initial_s = domains[BarrierAlt.XI]
-        self.unsafe_s = domains[BarrierAlt.XU]
+        self.domain = domains[XD]
+        self.initial_s = domains[XI]
+        self.unsafe_s = domains[XU]
         self.bias = True
 
     def compute_loss(
@@ -469,10 +454,10 @@ class BarrierAlt(Certificate):
 
         learn_loops = 1000
         condition_old = False
-        i1 = S[BarrierAlt.XD].shape[0]
-        i2 = S[BarrierAlt.XI].shape[0]
+        i1 = S[XD].shape[0]
+        i2 = S[XI].shape[0]
         # samples = torch.cat([s for s in S.values()])
-        label_order = [self.XD, self.XI, self.XU]
+        label_order = [XD, XI, XU]
         samples = torch.cat([S[label] for label in label_order])
 
         if f_torch:
@@ -565,8 +550,8 @@ class BarrierAlt(Certificate):
         inital_constr = _And(inital_constr, self.domain)
         unsafe_constr = _And(unsafe_constr, self.domain)
         for cs in (
-            {BarrierAlt.SD: inital_constr, BarrierAlt.SU: unsafe_constr},
-            {BarrierAlt.SD: lie_constr},
+            {XI: inital_constr, XU: unsafe_constr},
+            {XD: lie_constr},
         ):
             yield cs
 
@@ -581,18 +566,6 @@ class RWS(Certificate):
     A = {x \in XS| V <=0 }
 
     """
-
-    XD = "lie"
-    XI = "init"
-    XS = "safe"
-    XU = "unsafe"
-    dXS = "safe_border"
-    XG = "goal"
-    SD = XD
-    SI = XI
-    SS = XS
-    SG = XG
-    SU = XU
 
     def __init__(self, domains, config: CegisConfig) -> None:
         """initialise the RWS certificate
@@ -609,11 +582,11 @@ class RWS(Certificate):
             SD: points from XS \ XG (domain less unsafe and goal set)
 
         """
-        self.domain = domains[RWS.XD]
-        self.initial = domains[RWS.XI]
-        self.safe = domains[RWS.XS]
-        self.safe_border = domains[RWS.dXS]
-        self.goal = domains[RWS.XG]
+        self.domain = domains[XD]
+        self.initial = domains[XI]
+        self.safe = domains[XS]
+        self.safe_border = domains[XS_BORDER]
+        self.goal = domains[XG]
         self.bias = True
 
     def compute_loss(self, V_i, V_u, V_d, Vdot_d):
@@ -666,11 +639,11 @@ class RWS(Certificate):
 
         learn_loops = 1000
         condition_old = False
-        i1 = S[RWS.XD].shape[0]
-        i2 = S[RWS.XI].shape[0]
-        label_order = [RWS.XD, RWS.XI, RWS.XU]
+        i1 = S[XD].shape[0]
+        i2 = S[XI].shape[0]
+        label_order = [XD, XI, XU]
         samples = torch.cat([S[label] for label in label_order])
-        # samples = torch.cat((S[RWS.XD], S[RWS.XI], S[RWS.XU]))
+        # samples = torch.cat((S[XD], S[XI], S[XU]))
 
         if f_torch:
             samples_dot = f_torch(samples)
@@ -760,8 +733,8 @@ class RWS(Certificate):
         unsafe_constr = _And(unsafe_constr, self.domain)
 
         for cs in (
-            {RWS.XI: inital_constr, RWS.XU: unsafe_constr},
-            {RWS.XD: lie_constr},
+            {XI: inital_constr, XU: unsafe_constr},
+            {XD: lie_constr},
         ):
             yield cs
 
@@ -790,19 +763,6 @@ class RSWS(RWS):
     requires an unsafe set to be passed in, and assumes its border is the same of the border of the safe set.
     """
 
-    XD = "lie"
-    XI = "init"
-    XS = "safe"
-    XU = "unsafe"
-    dXS = "safe_border"
-    dXG = "goal_border"
-    XG = "goal"
-    SD = XD
-    SI = XI
-    SS = XS
-    SG = XG
-    SU = XU
-
     def __init__(self, domains, config: CegisConfig) -> None:
         """initialise the RSWS certificate
         Domains should contain:
@@ -818,12 +778,12 @@ class RSWS(RWS):
             SD: points from XS \ XG (domain less unsafe and goal set)
 
         """
-        self.domain = domains[RSWS.XD]
-        self.initial = domains[RSWS.XI]
-        self.safe = domains[RSWS.XS]
-        self.safe_border = domains[RSWS.dXS]
-        self.goal = domains[RSWS.XG]
-        self.goal_border = domains[RSWS.dXG]
+        self.domain = domains[XD]
+        self.initial = domains[XI]
+        self.safe = domains[XS]
+        self.safe_border = domains[XS_BORDER]
+        self.goal = domains[XG]
+        self.goal_border = domains[XG_BORDER]
         self.bias = True
 
     def compute_beta_loss(self, beta, V_d, Vdot_d):
@@ -861,19 +821,19 @@ class RSWS(RWS):
 
         learn_loops = 1000
         condition_old = False
-        lie_indices = 0, S[RSWS.XD].shape[0]
-        init_indices = lie_indices[1], lie_indices[1] + S[RSWS.XI].shape[0]
-        unsafe_indices = init_indices[1], init_indices[1] + S[RSWS.XU].shape[0]
+        lie_indices = 0, S[XD].shape[0]
+        init_indices = lie_indices[1], lie_indices[1] + S[XI].shape[0]
+        unsafe_indices = init_indices[1], init_indices[1] + S[XU].shape[0]
         goal_border_indices = (
             unsafe_indices[1],
-            unsafe_indices[1] + S[RSWS.dXG].shape[0],
+            unsafe_indices[1] + S[XG_BORDER].shape[0],
         )
         goal_indices = (
             goal_border_indices[1],
-            goal_border_indices[1] + S[RSWS.XG].shape[0],
+            goal_border_indices[1] + S[XG].shape[0],
         )
         # Setting label order allows datasets to be passed in any order
-        label_order = [RWS.XD, RWS.XI, RWS.XU, RSWS.dXG, RSWS.XG]
+        label_order = [XD, XI, XU, XG_BORDER, XG]
         samples = torch.cat([S[label] for label in label_order])
 
         if f_torch:
@@ -1032,14 +992,10 @@ class RSWS(RWS):
 class StableSafe(Certificate):
     """Certificate to prove stable while safe"""
 
-    XD = SD = "lie"
-    XI = SI = "init"
-    XU = SU = "unsafe"
-
     def __init__(self, domains, config: CegisConfig) -> None:
-        self.domain = domains["lie"]
-        self.initial_s = domains["init"]
-        self.unsafe_s = domains["unsafe"]
+        self.domain = domains[XD]
+        self.initial_s = domains[XI]
+        self.unsafe_s = domains[XU]
         self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
         self.llo = config.LLO
 
@@ -1151,9 +1107,9 @@ class StableSafe(Certificate):
 
         learn_loops = 1000
         condition_old = False
-        i1 = S["lie"].shape[0]
-        i2 = S["init"].shape[0]
-        label_order = [self.XD, self.XI, self.XU]
+        i1 = S[XD].shape[0]
+        i2 = S[XI].shape[0]
+        label_order = [XD, XI, XU]
         samples = torch.cat([S[label] for label in label_order])
         samples = torch.cat([s for s in S.values()])
 
@@ -1244,7 +1200,7 @@ class StableSafe(Certificate):
             lyap_negated = _Or(V <= 0, Vdot > 0)
         lyap_condition = _And(self.domain, lyap_negated)
 
-        return {StableSafe.SD: lyap_condition}
+        return {XD: lyap_condition}
 
     def _get_barrier_constraints(self, verifier, B, Bdot):
         """Generates Barrier constraints
@@ -1276,8 +1232,8 @@ class StableSafe(Certificate):
         unsafe_constr = _And(unsafe_constr, self.domain)
 
         return (
-            {StableSafe.SI: inital_constr, StableSafe.SU: unsafe_constr},
-            {StableSafe.SD: lie_constr},
+            {XI: inital_constr, XU: unsafe_constr},
+            {XD: lie_constr},
         )
 
     def get_constraints(self, verifier, C, Cdot) -> Generator:
@@ -1298,14 +1254,6 @@ class StableSafe(Certificate):
 
 class DoubleCertificate(Certificate):
     """In Devel class for synthesising any two certificates together"""
-
-    XD = "lie"
-    XI = "init"
-    XS = "safe"
-    XU = "unsafe"
-    dXS = "safe_border"
-    dXG = "goal_border"
-    XG = "goal"
 
     def __init__(self, domains, config: CegisConfig):
         self.certificate1 = get_certificate(config.CERTIFICATE)(domains, config)

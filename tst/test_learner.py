@@ -3,7 +3,7 @@ import torch.nn as nn
 import unittest
 from unittest.mock import MagicMock
 from src.learner import LearnerNN, QuadraticFactor, LearnerCT, LearnerDT
-from src.shared.consts import *
+from src.consts import *
 
 
 class TestLearnerNN(unittest.TestCase):
@@ -82,7 +82,6 @@ class TestLearnerCT(unittest.TestCase):
         self.assertEqual(circle.shape, (5,))
 
     def test_compute_dV(self):
-
         gradV = torch.randn(2, self.input_size)
         Sdot = torch.randn(2, self.input_size)
 

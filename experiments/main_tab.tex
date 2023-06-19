@@ -1,0 +1,12 @@
+\begin{tabular}{llllllrrrr}
+    \toprule
+                 &       &       &             &         &                    & Result & \multicolumn{3}{c}{$T$}                  \\
+                 &       &       &             &         &                    & $R$    & $\max$                  & $\mu$ & $\min$ \\
+    Benchmark    & $N_s$ & $N_u$ & Certificate & Neurons & Activations        &        &                         &       &        \\
+    \midrule
+    barr\_2      & 2     & 0     & BARRIER     & [15]    & ['TANH']           & 0.8    & 5.43                    & 3.49  & 0.945  \\
+    barr\_4      & 3     & 0     & BARRIER     & [25]    & ['LIN\_TO\_CUBIC'] & 0.9    & 162                     & 37.5  & 2.39   \\
+    non\_poly\_0 & 2     & 0     & LYAPUNOV    & [2]     & ['SQUARE']         & 0.8    & 1.6                     & 0.351 & 0.0179 \\
+    poly\_1      & 3     & 0     & LYAPUNOV    & [8]     & ['SQUARE']         & 0.9    & 54.8                    & 8.77  & 0.289  \\
+    \bottomrule
+\end{tabular}

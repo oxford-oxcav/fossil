@@ -12,9 +12,9 @@ from collections import namedtuple
 import pandas as pd
 
 import __main__
-import torch
 
-from src.shared.consts import CegisConfig, CegisStateKeys, CertificateType
+from src.consts import CegisConfig, CertificateType
+from src import certificate
 
 
 DRF = DEFAULT_RESULTS_FILE = "experiments/results.csv"
@@ -23,6 +23,41 @@ Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
 BenchmarkData = namedtuple(
     "Benchmark", ["name", "certificate", "success", "times", "loops"]
 )
+
+HEADER = [
+    "Certificate",
+    "N_s",
+    "N_u",
+    "Result",
+    "Benchmark_file",
+    "seed",
+    "XD",
+    "XI",
+    "XU",
+    "XG",
+    "N_Data",
+    "Neurons",
+    "Activations",
+    "Ctrl_Neurons",
+    "Ctrl_Activations",
+    "Alt_Neurons",
+    "Alt_Activations",
+    "Factors",
+    "LLO",
+    "Symmetric_Belt",
+    "Time_Domain",
+    "Verifier",
+    "Loops",
+    "Total_Time",
+    "Learner_Time",
+    "Translator_Time",
+    "Verifier_Time",
+    "Consolidator_Time",
+]
+
+
+def ratio(x):
+    return x.sum() / x.count()
 
 
 class CSVWriter:
@@ -65,7 +100,8 @@ class CSVWriter:
 
 
 class Recorder:
-    """Class for recording results of experiments.
+    """
+    Class for recording results of experiments.
 
     The basic assumption is that all experiments will be stored in the same csv file, with as many details as needed.
     Experiments are identified by the filename of the __main__ file, and the seed used to generate the random numbers.
@@ -84,53 +120,28 @@ class Recorder:
         """
         self.filename = filename
 
-    def record(self, config: CegisConfig, state: dict, T: float, iters: int):
+    def record(self, config: CegisConfig, result, T: float):
         """records results of abstraction to csv file.
 
         Args:
             config (_type_): program configuration
-            state (dict): cegis state dictionary
+            result: cegis return tuple
             T (float): total time taken to run cegis
-            iters (int): number of cegis iterations
         """
 
-        headers = [
-            "Certificate",
-            "Dim",
-            "Result",
-            "Benchmark_file",
-            "seed",
-            "XD",
-            "XI",
-            "XU",
-            "XG",
-            "N_Data",
-            "Neurons",
-            "Activations",
-            "Ctrl_Neurons",
-            "Ctrl_Activations",
-            "Alt_Neurons",
-            "Alt_Activations",
-            "Factors",
-            "LLO",
-            "Symmetric_Belt",
-            "Time_Domain",
-            "Verifier",
-            "Loops",
-            "Total_Time",
-            "Learner_Time",
-            "Translator_Time",
-            "Verifier_Time",
-            "Consolidator_Time",
-        ]
-        main_file = __main__.__file__.split("/")[-1][:-3]
-        timers = state[CegisStateKeys.components_times]
-        data = state[CegisStateKeys.S]
-        N_data = sum([S_i.shape[0] for S_i in data.values()])
+        headers = HEADER
+        main_file = __main__.__file__.split("/")[-1][
+            :-3
+        ]  # This is the name of the file that is being run
+        cegis_stats = result.cegis_stats
+        timers = cegis_stats.times
+        N_data = cegis_stats.N_data
         if config.CTRLAYER is not None:
+            N_u = config.CTRLAYER[-1]  # Is this correct?
             ctrlayer = config.CTRLAYER[:-1]
             ctrl_act = [act.name for act in config.CTRLACTIVATION]
         else:
+            N_u = 0
             ctrlayer = None
             ctrl_act = None
 
@@ -141,16 +152,22 @@ class Recorder:
             alt_layers = None
             alt_act = None
 
+        XD = config.DOMAINS.get(certificate.XD, None)
+        XI = config.DOMAINS.get(certificate.XI, None)
+        XU = config.DOMAINS.get(certificate.XU, None)
+        XG = config.DOMAINS.get(certificate.XG, None)
+
         result = [
             config.CERTIFICATE.name,
             config.N_VARS,
-            state[CegisStateKeys.found],
+            N_u,
+            result.res,
             main_file,
-            torch.initial_seed(),
-            config.XD,
-            config.XI,
-            config.XU,
-            config.XG,
+            cegis_stats.seed,
+            XD,
+            XI,
+            XU,
+            XG,
             N_data,
             config.N_HIDDEN_NEURONS,
             [act.name for act in config.ACTIVATION],
@@ -163,7 +180,7 @@ class Recorder:
             config.SYMMETRIC_BELT,
             config.TIME_DOMAIN.name,
             config.VERIFIER.name,
-            iters,
+            cegis_stats.iters,
             T,
             timers[0],
             timers[1],
@@ -223,6 +240,7 @@ class Analyser:
         loops = self.loop_analysis(df)
         cert = df["Certificate"].unique()[0]
         benchmark = BenchmarkData(benchmark_file, cert, SR, times, loops)
+        return benchmark
 
     @staticmethod
     def check_sanitisation(df):
@@ -294,32 +312,66 @@ class Analyser:
         loop_stats = Stats(mean, std, Max, Min)
         return loop_stats
 
+    def table_main(self, benchmarks=[]):
+        df = pd.read_csv(DRF)
+        if benchmarks == []:
+            benchmarks = self.get_benchmarks()
 
-def to_latex_row(row_data: BenchmarkData):
-    """Converts benchmark data to latex table row."""
-    # EG for now.
-    row = ""
-    row += row_data.benchmark_file + " & "
-    row += row_data.certificate + " & "
-    row += "{:.2f}".format(row_data.success_ratio) + " & "
-    row += "{:.2f}".format(row_data.times.mean) + " & "
-    row += "{:.2f}".format(row_data.times.std) + " & "
-    row += "{:.2f}".format(row_data.times.max) + " & "
-    row += "{:.2f}".format(row_data.times.min) + " & "
+        df = df[df["Benchmark_file"].isin(benchmarks)]
 
+        df.rename(
+            {"N_s": "$N_s$", "N_u": "$N_u$", "Benchmark_file": "Benchmark"},
+            axis=1,
+            inplace=True,
+        )
+        df["Benchmark"].replace({"_": "\_"}, inplace=True, regex=True)
+        df["Activations"].replace({"_": "\_"}, inplace=True, regex=True)
 
-def to_latex_table(benchmarks: list[str]):
-    """Converts benchmark data to latex table."""
-    # TODO: Add header
-    a = Analyser()
-    rows = []
-    for benchmark in benchmarks:
-        data = a.analyse_benchmark(benchmark)
-        rows.append(to_latex_row(data))
-    return rows
+        # grouped = df.groupby(["Benchmark_file"])
+        vals = [
+            "Total_Time",
+            "Result",
+        ]
+        ind = [
+            "Benchmark",
+            "$N_s$",
+            "$N_u$",
+            "Certificate",
+            "Neurons",
+            "Activations",
+        ]
+        table = pd.pivot_table(
+            df,
+            values=vals,
+            index=ind,
+            aggfunc={"Total_Time": ["min", "mean", "max"], "Result": ratio},
+        )
+        table.rename(
+            {
+                "Total_Time": "$T$",
+                "Width": "$N$",
+                "mean": "$\mu$",
+                "min": "$\min$",
+                "max": "$\max$",
+                "ratio": "$R$",
+            },
+            axis=1,
+            inplace=True,
+        )
+        print(table)
+
+        table.to_latex(
+            "experiments/main_tab.tex",
+            float_format="%.3g",
+            bold_rows=False,
+            escape=False,
+            multicolumn_format="c",
+        )
 
 
 if __name__ == "__main__":
     a = Analyser()
-    benchmarks = a.get_benchmarks()
-    a.analyse_benchmark("non_poly_0.py")
+    # benchmarks = a.get_benchmarks()
+    # b = a.analyse_benchmark(benchmarks[0])
+    # print(b)
+    a.table_main()

@@ -8,53 +8,53 @@ import torch
 import z3
 from matplotlib import pyplot as plt
 
-from src.shared import control
-from src.shared.utils import contains_object
+from src import control
+from src.utils import contains_object
+
+Z3_FNCS = {
+    "And": z3.And,
+    "Or": z3.Or,
+    "If": z3.If,
+}
+DREAL_FNCS = {
+    "sin": dreal.sin,
+    "cos": dreal.cos,
+    "exp": dreal.exp,
+    "And": dreal.And,
+    "Or": dreal.Or,
+    "If": dreal.if_then_else,
+    "Not": dreal.Not,
+}
+MATH_FNCS = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "exp": np.exp,
+}
+
+SP_FNCS = {
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "exp": sp.exp,
+}
 
 
 class CTModel:
     def __init__(self) -> None:
-        self.z3_fncs = {
-            "And": z3.And,
-            "Or": z3.Or,
-            "If": z3.If,
-        }
-        self.dreal_fncs = {
-            "sin": dreal.sin,
-            "cos": dreal.cos,
-            "exp": dreal.exp,
-            "And": dreal.And,
-            "Or": dreal.Or,
-            "If": dreal.if_then_else,
-            "Not": dreal.Not,
-        }
-        self.math_fncs = {
-            "sin": np.sin,
-            "cos": np.cos,
-            "exp": np.exp,
-        }
-
-        self.sp_fncs = {
-            "sin": sp.sin,
-            "cos": sp.cos,
-            "exp": sp.exp,
-        }
-
         self.fncs = None
-        self.parameters = ()
 
     def f(self, v):
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
             return self.f_torch(v)
         elif contains_object(v, dreal.Variable):
-            self.fncs = self.dreal_fncs
+            self.fncs = DREAL_FNCS
             return self.f_smt(v)
         elif contains_object(v, z3.ArithRef):
-            self.fncs = self.z3_fncs
+            self.fncs = Z3_FNCS
             return self.f_smt(v)
         elif contains_object(v, sp.Expr):
-            self.fncs = self.sp_fncs
+            self.fncs = SP_FNCS
             return self.f_smt(v)
+        # Changed this so object is now pickleable, as long as self.fncs is None
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.f(*args, **kwds)
@@ -64,6 +64,10 @@ class CTModel:
 
     def f_smt(self, v):
         raise NotImplementedError
+
+    def parameters(self):
+        """Get learnable parameters of the model"""
+        return ()
 
     def check_similarity(self):
         """
@@ -118,30 +122,15 @@ class CTModel:
         x = sp.symbols(",".join(("x" + str(i) for i in range(self.n_vars))))
         return self.f(x)
 
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
+
 
 class ControllableCTModel:
     """Combine with a GeneralController to create a closed-loop model"""
 
     def __init__(self) -> None:
-        self.z3_fncs = {
-            "And": z3.And,
-            "Or": z3.Or,
-            "If": z3.If,
-        }
-        self.dreal_fncs = {
-            "sin": dreal.sin,
-            "cos": dreal.cos,
-            "exp": dreal.exp,
-            "And": dreal.And,
-            "Or": dreal.Or,
-            "If": dreal.if_then_else,
-            "Not": dreal.Not,
-        }
-        self.sp_fncs = {
-            "sin": sp.sin,
-            "cos": sp.cos,
-            "exp": sp.exp,
-        }
         self.fncs = None
         self.parameters = ()
 
@@ -149,13 +138,13 @@ class ControllableCTModel:
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
             return self.f_torch(v, u)
         elif contains_object(v, dreal.Variable):
-            self.fncs = self.dreal_fncs
+            self.fncs = DREAL_FNCS
             return self.f_smt(v, u)
         elif contains_object(v, z3.ArithRef):
-            self.fncs = self.z3_fncs
+            self.fncs = Z3_FNCS
             return self.f_smt(v, u)
         elif contains_object(v, sp.Expr):
-            self.fncs = self.sp_fncs
+            self.fncs = SP_FNCS
             return self.f_smt(v, u)
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
@@ -166,6 +155,10 @@ class ControllableCTModel:
 
     def f_smt(self, v):
         raise NotImplementedError
+
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
 
 
 class _PreTrainedModel(CTModel):
@@ -205,7 +198,6 @@ class GeneralClosedLoopModel(CTModel):
         super().__init__()
         self.open_loop = f_open
         self.controller = controller
-        self.parameters = controller.parameters()
         self.n_vars = f_open.n_vars
         self.n_u = f_open.n_u
 
@@ -217,6 +209,15 @@ class GeneralClosedLoopModel(CTModel):
         fc = self.controller.to_symbolic(v)
         fo = self.open_loop(v, fc)
         return [fo[i] for i in range(len(fo))]
+
+    def parameters(self):
+        """Get learnable parameters of the model"""
+        return self.controller.parameters()
+
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
+        self.open_loop.clean()
 
 
 class Eulerised:
@@ -805,7 +806,8 @@ class CtrlCar(ControllableCTModel):
 
 # from Tedrake's lecture notes
 class Quadrotor2d(ControllableCTModel):
-    n_vars = 3
+    n_vars = 6
+    n_u = 2
 
     def __init__(self):
         super().__init__()
@@ -855,6 +857,7 @@ class Quadrotor2d(ControllableCTModel):
 # from Tedrake's lecture notes
 class LinearSatellite(ControllableCTModel):
     n_vars = 5
+    n_u = 3
 
     def __init__(self):
         super().__init__()

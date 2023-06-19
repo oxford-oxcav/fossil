@@ -8,21 +8,20 @@ import logging
 import timeit
 from copy import deepcopy
 from itertools import product
-from typing import Callable, Dict, Literal
+from typing import Any, Callable, Dict, Literal, Union
 
 import numpy as np
 import torch
 import z3
-from aenum import Enum, NoAlias
 
 try:
     import dreal as dr
 except ModuleNotFoundError:
     logging.exception("No dreal")
 
-from src.shared.component import Component
-from src.shared.consts import *
-from src.shared.utils import (
+from src.component import Component
+from src.consts import *
+from src.utils import (
     Timer,
     contains_object,
     dreal_replacements,
@@ -32,6 +31,7 @@ from src.shared.utils import (
 )
 
 T = Timer()
+SYMBOL = Union[z3.ArithRef, dr.Variable, dr.Expression]
 
 
 def optional_Marabou_import():
@@ -51,13 +51,14 @@ class VerifierConfig:
     # check again for a counterexample with the bound below
     DREAL_SECOND_CHANCE_BOUND: float = 1e3
     DELTA: float = 1e-4
+    VARS_BOUNDS: tuple = (-DREAL_INFINITY, DREAL_INFINITY)
 
     def __getitem__(self, item):
         return getattr(self, item)
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
+    def __init__(self, n_vars, constraints_method, solver_vars, verbose):
         super().__init__()
         self.iter = -1
         self.n = n_vars
@@ -66,11 +67,10 @@ class Verifier(Component):
         self._n_cex_to_keep = self.counterexample_n * 1
         self.xs = solver_vars
         self._solver_timeout = 30
-        self._vars_bounds = vars_bounds
         self.constraints_method = constraints_method
         self.verbose = verbose
         self.optional_configs = VerifierConfig()
-
+        self._vars_bounds = [self.optional_configs.VARS_BOUNDS for _ in range(n_vars)]
         assert self.counterexample_n > 0
 
     @staticmethod
@@ -348,9 +348,6 @@ class VerifierDReal(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
-    def __init__(self, n_vars, constraints_method, vars_bounds, solver_vars, verbose):
-        super().__init__(n_vars, constraints_method, vars_bounds, solver_vars, verbose)
-
 
 class VerifierZ3(Verifier):
     @staticmethod
@@ -407,9 +404,6 @@ class VerifierZ3(Verifier):
                 return float(model[x[0, 0]].as_fraction())
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
-
-    def __init__(self, n_vars, constraints_method, vars_bounds, z3_vars, verbose):
-        super().__init__(n_vars, constraints_method, vars_bounds, z3_vars, verbose)
 
 
 class VerifierMarabou(Verifier):
@@ -513,12 +507,12 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         raise ValueError("No verifier of type {}".format(verifier))
 
 
-def get_verifier(
-    verifier, n_vars, constraints_method, vars_bounds, solver_vars, verbose
-):
+def get_verifier(verifier, n_vars, constraints_method, solver_vars, verbose):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
         or verifier == VerifierMarabou
     ):
-        return verifier(n_vars, constraints_method, vars_bounds, solver_vars, verbose)
+        return verifier(n_vars, constraints_method, solver_vars, verbose)
+    else:
+        raise ValueError("No verifier of type {}".format(verifier))

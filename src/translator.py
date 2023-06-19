@@ -14,11 +14,11 @@ import torch
 
 
 import src.learner as learner
-from src.shared.activations_symbolic import activation_der_sym, activation_sym
-from src.shared.component import Component
-from src.shared.consts import *
-from src.shared.sympy_converter import sympy_converter
-from src.shared.utils import Timer, timer, vprint
+from src.activations_symbolic import activation_der_sym, activation_sym
+from src.component import Component
+from src.consts import *
+from src.sympy_converter import sympy_converter
+from src.utils import Timer, timer, vprint
 
 T = Timer()
 

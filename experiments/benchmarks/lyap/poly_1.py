@@ -5,43 +5,54 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import torch
-import timeit
-from src.shared.components.cegis import Cegis
-from experiments.benchmarks.benchmarks_lyap import *
 
-
-from src.shared.consts import *
-from functools import partial
+from experiments.benchmarks import models
+from src import certificate
+from src import domains
+from src import main
+from src.consts import *
 
 
 def test_lnn():
+    outer = 10.0
+    inner = 0.1
+    batch_size = 500
+    system = models.Poly1
 
-    n_vars = 3
-    system = poly_1
+    XD = domains.Torus([0.0, 0.0, 0.0], outer, inner)
+
+    sets = {
+        certificate.XD: XD,
+    }
+
+    data = {
+        certificate.XD: XD._generate_data(batch_size),
+    }
 
     # define NN parameters
+
+    ###
+    # Takes < 2 seconds, iter 0
+    ###
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [8] * len(activations)
 
     opts = CegisConfig(
-        N_VARS=n_vars,
+        SYSTEM=system,
+        DOMAINS=sets,
+        DATA=data,
+        N_VARS=system.n_vars,
         CERTIFICATE=CertificateType.LYAPUNOV,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
-        SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         LLO=True,
+        CEGIS_MAX_ITERS=25,
     )
 
-    start = timeit.default_timer()
-    c = Cegis(opts)
-    c.solve()
-    stop = timeit.default_timer()
-    print("Elapsed Time: {}".format(stop - start))
+    main.run_benchmark(opts, record=True, plot=False, repeat=1)
 
 
 if __name__ == "__main__":
-    torch.manual_seed(167)
     test_lnn()

@@ -12,7 +12,7 @@ from z3 import Reals
 
 import src.verifier as verifier
 import src.certificate as certificate
-from src.shared.consts import CegisConfig
+from src.consts import CegisConfig
 
 
 class SimplifierTest(unittest.TestCase):

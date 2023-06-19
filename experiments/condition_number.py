@@ -9,11 +9,11 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-import experiments.benchmarks.domain_fcns as sets
-import src.plots.plot_fcns as plotting
+import src.domains as sets
+import src.plotting as plotting
 from experiments.benchmarks import models
-from src.shared.components.cegis import Cegis
-from src.shared.consts import *
+from src.cegis import Cegis
+from src.consts import *
 
 global lam
 LAM = (

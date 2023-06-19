@@ -9,7 +9,7 @@ from unittest import mock
 import z3
 import src.learner as learner
 import src.translator as translator
-from src.shared.consts import ActivationType, CegisStateKeys
+from src.consts import ActivationType, CegisStateKeys
 from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 

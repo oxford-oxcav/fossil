@@ -15,10 +15,10 @@ from tqdm import tqdm
 
 from experiments.benchmarks.benchmarks_bc import barr_1
 from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
-from src.shared.components.cegis import Cegis
+from src.cegis import Cegis
 
 
-from src.shared.consts import *
+from src.consts import *
 
 
 def test_robustness(h):
