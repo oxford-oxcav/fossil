@@ -7,37 +7,96 @@
 # pylint: disable=not-callable
 
 import torch
-import timeit
 
-from experiments.benchmarks.benchmarks_bc import obstacle_avoidance as barr_4
-from src.shared.components.cegis import Cegis
+from experiments.benchmarks import models
+from src import domains
+from src import certificate
+from src import main
+from src.consts import *
 
-from src.shared.consts import *
+
+class Domain(domains.Set):
+    def generate_domain(self, v):
+        x, y, phi = v
+        f = self.set_functions(v)
+        return f["And"](-2 <= x, x <= 2, -2 <= y, y <= 2, -1.57 <= phi, phi <= 1.57)
+
+    def generate_data(self, batch_size):
+        k = 4
+        x_comp = -2 + torch.sum(torch.randn(batch_size, k) ** 2, dim=1).reshape(
+            batch_size, 1
+        )
+        y_comp = 2 - torch.sum(torch.randn(batch_size, k) ** 2, dim=1).reshape(
+            batch_size, 1
+        )
+        phi_comp = domains.segment([-1.57, 1.57], batch_size)
+        dom = torch.cat([x_comp, y_comp, phi_comp], dim=1)
+        return dom
 
 
-def main():
-    system = barr_4
-    activations = [ActivationType.LIN_TO_CUBIC]
+class Init(domains.Set):
+    def generate_domain(self, v):
+        x, y, phi = v
+        f = self.set_functions(v)
+        return f["And"](
+            -0.1 <= x, x <= 0.1, -2 <= y, y <= -1.8, -0.52 <= phi, phi <= 0.52
+        )
+
+    def generate_data(self, batch_size):
+        x = domains.segment([-0.1, 0.1], batch_size)
+        y = domains.segment([-2.0, -1.8], batch_size)
+        phi = domains.segment([-0.52, 0.52], batch_size)
+        return torch.cat([x, y, phi], dim=1)
+
+
+class UnsafeDomain(domains.Set):
+    def generate_domain(self, v):
+        x, y, _phi = v
+        return x**2 + y**2 <= 0.04
+
+    def generate_data(self, batch_size):
+        xy = domains.circle_init_data((0.0, 0.0), 0.04, batch_size)
+        phi = domains.segment([-0.52, 0.52], batch_size)
+        return torch.cat([xy, phi], dim=1)
+
+
+def test_lnn():
+    XD = Domain()
+    XI = Init()
+    XU = UnsafeDomain()
+    batch_size = 1000
+    sets = {
+        certificate.XD: XD,
+        certificate.XI: XI,
+        certificate.XU: XU,
+    }
+    data = {
+        certificate.XD: XD._generate_data(batch_size),
+        certificate.XI: XI._generate_data(batch_size),
+        certificate.XU: XU._generate_data(batch_size),
+    }
+
+    ###
+    # Takes ~ 20 seconds, iter 15
+    ###
+    system = models.ObstacleAvoidance
+    activations = [ActivationType.LIN_TO_QUARTIC]
     hidden_neurons = [25]
     opts = CegisConfig(
-        N_VARS=3,
+        SYSTEM=system,
+        DOMAINS=sets,
+        DATA=data,
+        N_VARS=system.n_vars,
         CERTIFICATE=CertificateType.BARRIER,
         ACTIVATION=activations,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
-        SYSTEM=system,
         N_HIDDEN_NEURONS=hidden_neurons,
+        CEGIS_MAX_ITERS=25,
     )
 
-    start = timeit.default_timer()
-    c = Cegis(opts)
-    state, vars, f, iters = c.solve()
-    end = timeit.default_timer()
-
-    print("Elapsed Time: {}".format(end - start))
-    print("Found? {}".format(state[CegisStateKeys.found]))
+    main.run_benchmark(opts, record=True, plot=False, repeat=1)
 
 
 if __name__ == "__main__":
-    torch.manual_seed(167)
-    main()
+    test_lnn()

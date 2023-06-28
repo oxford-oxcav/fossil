@@ -8,12 +8,12 @@ import unittest
 import torch
 import timeit
 import dreal as dr
-from src.shared.components.cegis import Cegis
-from src.shared.consts import *
+from src.cegis import Cegis
+from src.consts import *
 from src.learner import CtrlLearnerCT
-from src.shared.control import GeneralController
+from src.control import GeneralController
 from experiments.benchmarks.benchmark_ctrl import ctrllyap_identity
-from src.shared.consts import CegisStateKeys
+from src.consts import CegisStateKeys
 import src.translator as translator
 
 
@@ -63,7 +63,6 @@ class test_init(unittest.TestCase):
         return c
 
     def bigger_init(self):
-
         benchmark = ctrllyap_identity
         n_vars = 2
         system = benchmark

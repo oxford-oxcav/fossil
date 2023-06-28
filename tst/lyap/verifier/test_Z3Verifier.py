@@ -15,7 +15,7 @@ import src.learner as learner
 from experiments.benchmarks.benchmarks_lyap import *
 import src.translator as translator
 import src.certificate as certificate
-from src.shared.consts import (
+from src.consts import (
     TranslatorType,
     CegisStateKeys,
     ActivationType,

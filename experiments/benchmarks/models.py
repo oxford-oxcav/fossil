@@ -1,46 +1,60 @@
-from typing import Any
 import sys
+from typing import Any
 
-import torch
-import z3
 import dreal
 import numpy as np
+import sympy as sp
+import torch
+import z3
 from matplotlib import pyplot as plt
 
-from src.shared.utils import contains_object
-from src.shared import control
+from src import control
+from src.utils import contains_object
+
+Z3_FNCS = {
+    "And": z3.And,
+    "Or": z3.Or,
+    "If": z3.If,
+}
+DREAL_FNCS = {
+    "sin": dreal.sin,
+    "cos": dreal.cos,
+    "exp": dreal.exp,
+    "And": dreal.And,
+    "Or": dreal.Or,
+    "If": dreal.if_then_else,
+    "Not": dreal.Not,
+}
+MATH_FNCS = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "exp": np.exp,
+}
+
+SP_FNCS = {
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "exp": sp.exp,
+}
 
 
 class CTModel:
     def __init__(self) -> None:
-        if not self.check_similarity():
-            raise RuntimeError("Model functions not properly defined")
-        self.z3_fncs = {
-            "And": z3.And,
-            "Or": z3.Or,
-            "If": z3.If,
-        }
-        self.dreal_fncs = {
-            "sin": dreal.sin,
-            "cos": dreal.cos,
-            "exp": dreal.exp,
-            "And": dreal.And,
-            "Or": dreal.Or,
-            "If": dreal.if_then_else,
-            "Not": dreal.Not,
-        }
         self.fncs = None
-        self.parameters = ()
 
     def f(self, v):
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
             return self.f_torch(v)
         elif contains_object(v, dreal.Variable):
-            self.fncs = self.dreal_fncs
+            self.fncs = DREAL_FNCS
             return self.f_smt(v)
         elif contains_object(v, z3.ArithRef):
-            self.fncs = self.z3_fncs
+            self.fncs = Z3_FNCS
             return self.f_smt(v)
+        elif contains_object(v, sp.Expr):
+            self.fncs = SP_FNCS
+            return self.f_smt(v)
+        # Changed this so object is now pickleable, as long as self.fncs is None
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.f(*args, **kwds)
@@ -51,13 +65,20 @@ class CTModel:
     def f_smt(self, v):
         raise NotImplementedError
 
+    def parameters(self):
+        """Get learnable parameters of the model"""
+        return ()
+
     def check_similarity(self):
         """
         Checks over a small number of data points that the learner & verifier funcs are the same.
         If false, does not create the object
-        Not implemented yet
         """
-        return True
+        x = np.random.rand(5, self.n_vars)
+        f_torch = self.f_torch(torch.tensor(x)).detach().numpy()
+        self.fncs = self.math_fncs
+        f_smt = np.array([self.f_smt(xi) for xi in x])
+        return np.allclose(f_torch, f_smt)
 
     def plot(self, ax=None, xrange=[-3, 3], yrange=[-3, 3]):
         ax = plt.gca() or ax
@@ -93,25 +114,23 @@ class CTModel:
         )
         return ax
 
+    def to_latex(self):
+        x = sp.symbols(",".join(("x" + str(i) for i in range(self.n_vars))))
+        return sp.latex(self.f(x))
 
-class GeneralCTModel:
+    def to_sympy(self):
+        x = sp.symbols(",".join(("x" + str(i) for i in range(self.n_vars))))
+        return self.f(x)
+
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
+
+
+class ControllableCTModel:
+    """Combine with a GeneralController to create a closed-loop model"""
+
     def __init__(self) -> None:
-        if not self.check_similarity():
-            raise RuntimeError("Model functions not properly defined")
-        self.z3_fncs = {
-            "And": z3.And,
-            "Or": z3.Or,
-            "If": z3.If,
-        }
-        self.dreal_fncs = {
-            "sin": dreal.sin,
-            "cos": dreal.cos,
-            "exp": dreal.exp,
-            "And": dreal.And,
-            "Or": dreal.Or,
-            "If": dreal.if_then_else,
-            "Not": dreal.Not,
-        }
         self.fncs = None
         self.parameters = ()
 
@@ -119,10 +138,13 @@ class GeneralCTModel:
         if torch.is_tensor(v) or isinstance(v, np.ndarray):
             return self.f_torch(v, u)
         elif contains_object(v, dreal.Variable):
-            self.fncs = self.dreal_fncs
+            self.fncs = DREAL_FNCS
             return self.f_smt(v, u)
         elif contains_object(v, z3.ArithRef):
-            self.fncs = self.z3_fncs
+            self.fncs = Z3_FNCS
+            return self.f_smt(v, u)
+        elif contains_object(v, sp.Expr):
+            self.fncs = SP_FNCS
             return self.f_smt(v, u)
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
@@ -134,16 +156,16 @@ class GeneralCTModel:
     def f_smt(self, v):
         raise NotImplementedError
 
-    def check_similarity(self):
-        """
-        Checks over a small number of data points that the learner & verifier funcs are the same.
-        If false, does not create the object
-        Not implemented yet
-        """
-        return True
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
 
 
-class ClosedLoopModel(CTModel):
+class _PreTrainedModel(CTModel):
+    """Unused class for training a closed-loop model with a NN controller and then certifying it.
+
+    Uses a separate loss function for the controller and the certificate."""
+
     def __init__(self, f_open: CTModel, controller: control.StabilityCT) -> None:
         super().__init__()
         self.open_loop = f_open
@@ -161,13 +183,23 @@ class ClosedLoopModel(CTModel):
 
 # supports not-full-rank-affine and not-affine systems
 class GeneralClosedLoopModel(CTModel):
+    """Class for synthesising a controller alongside a certificate with the same loss function.
+    Combine a ControllableCTModel with a GeneralController"""
+
     def __init__(
-        self, f_open: GeneralCTModel, controller: control.GeneralController
+        self, f_open: ControllableCTModel, controller: control.GeneralController
     ) -> None:
+        """Combine a controllable model with a general controller.
+
+        Args:
+            f_open (ControllableCTModel): open loop
+            controller (control.GeneralController): control net
+        """
         super().__init__()
         self.open_loop = f_open
         self.controller = controller
-        self.parameters = controller.parameters()
+        self.n_vars = f_open.n_vars
+        self.n_u = f_open.n_u
 
     def f_torch(self, v):
         u = self.controller(v)
@@ -177,6 +209,15 @@ class GeneralClosedLoopModel(CTModel):
         fc = self.controller.to_symbolic(v)
         fo = self.open_loop(v, fc)
         return [fo[i] for i in range(len(fo))]
+
+    def parameters(self):
+        """Get learnable parameters of the model"""
+        return self.controller.parameters()
+
+    def clean(self):
+        """Prepare object for pickling"""
+        self.fncs = None
+        self.open_loop.clean()
 
 
 class Eulerised:
@@ -207,6 +248,8 @@ class Eulerised:
 
 
 class Linear0(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-x - y, x]).T
@@ -217,7 +260,8 @@ class Linear0(CTModel):
 
 
 class NonPoly0(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-x + x * y, -y]).T
@@ -228,7 +272,8 @@ class NonPoly0(CTModel):
 
 
 class NonPoly1(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-x + 2 * x**2 * y, -y]).T
@@ -239,7 +284,8 @@ class NonPoly1(CTModel):
 
 
 class NonPoly2(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 3
+
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack([-x, -2 * y + 0.1 * x * y**2 + z, -z - 1.5 * y]).T
@@ -250,7 +296,8 @@ class NonPoly2(CTModel):
 
 
 class NonPoly3(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 3
+
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack([-3 * x - 0.1 * x * y**3, -y + z, -z]).T
@@ -267,7 +314,8 @@ class NonPoly3(CTModel):
 
 
 class Benchmark0(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-x, -y]).T
@@ -277,11 +325,9 @@ class Benchmark0(CTModel):
         return [-x, -y]
 
 
-class Benchmark1(GeneralCTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
-    def __init__(self):
-        GeneralCTModel.__init__(self)
-        self.n_vars = 2
+class Benchmark1(ControllableCTModel):
+    n_u = 2
+    n_vars = 2
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -294,8 +340,10 @@ class Benchmark1(GeneralCTModel):
         return [x + y + u1, -y - x + u2]
 
 
-class Benchmark2(GeneralCTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+class Benchmark2(ControllableCTModel):
+    n_vars = 2
+    n_u = 3
+
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
@@ -307,8 +355,7 @@ class Benchmark2(GeneralCTModel):
         return [x + y + u1 - u2, y + 2.0 * x + u3]
 
 
-class BenchmarkDT1(GeneralCTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+class BenchmarkDT1(ControllableCTModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
@@ -321,7 +368,8 @@ class BenchmarkDT1(GeneralCTModel):
 
 
 class Poly1(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 3
+
     def f_torch(self, v):
         x, y, z = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack(
@@ -334,7 +382,8 @@ class Poly1(CTModel):
 
 
 class Poly2(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-(x**3) + y, -x - y]).T
@@ -345,7 +394,8 @@ class Poly2(CTModel):
 
 
 class Poly3(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-(x**3) - y**2, x * y - y**3]).T
@@ -356,7 +406,8 @@ class Poly3(CTModel):
 
 
 class Poly4(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack(
@@ -369,7 +420,8 @@ class Poly4(CTModel):
 
 
 class TwoDHybrid(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
         _condition = x1 >= 0
@@ -391,7 +443,8 @@ class TwoDHybrid(CTModel):
 
 
 class LinearDiscrete(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([0.5 * x - 0.5 * y, 0.5 * x]).T
@@ -402,7 +455,8 @@ class LinearDiscrete(CTModel):
 
 
 class DoubleLinearDiscrete(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 4
+
     def f_torch(self, v):
         x1, x2, x3, x4 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
         return torch.stack(
@@ -415,7 +469,8 @@ class DoubleLinearDiscrete(CTModel):
 
 
 class LinearDiscreteNVars(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([0.5 * v[i] for i in range(len(v))]).T
@@ -426,7 +481,8 @@ class LinearDiscreteNVars(CTModel):
 
 
 class NonLinearDiscrete(CTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([0.5 * x - 0.000001 * y**2, 0.5 * x * y]).T
@@ -437,6 +493,8 @@ class NonLinearDiscrete(CTModel):
 
 
 class Hybrid2d(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
 
@@ -461,6 +519,8 @@ class Hybrid2d(CTModel):
 
 
 class Barr1(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([y + 2 * x * y, -x - y**2 + 2 * x**2]).T
@@ -471,6 +531,8 @@ class Barr1(CTModel):
 
 
 class Barr2(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([torch.exp(-x) + y - 1, -(torch.sin(x) ** 2)]).T
@@ -483,6 +545,8 @@ class Barr2(CTModel):
 
 
 class Barr3(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([y, -x - y + 1 / 3 * x**3]).T
@@ -493,6 +557,8 @@ class Barr3(CTModel):
 
 
 class TwoD_Hybrid(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x0, x1 = v[:, 0], v[:, 1]
         _then = -x0 - 0.5 * x0**3
@@ -510,6 +576,8 @@ class TwoD_Hybrid(CTModel):
 
 
 class ObstacleAvoidance(CTModel):
+    n_vars = 3
+
     def f_torch(self, v):
         x, y, phi = v[:, 0], v[:, 1], v[:, 2]
         velo = 1
@@ -537,6 +605,8 @@ class ObstacleAvoidance(CTModel):
 
 
 class HighOrd4(CTModel):
+    n_vars = 4
+
     def f_torch(self, v):
         x0, x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
         return torch.stack(
@@ -549,6 +619,8 @@ class HighOrd4(CTModel):
 
 
 class HighOrd6(CTModel):
+    n_vars = 6
+
     def f_torch(self, v):
         x0, x1, x2, x3, x4, x5 = v[:, 0], v[:, 1], v[:, 2], v[:, 3], v[:, 4], v[:, 5]
         return torch.stack(
@@ -575,6 +647,8 @@ class HighOrd6(CTModel):
 
 
 class HighOrd8(CTModel):
+    n_vars = 8
+
     def f_torch(self, v):
         x0, x1, x2, x3, x4, x5, x6, x7 = (
             v[:, 0],
@@ -628,6 +702,8 @@ class HighOrd8(CTModel):
 
 
 class UnstableLinear(CTModel):
+    n_vars = 2
+
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
         return torch.stack([-2 * x - y, 0.6 * y]).T
@@ -638,6 +714,8 @@ class UnstableLinear(CTModel):
 
 
 class Car(CTModel):
+    n_vars = 3
+
     def f_torch(self, v):
         x, y, omega = v[:, 0], v[:, 1], v[:, 2]
         return torch.stack([torch.cos(omega), torch.sin(omega), omega]).T
@@ -649,7 +727,9 @@ class Car(CTModel):
         return [cos(omega), sin(omega), omega]
 
 
-class InvertedPendulum(GeneralCTModel):
+class InvertedPendulum(ControllableCTModel):
+    n_vars = 2
+
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
@@ -677,7 +757,9 @@ class InvertedPendulum(GeneralCTModel):
         return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
 
 
-class LorenzSystem(GeneralCTModel):
+class LorenzSystem(ControllableCTModel):
+    n_vars = 3
+
     def f_torch(self, v, u):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
@@ -706,7 +788,9 @@ class LorenzSystem(GeneralCTModel):
         ]
 
 
-class CtrlCar(GeneralCTModel):
+class CtrlCar(ControllableCTModel):
+    n_vars = 3
+
     def f_torch(self, v, u):
         x, y, omega = v[:, 0], v[:, 1], v[:, 2]
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
@@ -721,7 +805,10 @@ class CtrlCar(GeneralCTModel):
 
 
 # from Tedrake's lecture notes
-class Quadrotor2d(GeneralCTModel):
+class Quadrotor2d(ControllableCTModel):
+    n_vars = 6
+    n_u = 2
+
     def __init__(self):
         super().__init__()
         # parameters based on [Bouadi, Bouchoucha, Tadjine, 2007]
@@ -731,7 +818,6 @@ class Quadrotor2d(GeneralCTModel):
         self.gravity = 9.81  # gravity
 
     def f_torch(self, v, u):
-
         u1, u2 = u[:, 0], u[:, 1]
         # with respect to the original paper, we define
         # w1 = u1+u2
@@ -749,7 +835,6 @@ class Quadrotor2d(GeneralCTModel):
         return torch.hstack([qdot, qddot])
 
     def f_smt(self, v, u):
-
         sin = self.fncs["sin"]
         cos = self.fncs["cos"]
         u1, u2 = u[0], u[1]
@@ -770,7 +855,10 @@ class Quadrotor2d(GeneralCTModel):
 
 
 # from Tedrake's lecture notes
-class LinearSatellite(GeneralCTModel):
+class LinearSatellite(ControllableCTModel):
+    n_vars = 5
+    n_u = 3
+
     def __init__(self):
         super().__init__()
         # parameters based on [Bouadi, Bouchoucha, Tadjine, 2007]
@@ -783,7 +871,6 @@ class LinearSatellite(GeneralCTModel):
         self.n = MU / (a**3)
 
     def f_torch(self, v, u):
-
         u1, u2, u3 = u[:, 0], u[:, 1], u[:, 2]
         # with respect to the original paper, we define
         # w1 = u1+u2
@@ -803,7 +890,6 @@ class LinearSatellite(GeneralCTModel):
         return torch.hstack([qdot, qddot])
 
     def f_smt(self, v, u):
-
         u1, u2, u3 = u[0], u[1], u[2]
         # with respect to the original paper, we define
         # w1 = u1+u2
@@ -821,7 +907,9 @@ class LinearSatellite(GeneralCTModel):
         return np.hstack([qdot, qddot[:, 0]])
 
 
-class CtrlObstacleAvoidance(GeneralCTModel):
+class CtrlObstacleAvoidance(ControllableCTModel):
+    n_vars = 3
+
     def f_torch(self, v, u):
         x, y, phi = v[:, 0], v[:, 1], v[:, 2]
         u1 = u[:, 0]
@@ -847,27 +935,10 @@ class CtrlObstacleAvoidance(GeneralCTModel):
         ]
 
 
-class Benchmark1(GeneralCTModel):
+class Identity(ControllableCTModel):
     # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
     def __init__(self):
-        GeneralCTModel.__init__(self)
-        self.n_vars = 2
-
-    def f_torch(self, v, u):
-        x, y = v[:, 0], v[:, 1]
-        u1, u2 = u[:, 0], u[:, 1]
-        return torch.stack([x + y + u1, -y - x + u2]).T
-
-    def f_smt(self, v, u):
-        x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
-        return [x + y + u1, -y - x + u2]
-
-
-class Identity(GeneralCTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
-    def __init__(self):
-        GeneralCTModel.__init__(self)
+        ControllableCTModel.__init__(self)
         self.n_vars = 2
 
     def f_torch(self, v, u):
@@ -881,12 +952,12 @@ class Identity(GeneralCTModel):
         return [x + u1, y + u2]
 
 
-class DTAhmadi(GeneralCTModel):
+class DTAhmadi(ControllableCTModel):
     # from Non-monotonic Lyapunov Functions
     # for Stability of Discrete Time Nonlinear and Switched Systems
     # Amir Ali Ahmadi and Pablo A. Parrilo, CDC 2008.
     def __init__(self):
-        GeneralCTModel.__init__(self)
+        ControllableCTModel.__init__(self)
         self.n_vars = 2
 
     def f_torch(self, v, u):
@@ -903,61 +974,62 @@ class DTAhmadi(GeneralCTModel):
 ### Benchmarks taken from RSWS work of Verdier, Mazo
 
 
-class Linear1(GeneralCTModel):
-    def __init__(self):
-        GeneralCTModel.__init__(self)
-        self.n_vars = 2
+class Linear1(ControllableCTModel):
+    n_vars = 2
+    n_u = 1
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
-        u1, u2 = u[:, 0], u[:, 1]
-        # What is the correct way to have a single control input?
-        return torch.stack([y, -x + u2]).T
+        u1 = u[:, 0]
+        return torch.stack([y, -x + u1]).T
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
-        return [y, -x + u2]
+        u1 = u[0, 0]
+        return [y, -x + u1]
 
 
-class SecondOrder(GeneralCTModel):
+class SecondOrder(ControllableCTModel):
     def __init__(self) -> None:
         super().__init__()
         self.n_vars = 2
+        self.n_u = 1
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
-        u1, u2 = u[:, 0], u[:, 1]
+        u1 = u[:, 0]
         return torch.stack([y - x**3, u1]).T
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
+        u1 = u[0, 0]
         return [y - x**3, u1]
 
 
-class ThirdOrder(GeneralCTModel):
+class ThirdOrder(ControllableCTModel):
     def __init__(self) -> None:
         super().__init__()
         self.n_vars = 3
+        self.n_u = 1
 
     def f_torch(self, v, u):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
-        u1, u2 = u[:, 0], u[:, 1]
+        u1 = u[:, 0]
         return torch.stack(
             [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
         ).T
 
     def f_smt(self, v, u):
         x1, x2, x3 = v
-        u1, u2 = u[0, 0], u[1, 0]
+        u1 = u[0, 0]
         return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
 
 
 class LoktaVolterra(CTModel):
+    n_vars = 2
+
     def __init__(self) -> None:
         super().__init__()
-        self.n_vars = 2
 
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
@@ -969,9 +1041,10 @@ class LoktaVolterra(CTModel):
 
 
 class VanDerPol(CTModel):
+    n_vars = 2
+
     def __init__(self) -> None:
         super().__init__()
-        self.n_vars = 2
 
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
@@ -1004,4 +1077,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     model = read_model(args.model)
     ax = model.plot()
-    plt.show()
+    # plt.show()
+
+    x = sp.var("x, y")
+    f = Barr2()
+    print(f.to_latex())

@@ -8,12 +8,11 @@ import traceback
 import timeit
 from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
-from src.shared.consts import *
+from src.consts import *
 from functools import partial
 
 
 def lyap_synthesis(benchmark, n_vars):
-
     batch_size = 500
     system = partial(benchmark, batch_size=batch_size)
 
@@ -56,7 +55,6 @@ def lyap_synthesis(benchmark, n_vars):
         outer_radius,
         factors=factors,
         eq=None,
-        sp_handle=True,
     )
     c.solve()
     stop = timeit.default_timer()
@@ -64,7 +62,6 @@ def lyap_synthesis(benchmark, n_vars):
 
 
 def barrier_synthesis(benchmark, n_vars):
-
     MIN_TO_SEC = 60
     batch_size = 500
     system = partial(benchmark, batch_size)
@@ -83,7 +80,6 @@ def barrier_synthesis(benchmark, n_vars):
             ACTIVATION=activations,
             SYSTEM=system,
             N_HIDDEN_NEURONS=hidden_neurons,
-            SP_SIMPLIFY=True,
             CEGIS_MAX_TIME_S=30 * MIN_TO_SEC,
         )
         c = Cegis_for_bc(**opts)

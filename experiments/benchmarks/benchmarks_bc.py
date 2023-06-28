@@ -6,14 +6,13 @@
 
 import math
 
-import matplotlib.pyplot as plt
 import dreal
+import matplotlib.pyplot as plt
 
-from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-
-import src.shared.control as control
-from src.shared.consts import *
+import src.control as control
+from src.consts import *
+from src.domains import *
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
@@ -350,7 +349,7 @@ def safe_control_ct():
     ctrler = control.SafeStableCT(2, [1], [ActivationType.LINEAR], XU)
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         "lie": XD.generate_domain,
@@ -376,7 +375,7 @@ def car_control():
     ctrler = control.SafeStableCT(3, [1], [ActivationType.LINEAR], XU)
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         "lie": XD.generate_domain,
@@ -413,7 +412,7 @@ def car_traj_control():
     )
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
         "lie": XD.generate_domain,
@@ -431,8 +430,9 @@ def car_traj_control():
 
 if __name__ == "__main__":
     f, X, S, bounds = safe_control_ct()
-    from src.plots.plot_fcns import vector_field
     from matplotlib import pyplot as plt
+
+    from src.plotting import vector_field
 
     torch.manual_seed(169)
     xx = np.linspace(-10, 10, 20)

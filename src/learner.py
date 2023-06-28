@@ -3,16 +3,16 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Literal, Callable
+from typing import Callable, Literal
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from src.shared.activations import activation
-from src.shared.component import Component
-from src.shared.consts import *
-from src.shared.utils import Timer, timer
+from src.activations import activation
+from src.component import Component
+from src.consts import *
+from src.utils import Timer, timer
 
 T = Timer()
 
@@ -50,7 +50,6 @@ class LearnerNN(nn.Module, Learner):
 
         self.input_size = input_size
         n_prev = self.input_size
-        self.eq = config.EQUILIBRIUM
         self._diagonalise = False
         self.acts = activation
         self._is_there_bias = bias
@@ -195,6 +194,24 @@ class LearnerNN(nn.Module, Learner):
         else:
             return 1, 0
 
+    def compute_minimum(self, S: torch.Tensor) -> tuple[float, float]:
+        """Computes the minimum of the learner over the input set.
+
+        Also returns the argmin of the minimum.
+
+        Args:
+            S (torch.Tensor): _description_
+
+        Returns:
+            tuple[float, float]: _description_
+        """
+        C = self(S)
+        minimum = torch.min(C, 0)
+        value = minimum.values.item()
+        index = minimum.indices.item()
+        argmin = S[index]
+        return value, argmin
+
     def find_closest_unsat(self, S, Sdot):
         min_dist = float("inf")
         V, Vdot, _ = self.get_all(S, Sdot)
@@ -232,6 +249,10 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.SQUARE_DEC,
         ]
         return (activations[-1] in pd_acts) and (layers[-1].bias is None)
+
+    def clean(self):
+        """Prepares object for pickling by removing unpicklable attributes."""
+        self.learn_method = None
 
     @staticmethod
     def order_of_magnitude(number):
@@ -344,7 +365,6 @@ class CtrlLearnerCT(LearnerCT):
         bias=True,
         config: CegisConfig = CegisConfig(),
     ):
-
         LearnerNN.__init__(
             self,
             input_size,
@@ -386,7 +406,6 @@ class CtrlLearnerDT(LearnerDT):
         bias=True,
         config: CegisConfig = CegisConfig(),
     ):
-
         LearnerNN.__init__(
             self,
             input_size,

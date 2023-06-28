@@ -13,9 +13,9 @@ from tqdm import tqdm
 
 from experiments.benchmarks.benchmarks_lyap import *
 from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
-from src.shared.components.cegis import Cegis
+from src.cegis import Cegis
 
-from src.shared.consts import *
+from src.consts import *
 
 
 def test_robustness(benchmark, n_vars, domain, hidden):
@@ -39,7 +39,6 @@ def test_robustness(benchmark, n_vars, domain, hidden):
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        SP_HANDLE=False,
         INNER_RADIUS=inner_radius,
         OUTER_RADIUS=outer_radius,
         LLO=True,

@@ -15,10 +15,10 @@ from tqdm import tqdm
 
 from experiments.benchmarks.benchmarks_bc import barr_1
 from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
-from src.shared.components.cegis import Cegis
+from src.cegis import Cegis
 
 
-from src.shared.consts import *
+from src.consts import *
 
 
 def test_robustness(h):
@@ -36,7 +36,6 @@ def test_robustness(h):
         ACTIVATION=activations,
         SYSTEM=system,
         N_HIDDEN_NEURONS=hidden_neurons,
-        SP_SIMPLIFY=True,
         VERBOSE=False,
     )
     c = Cegis(opts)

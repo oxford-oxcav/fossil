@@ -12,8 +12,8 @@ import torch
 from maraboupy import Marabou
 from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
 
-from experiments.benchmarks.domain_fcns import inf_bounds_n
-from src.shared.consts import ActivationType
+from src.domains import inf_bounds_n
+from src.consts import ActivationType
 from src.shared.components.estimation import EstimNet
 
 

@@ -3,17 +3,17 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import torch
+import re
 
 import sympy as sp
-import re
+import torch
 from matplotlib import pyplot as plt
 
-from experiments.benchmarks.domain_fcns import *
 import experiments.benchmarks.models as models
-
-import src.shared.control as control
-from src.certificate import Lyapunov, Barrier
+import src.control as control
+from src import certificate
+from src.consts import ActivationType
+from src.domains import *
 
 ###############################
 # NON POLY BENCHMARKS
@@ -28,12 +28,12 @@ from src.certificate import Lyapunov, Barrier
 
 def nonpoly0_lyap():
     p = models.NonPoly0()
-    domain = Torus([0, 0], 1, 0.1)
+    domain = Torus([0, 0], 1, 0.01)
 
     return (
         p,
-        {Lyapunov.XD: domain.generate_domain},
-        {Lyapunov.SD: domain.generate_data(1000)},
+        {certificate.XD: domain.generate_domain},
+        {certificate.XD: domain.generate_data(1000)},
         inf_bounds_n(2),
     )
 
@@ -62,7 +62,6 @@ def nonpoly0_rws():
 
 
 def nonpoly1():
-
     outer = 10.0
     batch_size = 500
 
@@ -71,18 +70,17 @@ def nonpoly1():
     XD = PositiveOrthantSphere([0.0, 0.0], outer)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def nonpoly2():
-
     outer = 10.0
     batch_size = 750
 
@@ -91,18 +89,17 @@ def nonpoly2():
     XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
 
 
 def nonpoly3():
-
     outer = 10.0
     batch_size = 500
 
@@ -111,11 +108,11 @@ def nonpoly3():
     XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(3)
@@ -125,7 +122,6 @@ def nonpoly3():
 
 
 def benchmark_0():
-
     outer = 10.0
     batch_size = 1000
     # test function, not to be included
@@ -134,43 +130,20 @@ def benchmark_0():
     XD = Torus([0.0, 0.0], outer, inner_radius=0.1)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
-
-
-def poly_1():
-
-    outer = 10.0
-    inner = 0.1
-    batch_size = 500
-    # SOSDEMO2
-    # from http://sysos.eng.ox.ac.uk/sostools/sostools.pdf
-    f = models.Poly1()
-
-    XD = Torus([0.0, 0.0, 0.0], outer, inner)
-
-    domains = {
-        Lyapunov.XD: XD.generate_domain,
-    }
-
-    data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
-    }
-
-    return f, domains, data, inf_bounds_n(3)
 
 
 # this series comes from
 # https://www.cs.colorado.edu/~srirams/papers/nolcos13.pdf
 # srirams paper from 2013 (old-ish) but plenty of lyap fcns
 def poly_2():
-
     outer = 10.0
     inner = 0.01
     batch_size = 500
@@ -180,18 +153,17 @@ def poly_2():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def poly_3():
-
     outer = 10.0
     inner = 0.1
     batch_size = 500
@@ -201,18 +173,17 @@ def poly_3():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def poly_4():
-
     outer = 10.0
     inner = 0.1
     batch_size = 500
@@ -222,18 +193,17 @@ def poly_4():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def twod_hybrid():
-
     outer = 10.0
     inner = 0.01
     batch_size = 1000
@@ -243,18 +213,17 @@ def twod_hybrid():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def linear_discrete():
-
     outer = 10.0
     inner = 0.01
     batch_size = 500
@@ -264,18 +233,17 @@ def linear_discrete():
     XD = Torus([0.0, 0.0], outer, inner)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
 
 
 def double_linear_discrete():
-
     outer = 10.0
     batch_size = 1000
     f = models.DoubleLinearDiscrete()
@@ -283,18 +251,17 @@ def double_linear_discrete():
     XD = Sphere([0.0, 0.0, 0.0, 0.0], outer)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(4)
 
 
 def linear_discrete_n_vars(smt_verification, n_vars):
-
     outer = 10.0
     batch_size = 1000
 
@@ -302,21 +269,20 @@ def linear_discrete_n_vars(smt_verification, n_vars):
 
     XD = Sphere([0.0] * n_vars, outer)
 
-    data = {Lyapunov.SD: XD.generate_data(batch_size)}
+    data = {certificate.XD: XD.generate_data(batch_size)}
 
     if smt_verification:
-        domains = {Lyapunov.XD: XD.generate_domain}
+        domains = {certificate.XD: XD.generate_domain}
     else:
         lower_inputs = -outer * np.ones((1, n_vars))
         upper_inputs = outer * np.ones((1, n_vars))
         # initial_bound = jax_verify.IntervalBound(lower_inputs, upper_inputs)
-        # domains = {Lyapunov.XD: initial_bound}
+        # domains = {certificate.XD: initial_bound}
 
     return f, domains, data, inf_bounds_n(n_vars)
 
 
 def non_linear_discrete():
-
     outer = 10.0
     batch_size = 1000
 
@@ -325,11 +291,11 @@ def non_linear_discrete():
     XD = Sphere([0.0, 0.0], outer)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -346,10 +312,10 @@ def ras_demo_lyap():
     XU = Rectangle([-1, -5], [5, 1])
     XG = Sphere([0.0, 0.0], 0.01)
     domains_lyap = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
     data_lyap = {
-        Lyapunov.XD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains_lyap, data_lyap, inf_bounds_n(2)
@@ -365,14 +331,14 @@ def ras_demo_barr():
     XU = Rectangle([1, 1], [2, 2])
     XG = Sphere([0.0, 0.0], 0.01)
     domains_barr = {
-        Barrier.XD: XD.generate_domain,
-        Barrier.XI: XI.generate_domain,
-        Barrier.XU: XU.generate_domain,
+        certificate.XD: XD.generate_domain,
+        certificate.XI: XI.generate_domain,
+        certificate.XU: XU.generate_domain,
     }
     data_barr = {
-        Barrier.XD: XD.generate_data(batch_size),
-        Barrier.XI: XI.generate_data(batch_size),
-        Barrier.XU: XU.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
+        certificate.XI: XI.generate_data(batch_size),
+        certificate.XU: XU.generate_data(batch_size),
     }
 
     return f, domains_barr, data_barr, inf_bounds_n(2)
@@ -387,14 +353,14 @@ def control_ct():
     ctrler = control.StabilityCT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)
@@ -409,14 +375,14 @@ def control_dt():
     ctrler = control.StabilityDT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
     optim = torch.optim.AdamW(ctrler.parameters())
     ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.ClosedLoopModel(open_loop, ctrler)
+    f = models._PreTrainedModel(open_loop, ctrler)
 
     domains = {
-        Lyapunov.XD: XD.generate_domain,
+        certificate.XD: XD.generate_domain,
     }
 
     data = {
-        Lyapunov.SD: XD.generate_data(batch_size),
+        certificate.XD: XD.generate_data(batch_size),
     }
 
     return f, domains, data, inf_bounds_n(2)

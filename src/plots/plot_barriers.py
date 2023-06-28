@@ -4,16 +4,17 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
 from matplotlib import cm
-import matplotlib.pyplot as plt
-from src.plots.plot_fcns import (
-    plot_circle_sets,
-    vector_field,
-    plot_square_sets,
-    plot_parabola,
+
+from src.plotting import (
     Rectangle,
+    plot_circle_sets,
+    plot_parabola,
+    plot_square_sets,
+    vector_field,
 )
 
 
