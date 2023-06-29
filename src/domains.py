@@ -8,6 +8,7 @@ import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from functools import partial
 
 from src import verifier
 
@@ -158,8 +159,6 @@ def sphere_init_data(centre, r, batch_size, on_border=False):
 # generates points in a n-dim sphere: X**2 <= radius**2
 # adapted from http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
 # method 20: Muller generalised
-
-
 def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
     dim = len(centre)
     u = torch.randn(
@@ -173,6 +172,29 @@ def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
     x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)
 
     return x
+
+
+# generates points in a n-dim ellipse written as
+# (coeff1 * x1 - centre1) ** 2 + ... + (coeff_n * xn - centre_n) **2 <= radius**2
+def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False):
+
+    dim = len(centre)
+    u = torch.randn(
+        batch_size, dim
+    )  # an array of d normally distributed random variables
+    a = torch.atleast_2d(torch.tensor(coeffs))
+    # morf the dimensions according to the coefficients of x
+    # u = u / a
+    norm = torch.sum(u**2, dim=1) ** (0.5)
+    if on_border:
+        r = radius * torch.ones(batch_size, dim) ** (1.0 / dim)
+    else:
+        r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
+    r = r/a
+    x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)/a
+
+    return x
+
 
 
 # generates data for (X - centre)**2 <= radius
@@ -266,7 +288,8 @@ class Set:
         param batch_size: number of data points to generate
         returns: data points generated in relevant domain according to shape
         """
-        return lambda: self.generate_data(batch_size)
+        # return partial to deal with pickle
+        return partial(self.generate_data, batch_size)
 
     @staticmethod
     def set_functions(x):
@@ -557,7 +580,8 @@ class Sphere(Set):
         param batch_size: number of data points to generate
         returns: data points generated on the border of the set
         """
-        return lambda: self.sample_border(batch_size)
+        # use partial to deal with pickle
+        return partial(self.sample_border, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -597,6 +621,152 @@ class Sphere(Set):
         # if ax.name == "3d":
         #     art3d.pathpatch_2d_to_3d(circle, z=0, zdir="z")
         # return fig, ax
+
+
+class Ellipse(Set):
+    """
+    generates sets expressed as
+    (coeff_1 * x1 - centre_1)^2 + ... + (coeff_n * xn - centre_n)^2 - radius^2 <= 0
+    """
+    def __init__(self, coeffs, centre, radius, dim_select=None):
+        self.centre = centre
+        self.radius = radius
+        self.coeffs = coeffs
+        self.dimension = len(centre)
+        self.dim_select = dim_select
+
+    def __repr__(self) -> str:
+        return f"Ellipse{self.coeffs, self.centre, self.radius}"
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain
+        """
+        if self.dim_select:
+            # check that the coeffs are only for the selected dimensions
+            assert len(self.coeffs) == len(self.dim_select)
+            x = [x[i] for i in self.dim_select]
+        f = self.set_functions(x)
+        return f["And"](
+            sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(len(x))])
+            <= self.radius**2
+        )
+
+    def generate_boundary(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain boundary
+        """
+        f = self.set_functions(x)
+        if self.dim_select:
+            # check that the coeffs are only for the selected dimensions
+            assert len(self.coeffs) == len(self.dim_select)
+            x = [x[i] for i in self.dim_select]
+        return f["And"](
+            sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            == self.radius**2
+        )
+
+    def generate_interior(self, x):
+        """Returns interior of the ellipse
+
+        Args:
+            x (List): symbolic data point x
+
+        Returns:
+            symbolic formula for interior of the ellipse
+        """
+        f = self.set_functions(x)
+        if self.dim_select:
+            # check that the coeffs are only for the selected dimensions
+            assert len(self.coeffs) == len(self.dim_select)
+            x = [x[i] for i in self.dim_select]
+        return f["And"](
+            sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            < self.radius**2
+        )
+
+    def generate_complement(self, x):
+        """Generates complement of the set as a symbolic formulas
+
+        Args:
+            x (list): symbolic data point
+
+        Returns:
+            SMT variable: symbolic representation of complement of the ellipse
+        """
+        f = self.set_functions(x)
+        return f["Not"](self.generate_domain(x))
+
+    def generate_data(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        if self.dim_select:
+            cen = [self.centre[i] for i in self.dim_select]
+            coef = [self.coeffs[i] for i in self.dim_select]
+            return n_dim_ellipse_init_data(coef, cen, self.radius, batch_size)
+        else:
+            return n_dim_ellipse_init_data(self.coeffs, self.centre, self.radius, batch_size)
+
+    def sample_border(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        return n_dim_ellipse_init_data(
+            self.coeffs, self.centre, self.radius, batch_size, on_border=True
+        )
+
+    def _sample_border(self, batch_size):
+        """
+        lazy implementation of sampling border
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        # use partial to deal with pickle
+        return partial(self.sample_border, batch_size)
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+        c = torch.tensor(self.centre).reshape(1, -1)
+        a = torch.tensor(self.coeffs).reshape(1, -1)
+        return (a * x - c).norm(2, dim=-1) <= self.radius
+
+    def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
+        # check containment and return a tensor with gradient
+        c = torch.tensor(self.centre).reshape(1, -1)
+        a = torch.tensor(self.coeffs).reshape(1, -1)
+        if self.dim_select:
+            assert len(self.centre) == len(self.dim_select)
+            assert len(self.centre) == len(self.coeffs)
+            x = x[:, :, self.dim_select]
+        # returns 0 if it IS contained, a positive number otherwise
+        return torch.relu(( a * x - c).norm(2, dim=-1) - self.radius)
+
+    def plot(self, fig, ax, label=None):
+        if self.dimension != 2 and self.dim_select is None:
+            raise NotImplementedError("Plotting only supported for 2D sets")
+        if self.dim_select is not None:
+            assert len(self.dim_select) == 2
+            coeffx = self.coeffs[self.dim_select[0]]
+            coeffy = self.coeffs[self.dim_select[1]]
+            centrex = self.centre[self.dim_select[0]]
+            centrey = self.centre[self.dim_select[1]]
+        else:
+            coeffx, coeffy = self.coeffs[0], self.coeffs[1]
+            centrex, centrey = self.centre[0], self.centre[1]
+
+        colour, label = get_plot_colour(label)
+        r = self.radius
+        theta = np.linspace(0, 2 * np.pi, 50)
+        xc = centrex/coeffx + r/coeffx * np.cos(theta)
+        yc = centrey/coeffy + r/coeffy * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+        return fig, ax
 
 
 class PositiveOrthantSphere(Set):

@@ -17,7 +17,7 @@ from src.consts import CegisConfig, CertificateType
 from src import certificate
 
 
-DRF = DEFAULT_RESULTS_FILE = "experiments/results.csv"
+DRF = DEFAULT_RESULTS_FILE = os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
 BenchmarkData = namedtuple(
@@ -80,7 +80,7 @@ class CSVWriter:
 
     def write_header_to_csv(self):
         """Creates csv file and writes a header to it."""
-        with open(self.filename, "a") as f:
+        with open(self.filename, "a+") as f:
             writer = csv.DictWriter(
                 f, fieldnames=self.headers, delimiter=",", lineterminator="\n"
             )
@@ -94,7 +94,7 @@ class CSVWriter:
                     len(values), len(self.headers)
                 )
             )
-        with open(self.filename, "a") as f:
+        with open(self.filename, "a+") as f:
             writer = csv.writer(f, delimiter=",", lineterminator="\n")
             writer.writerow(values)
 
