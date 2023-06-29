@@ -17,7 +17,9 @@ from src.consts import CegisConfig, CertificateType
 from src import certificate
 
 
-DRF = DEFAULT_RESULTS_FILE = os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
+DRF = DEFAULT_RESULTS_FILE = (
+    os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
+)
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
 BenchmarkData = namedtuple(
@@ -64,7 +66,7 @@ class CSVWriter:
     """Class for writing results to csv file."""
 
     def __init__(self, filename: str, headers: list[str]) -> None:
-        """Initializes CSVWriter.
+        """Initialises CSVWriter.
 
         If the file does not exist, it will be created here
         and the header will be written to it.
@@ -113,7 +115,7 @@ class Recorder:
     """
 
     def __init__(self, filename=DRF) -> None:
-        """Initializes ExperimentRecorder.
+        """Initialises ExperimentRecorder.
 
         Args:
             filename (str): filename of csv file.

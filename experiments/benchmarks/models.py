@@ -1,5 +1,6 @@
 import sys
 from typing import Any
+from functools import partial
 
 import dreal
 import numpy as np
@@ -218,6 +219,11 @@ class GeneralClosedLoopModel(CTModel):
         """Prepare object for pickling"""
         self.fncs = None
         self.open_loop.clean()
+
+    @classmethod
+    def prepare_from_open(cls, f_open: ControllableCTModel):
+        """Prepare a closed loop model from an open loop model, which then must be called with a controller."""
+        return partial(cls, f_open)
 
 
 class Eulerised:
@@ -729,6 +735,7 @@ class Car(CTModel):
 
 class InvertedPendulum(ControllableCTModel):
     n_vars = 2
+    n_u = 1
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -909,6 +916,7 @@ class LinearSatellite(ControllableCTModel):
 
 class CtrlObstacleAvoidance(ControllableCTModel):
     n_vars = 3
+    n_u = 1
 
     def f_torch(self, v, u):
         x, y, phi = v[:, 0], v[:, 1], v[:, 2]
@@ -936,10 +944,8 @@ class CtrlObstacleAvoidance(ControllableCTModel):
 
 
 class Identity(ControllableCTModel):
-    # Possibly add init with self.name attr, and maybe merge z3 & dreal funcs using dicts
-    def __init__(self):
-        ControllableCTModel.__init__(self)
-        self.n_vars = 2
+    n_vars = 2
+    n_u = 2
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -956,9 +962,8 @@ class DTAhmadi(ControllableCTModel):
     # from Non-monotonic Lyapunov Functions
     # for Stability of Discrete Time Nonlinear and Switched Systems
     # Amir Ali Ahmadi and Pablo A. Parrilo, CDC 2008.
-    def __init__(self):
-        ControllableCTModel.__init__(self)
-        self.n_vars = 2
+    n_vars = 2
+    n_u = 2
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -990,10 +995,8 @@ class Linear1(ControllableCTModel):
 
 
 class SecondOrder(ControllableCTModel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.n_vars = 2
-        self.n_u = 1
+    n_vars = 2
+    n_u = 1
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -1007,10 +1010,8 @@ class SecondOrder(ControllableCTModel):
 
 
 class ThirdOrder(ControllableCTModel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.n_vars = 3
-        self.n_u = 1
+    n_vars = 3
+    n_u = 1
 
     def f_torch(self, v, u):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]

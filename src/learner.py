@@ -57,7 +57,7 @@ class LearnerNN(nn.Module, Learner):
         ZaZ = config.FACTORS  # kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.factor = QuadraticFactor() if ZaZ == LearningFactors.QUADRATIC else None
         self.layers = []
-        self.closest_unsat = None
+        self.beta = None
         k = 1
 
         for n_hid in args:
@@ -78,6 +78,8 @@ class LearnerNN(nn.Module, Learner):
         else:  # free output layer
             self.register_parameter("W" + str(k), layer.weight)
             self.layers.append(layer)
+        if config.LLO and not self.is_positive_definite():
+            raise RuntimeError("LLO set but function is not positive definite")
         self.learn_method = learn_method
 
     # backprop algo
@@ -170,7 +172,7 @@ class LearnerNN(nn.Module, Learner):
         # V = NN(x) * F(x)
         # gradV = NN(x) * dF(x)/dx  + der(NN) * F(x)
         # gradV = torch.stack([nn, nn]).T * derivative_e + grad_nn * torch.stack([E, E]).T
-        if derivative_F != 0:
+        if self.factor is not None:
             gradV = (
                 nn.expand_as(grad_nn.T).T * derivative_F.expand_as(grad_nn)
                 + grad_nn * F.expand_as(grad_nn.T).T
@@ -212,6 +214,24 @@ class LearnerNN(nn.Module, Learner):
         argmin = S[index]
         return value, argmin
 
+    def compute_maximum(self, S: torch.Tensor) -> tuple[float, float]:
+        """Computes the maximum of the learner over the input set.
+
+        Also returns the argmax of the maximum.
+
+        Args:
+            S (torch.Tensor): _description_
+
+        Returns:
+            tuple[float, float]: _description_
+        """
+        C = self(S)
+        maximum = torch.max(C, 0)
+        value = maximum.values.item()
+        index = maximum.indices.item()
+        argmax = S[index]
+        return value, argmax
+
     def find_closest_unsat(self, S, Sdot):
         min_dist = float("inf")
         V, Vdot, _ = self.get_all(S, Sdot)
@@ -228,19 +248,18 @@ class LearnerNN(nn.Module, Learner):
             for layer in self.layers[:-1]:
                 layer.weight.data = torch.diag(torch.diag(layer.weight))
 
-    @staticmethod
-    def is_positive_definite(activations: list, layers: list):
+    def is_positive_definite(self):
         """Checks if the net is positive (semi) definite, assuming W is also positive definite;
 
         Positive definiteness is defined as the following:
         N(x) > 0 for all x in R^n
 
-            activations (list): list of activation functions used in the net
-            layers (list): list of layers in the net
 
         Returns:
             bool: True is net is positive definite, else False
         """
+        activations = self.acts
+        layers = self.layers
         pd_acts = [
             ActivationType.RELU,
             ActivationType.SQUARE,

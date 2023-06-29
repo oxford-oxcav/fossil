@@ -21,6 +21,7 @@ def run_benchmark(
     record=False,
     plot=False,
     concurrent=False,
+    **kwargs,
 ):
     """Unified interface for running benchmarks with a fixed seed.
 
@@ -53,7 +54,9 @@ def run_benchmark(
                 raise NotImplementedError(
                     "Plotting is only supported for 2-dimensional problems"
                 )
-            plotting.benchmark(result.f, result.cert, domains=cegis_options.DOMAINS)
+            plotting.benchmark(
+                result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
+            )
         if record:
             rec = analysis.Recorder()
             rec.record(cegis_options, result, T)

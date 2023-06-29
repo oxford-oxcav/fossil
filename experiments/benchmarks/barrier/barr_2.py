@@ -67,7 +67,7 @@ def test_lnn():
         CEGIS_MAX_ITERS=25,
     )
 
-    main.run_benchmark(opts, record=True, plot=True, repeat=1)
+    main.run_benchmark(opts, record=True, plot=True, repeat=1, concurrent=True)
 
 
 if __name__ == "__main__":

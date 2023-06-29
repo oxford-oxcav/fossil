@@ -71,27 +71,6 @@ def ctrllyap_unstable(ctrler):
     return f, domains, data, inf_bounds_n(2)
 
 
-def ctrllyap_inv_pendulum(ctrler):
-    outer = 1
-    inner = 0.1
-    batch_size = 1500
-    open_loop = models.InvertedPendulum()
-
-    XD = Torus([0.0, 0.0], outer, inner)
-    equilibrium = torch.zeros((1, 2))
-
-    f = models.GeneralClosedLoopModel(open_loop, ctrler)
-
-    domains = {
-        certificate.XD: XD.generate_domain,
-    }
-    data = {
-        certificate.XD: XD.generate_data(batch_size),
-    }
-
-    return f, domains, data, inf_bounds_n(2)
-
-
 def ctrllyap_lorenz_sys(ctrler):
     outer = 5.0
     inner = 0.1
@@ -292,47 +271,6 @@ def inv_pendulum_ctrl():
     return f, domains, data, inf_bounds_n(2)
 
 
-# taken from Tedrake's lecture notes and the code at
-# https://github.com/RussTedrake/underactuated/blob/master/underactuated/quadrotor2d.py
-def quadrotor2d_ctrl(ctrler):
-    batch_size = 5000
-    ins = 6
-
-    open_loop = models.Quadrotor2d()
-
-    XD = Rectangle(
-        lb=[-2.0, -2.0, np.pi, -2.0, -2.0, -2.0 * np.pi],
-        ub=[2.0, 2.0, np.pi, 2.0, 2.0, 2.0 * np.pi],
-    )
-
-    XI = Sphere([0.7, 0.7, 0.7, 0.7, 0.7, 0.7], 0.2)
-    XU = Sphere([-2.5] * ins, 0.2)
-    XG = Sphere([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.5)
-
-    # ctrler = control.TrajectorySafeStableCT(inputs=ins, outputs=2,
-    #                                         layers=[4],
-    #                                         activations=[ActivationType.LINEAR],
-    #                                         time_domain=TimeDomain.CONTINUOUS,
-    #                                         goal=XG, unsafe=XU,
-    #                                         steps=10)
-    # optim = torch.optim.AdamW(ctrler.parameters())
-    # ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
-    f = models.GeneralClosedLoopModel(open_loop, ctrler)
-
-    domains = {
-        "lie": XD.generate_domain,
-        "init": XI.generate_domain,
-        "unsafe": XU.generate_domain,
-    }
-    data = {
-        "lie": XD.generate_data(batch_size),
-        "init": XI.generate_data(batch_size),
-        "unsafe": XU.generate_data(batch_size),
-    }
-
-    return f, domains, data, inf_bounds_n(ins)
-
-
 def linear_satellite(ctrler):
     batch_size = 1500
     ins = 6
@@ -435,33 +373,3 @@ def linear_satellite(ctrler):
     }
 
     return f, domains, data, inf_bounds_n(ins)
-
-
-def ctrl_obstacle_avoidance(ctrler):
-    batch_size = 1000
-    open_loop = models.CtrlObstacleAvoidance()
-
-    XD = Rectangle(lb=[-10.0, -10.0, -np.pi], ub=[10.0, 10.0, np.pi])
-    XI = Rectangle(lb=[4.0, 4.0, -np.pi / 2], ub=[6.0, 6.0, np.pi / 2])
-    XU = Rectangle(lb=[-9, -9, -np.pi / 2], ub=[-7.0, -6.0, np.pi / 2])
-    lowers = [-0.05, -0.05, -0.05]
-    uppers = [0.05, 0.05, 0.05]
-    XG = Rectangle(lb=lowers, ub=uppers)
-
-    f = models.GeneralClosedLoopModel(open_loop, ctrler)
-
-    domains = {
-        "lie": XD.generate_domain,
-        "init": XI.generate_domain,
-        "unsafe": XU.generate_domain,
-    }
-    data = {
-        "lie": XD.generate_data(batch_size),
-        "init": XI.generate_data(batch_size),
-        "unsafe": XU.generate_data(batch_size),
-    }
-
-    bounds = inf_bounds_n(2)
-    pi = math.pi
-    bounds.append([-pi, pi])
-    return f, domains, data, bounds

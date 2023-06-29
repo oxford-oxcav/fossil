@@ -33,6 +33,12 @@ def benchmark(
         xrange (tuple, optional): Range of the x-axis. Defaults to None.
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
+    if type(certificate) is tuple:
+        certificate = certificate[0]
+
+    if certificate.beta is not None:
+        levels = [0, certificate.beta]
+
     ax1 = benchmark_plane(model, certificate, domains, levels, xrange, yrange)
 
     ax2 = benchmark_3d(certificate, domains, levels, xrange, yrange)

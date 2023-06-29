@@ -56,9 +56,10 @@ class Lyapunov(Certificate):
     def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[XD]
         self.bias = False
-        self.pos_def = False
         self.llo = CegisConfig.LLO
         self.control = config.CTRLAYER is not None
+        self.D = config.DOMAINS
+        self.beta = None
 
     def compute_loss(
         self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
@@ -174,6 +175,165 @@ class Lyapunov(Certificate):
             lyap_negated = _Or(V <= 0, Vdot > 0)
         lyap_condition = _And(self.domain, lyap_negated)
         for cs in ({XD: lyap_condition},):
+            yield cs
+
+    def estimate_beta(self, net):
+        border_D = self.D[XD].sample_border(300)
+        beta, _ = net.compute_minimum(border_D)
+        return beta
+
+
+class ROA(Certificate):
+    """Certifies that a set a region of attraction for the origin
+
+    For this certificate, the domain XD is relatively unimportant, as the
+    verification is done with respect to XI, and (hopefully) the smallest sub-level set of V
+    that contains XI. XD is expected to be much larger than XI, and provides training data
+    over a larger region than XI."""
+
+    def __init__(self, domains, config: CegisConfig) -> None:
+        self.XD = domains[XD]
+        self.XI = domains[XI]
+        self.pos_def = False
+        self.llo = CegisConfig.LLO
+        self.control = config.CTRLAYER is not None
+        self.D = config.DOMAINS
+        self.bias = False
+
+    def compute_loss(
+        self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
+    ) -> tuple[torch.Tensor, float]:
+        """_summary_
+
+        Args:
+            V (torch.Tensor): Lyapunov samples over domain
+            Vdot (torch.Tensor): Lyapunov derivative samples over domain
+            circle (torch.Tensor): Circle
+
+        Returns:
+            tuple[torch.Tensor, float]: loss and accuracy
+        """
+        margin = 0 * 0.01
+
+        slope = 10 ** (learner.LearnerNN.order_of_magnitude(max(abs(Vdot)).detach()))
+        leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
+        # compute loss function. if last layer of ones (llo), can drop parts with V
+        if self.llo:
+            learn_accuracy = (Vdot <= -margin).count_nonzero().item()
+            loss = (leaky_relu(Vdot + margin * circle)).mean()
+        else:
+            learn_accuracy = 0.5 * (
+                (Vdot <= -margin).count_nonzero().item()
+                + (V >= margin).count_nonzero().item()
+            )
+            loss = (leaky_relu(Vdot + margin * circle)).mean() + (
+                leaky_relu(-V + margin * circle)
+            ).mean()
+
+        return loss, learn_accuracy
+
+    def learn(
+        self,
+        learner: learner.LearnerNN,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
+    ) -> dict:
+        """
+        :param learner: learner object
+        :param optimizer: torch optimiser
+        :param S: list of tensors of data
+        :param Sdot: list of tensors containing f(data)
+        :return: --
+        """
+
+        batch_size = len(S[XD])
+        learn_loops = 1000
+        samples = S[XD]
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = Sdot[XD]
+
+        assert len(samples) == len(samples_dot)
+
+        for t in range(learn_loops):
+            optimizer.zero_grad()
+            if self.control:
+                samples_dot = f_torch(samples)
+
+            V, Vdot, circle = learner.get_all(samples, samples_dot)
+
+            loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
+
+            if self.control:
+                loss = loss + control.nonzero_loss2(samples, samples_dot)
+                # loss = loss + control.cosine_reg(samples, samples_dot)
+
+            if t % 100 == 0 or t == learn_loops - 1:
+                vprint(
+                    (
+                        t,
+                        "- loss:",
+                        loss.item(),
+                        "- acc:",
+                        learn_accuracy * 100 / batch_size,
+                        "%",
+                    ),
+                    learner.verbose,
+                )
+
+            # t>=1 ensures we always have at least 1 optimisation step
+            if learn_accuracy == batch_size and t >= 1:
+                break
+
+            loss.backward()
+            optimizer.step()
+
+            if learner._diagonalise:
+                learner.diagonalisation()
+        SI = S[XI]
+        self.beta = learner.compute_maximum(SI)[0]
+        return {}
+
+    def estimate_beta(self, net):
+        net.beta = self.beta
+        return self.beta
+
+    def get_constraints(self, verifier, V, Vdot) -> Generator:
+        # Inflate beta slightly to ensure it is not on the border
+        beta = self.beta * 1.1
+
+        _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        _Or = verifier.solver_fncts()["Or"]
+        B = V <= beta
+
+        # We want to prove that XI lies entirely in B (the ROA)
+        B_cond = _And(self.XI, _Not(B))
+
+        if self.llo:
+            # V is positive definite by construction
+            lyap_negated = Vdot > 0
+        else:
+            lyap_negated = _Or(V <= 0, Vdot > 0)
+
+        # We only care about the lyap conditions within B, but B includes the origin.
+        # The temporary solution is just to remove a small sphere around the origin here,
+        # but it could be better to pass a specific domain to CEGIS that excludes the origin. It cannot
+        # be done with XI or XD, because they might not contain B and the conditions must hold everywhere
+        # in B (except sphere around origin). This could be a goal set?
+
+        sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01 * 2
+
+        B_less_sphere = _And(B, _Not(sphere))
+        lyap_condition = _And(B_less_sphere, lyap_negated)
+
+        roa_condition = _Or(B_cond, lyap_condition)
+
+        for cs in ({XD: roa_condition},):
             yield cs
 
 
@@ -591,6 +751,7 @@ class RWS(Certificate):
 
     def compute_loss(self, V_i, V_u, V_d, Vdot_d):
         margin = 0
+        margin_lie = 0.05
         learn_accuracy = (V_i <= -margin).count_nonzero().item() + (
             V_u >= margin
         ).count_nonzero().item()
@@ -612,7 +773,9 @@ class RWS(Certificate):
                 ((A_lie <= -margin).count_nonzero()).item() * 100 / A_lie.shape[0]
             )
 
-            lie_loss = (relu(A_lie + 0 * margin)).mean() - slope * relu(-Vdot_d).mean()
+            lie_loss = (relu(A_lie + 0 * margin_lie)).mean() - slope * relu(
+                -Vdot_d
+            ).mean()
             loss = loss + lie_loss
         else:
             lie_accuracy = 0.0
@@ -1285,6 +1448,8 @@ class DoubleCertificate(Certificate):
 def get_certificate(certificate: CertificateType) -> Type[Certificate]:
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov
+    elif certificate == CertificateType.ROA:
+        return ROA
     elif certificate == CertificateType.BARRIER:
         return Barrier
     elif certificate == CertificateType.BARRIERALT:
