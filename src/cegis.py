@@ -160,6 +160,9 @@ class SingleCegis:
             outputs = self.learner.get(**state)
             state = {**state, **outputs}
 
+            # Update xdot with new controller if necessary
+            state.update({CegisStateKeys.xdot: self.f(self.x)})
+
             # Translator component
             if self.config.VERBOSE:
                 print_section("translator", iters)
@@ -232,7 +235,8 @@ class SingleCegis:
         self, S: dict[str, torch.Tensor], state: dict[str, Any]
     ) -> dict[str, Any]:
         if state[CegisStateKeys.trajectory] != []:
-            lie_label = [key for key in S.keys() if "lie" in key][0]
+            lie_key = certificate.XD
+            lie_label = [key for key in S.keys() if lie_key in key][0]
             state[CegisStateKeys.cex][lie_label] = torch.cat(
                 [
                     state[CegisStateKeys.cex][lie_label],
