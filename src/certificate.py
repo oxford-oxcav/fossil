@@ -585,15 +585,13 @@ class BarrierAlt(Certificate):
 
         lie_loss = (relu6(Bdot_d + margin)).mean()
 
-        # set two belts
-        percent_belt = 0
-
         lie_accuracy = (
             100 * ((Bdot_d <= -margin).count_nonzero()).item() / Bdot_d.shape[0]
         )
 
         loss = init_loss + unsafe_loss + lie_loss
-        return percent_accuracy_init_unsafe, percent_belt, lie_accuracy, loss
+
+        return loss, percent_accuracy_init_unsafe, lie_accuracy
 
     def learn(
         self,
@@ -646,10 +644,9 @@ class BarrierAlt(Certificate):
             B_u = B[i1 + i2 :]
 
             (
-                percent_accuracy_init_unsafe,
-                percent_belt,
-                lie_accuracy,
                 loss,
+                percent_accuracy_init_unsafe,
+                lie_accuracy
             ) = self.compute_loss(B_i, B_u, B_d, Bdot_d)
 
             # loss = loss + (100-percent_accuracy)
@@ -673,7 +670,7 @@ class BarrierAlt(Certificate):
             #         if Vdot[k] > -margin:
             #             print("Vdot" + str(S[k].tolist()) + " = " + str(Vdot[k].tolist()))
 
-            if percent_accuracy_init_unsafe == 100 and percent_belt >= 99.9:
+            if percent_accuracy_init_unsafe == 100 and lie_accuracy >= 99.9:
                 condition = True
             else:
                 condition = False

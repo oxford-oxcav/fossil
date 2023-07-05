@@ -177,6 +177,7 @@ def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
 # generates points in a n-dim ellipse written as
 # (coeff1 * x1 - centre1) ** 2 + ... + (coeff_n * xn - centre_n) **2 <= radius**2
 def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False):
+
     dim = len(centre)
     u = torch.randn(
         batch_size, dim
@@ -189,6 +190,7 @@ def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False)
         r = radius * torch.ones(batch_size, dim) ** (1.0 / dim)
     else:
         r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
+
     r = r / a
     x = torch.div(r * u, norm[:, None]) + torch.tensor(centre) / a
 
@@ -588,11 +590,20 @@ class Sphere(Set):
             self.centre, self.radius**2, batch_size, on_border=True
         )
 
+    def _sample_border(self, batch_size):
+        """
+        lazy implementation of sampling border
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        # use partial to deal with pickle
+        return partial(self.sample_border, batch_size)
+
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
-        return (x - c).norm(2, dim=-1) <= self.radius
+        return (x - c).norm(2, dim=-1) <= self.radius**2
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
         # check containment and return a tensor with gradient
@@ -602,7 +613,7 @@ class Sphere(Set):
             c = [self.centre[i] for i in self.dim_select]
             c = torch.tensor(c).reshape(1, -1)
         # returns 0 if it IS contained, a positive number otherwise
-        return torch.relu((x - c).norm(2, dim=-1) - self.radius)
+        return torch.relu((x - c).norm(2, dim=-1) - self.radius**2)
 
     def plot(self, fig, ax, label=None):
         if self.dimension != 2:
@@ -738,12 +749,21 @@ class Ellipse(Set):
             self.coeffs, self.centre, self.radius, batch_size, on_border=True
         )
 
+    def _sample_border(self, batch_size):
+        """
+        lazy implementation of sampling border
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        # use partial to deal with pickle
+        return partial(self.sample_border, batch_size)
+
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
         c = torch.tensor(self.centre).reshape(1, -1)
         a = torch.tensor(self.coeffs).reshape(1, -1)
-        return (a * x - c).norm(2, dim=-1) <= self.radius
+        return (a * x - c).norm(2, dim=-1) <= self.radius**2
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
         # check containment and return a tensor with gradient
@@ -754,7 +774,7 @@ class Ellipse(Set):
             assert len(self.centre) == len(self.coeffs)
             x = x[:, :, self.dim_select]
         # returns 0 if it IS contained, a positive number otherwise
-        return torch.relu((a * x - c).norm(2, dim=-1) - self.radius)
+        return torch.relu((a * x - c).norm(2, dim=-1) - self.radius**2)
 
     def plot(self, fig, ax, label=None):
         if self.dimension != 2 and self.dim_select is None:
@@ -890,7 +910,7 @@ class Torus(Set):
         c = torch.tensor(self.centre).reshape(1, -1)
         return torch.logical_and(
             (self.inner_radius <= (x - c).norm(2, dim=1)),
-            (x - c).norm(2, dim=1) <= self.outer_radius,
+            (x - c).norm(2, dim=1) <= self.outer_radius**2,
         )
 
     def check_containment_grad(self, x: torch.Tensor) -> torch.Tensor:
@@ -903,7 +923,7 @@ class Torus(Set):
 
         # returns 0 if it IS contained, a positive number otherwise
         return torch.relu(self.inner_radius - (x - c).norm(2, dim=-1)) + torch.relu(
-            (x - c).norm(2, dim=-1) - self.outer_radius
+            (x - c).norm(2, dim=-1) - self.outer_radius**2
         )
 
     def plot(self, fig, ax, label=None):
