@@ -4,59 +4,60 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 # pylint: disable=not-callable
-import pickle
 
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
 from src import main
+import src.domains as domains
+import src.certificate as certificate
 from src.consts import *
 
 
 def test_lnn():
-    # TEST for Control Lyapunov
-    # pass the ctrl parameters from here (i.e. the main)
+    ###########################################
+    ### Converges in 1.6s in second step
+    ### Trivial example
+    ### Currently DoubleCegis does not work with consolidator
+    #############################################
     n_vars = 2
-    outer = 10.0
-    inner = 0.1
-    batch_size = 5000
-    open_loop = models.Benchmark1
 
-    XD = domains.Torus([0.0, 0.0], outer, inner)
+    system = models.NonPoly1
+    batch_size = 500
 
-    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+    XD = domains.Torus([0, 0], 2, 0.01)
+    XI = domains.Torus([0, 0], 0.5, 0.01)
 
     sets = {
         certificate.XD: XD,
+        certificate.XI: XI,
     }
     data = {
         certificate.XD: XD._generate_data(batch_size),
+        certificate.XI: XI._sample_border(batch_size),
     }
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [4] * len(activations)
-
-    ###
-    # Takes ~6 seconds, iter 1
-    ###
+    n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(
+        N_VARS=n_vars,
         SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        N_VARS=n_vars,
-        CERTIFICATE=CertificateType.LYAPUNOV,
-        LLO=False,
+        CERTIFICATE=CertificateType.ROA,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        CTRLAYER=[15, 2],
-        CTRLACTIVATION=[ActivationType.LINEAR],
+        CEGIS_MAX_ITERS=10,
+        LLO=True,
     )
-    main.run_benchmark(opts, record=False, plot=True, repeat=1, concurrent=True)
+
+    main.run_benchmark(
+        opts, record=False, plot=True, repeat=1, xrange=[-5, 5], yrange=[-5, 5]
+    )
 
 
 if __name__ == "__main__":

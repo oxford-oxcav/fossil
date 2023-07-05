@@ -5,24 +5,33 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import numpy
-import torch
-import timeit
-from src.cegis import Cegis
-from experiments.benchmarks.benchmark_ctrl import ctrllyap_inv_pendulum
-
-
+from experiments.benchmarks import models
+from src import domains
+from src import certificate
+from src import main
 from src.consts import *
-from src.plots.plot_lyap import plot_lyce
-import numpy as np
 
 
 def test_lnn():
+    outer = 1
+    inner = 0.1
+    batch_size = 1500
+    open_loop = models.InvertedPendulum
+
+    XD = domains.Torus([0.0, 0.0], outer, inner)
+
+    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+
+    sets = {
+        certificate.XD: XD,
+    }
+    data = {
+        certificate.XD: XD._generate_data(batch_size),
+    }
+
     # TEST for Control Lyapunov
     # pass the ctrl parameters from here (i.e. the main)
-    benchmark = ctrllyap_inv_pendulum
     n_vars = 2
-    system = benchmark
 
     # define NN parameters
     lyap_activations = [ActivationType.SQUARE]
@@ -31,29 +40,21 @@ def test_lnn():
     # ctrl params
     n_ctrl_inputs = 2
 
-    start = timeit.default_timer()
     opts = CegisConfig(
+        SYSTEM=system,
+        DOMAINS=sets,
+        DATA=data,
         N_VARS=n_vars,
         CERTIFICATE=CertificateType.LYAPUNOV,
         LLO=False,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=lyap_activations,
-        SYSTEM=system,
         N_HIDDEN_NEURONS=lyap_hidden_neurons,
         CTRLAYER=[25, n_ctrl_inputs],
         CTRLACTIVATION=[ActivationType.LINEAR],
     )
-    c = Cegis(opts)
-    state, vars, f, iters = c.solve()
-    stop = timeit.default_timer()
-    print("Elapsed Time: {}".format(stop - start))
-
-    # plotting -- only for 2-d systems
-    if len(vars) == 2:
-        plot_lyce(
-            np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
-        )
+    main.run_benchmark(opts, record=False, plot=True, repeat=1)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
 import math
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Literal
 
 import torch
 
@@ -75,6 +75,7 @@ class CertificateType(Enum):
     BARRIER = auto()
     BARRIERALT = auto()
     LYAPUNOV = auto()
+    ROA = auto()
     RWA = auto()
     RSWA = auto()
     RWS = auto()
@@ -98,7 +99,7 @@ class CegisConfig:
     TRANSLATOR: TranslatorType = TranslatorType.CONTINUOUS
     BATCH_SIZE: int = 500
     LEARNING_RATE: float = 0.1
-    FACTORS = LearningFactors.NONE
+    FACTORS: Literal = LearningFactors.NONE
     LLO: bool = False  # last layer of ones
     ROUNDING: int = 3
     N_VARS: int = 0

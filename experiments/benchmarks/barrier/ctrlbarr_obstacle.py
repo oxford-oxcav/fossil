@@ -5,28 +5,44 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import numpy
-import torch
-import timeit
-from src.cegis import Cegis
-from experiments.benchmarks.benchmark_ctrl import ctrl_obstacle_avoidance
-
-
-from src.consts import *
-from src.plots.plot_lyap import plot_lyce
 import numpy as np
+
+from experiments.benchmarks import models
+from src import domains
+from src import certificate
+from src import main
+from src.consts import *
 
 
 def test_lnn():
+    batch_size = 1000
+    open_loop = models.CtrlObstacleAvoidance
+
+    XD = domains.Rectangle(lb=[-10.0, -10.0, -np.pi], ub=[10.0, 10.0, np.pi])
+    XI = domains.Rectangle(lb=[4.0, 4.0, -np.pi / 2], ub=[6.0, 6.0, np.pi / 2])
+    XU = domains.Rectangle(lb=[-9, -9, -np.pi / 2], ub=[-7.0, -6.0, np.pi / 2])
+    lowers = [-0.05, -0.05, -0.05]
+    uppers = [0.05, 0.05, 0.05]
+
+    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+
+    sets = {
+        certificate.XD: XD,
+        certificate.XI: XI,
+        certificate.XU: XU,
+    }
+    data = {
+        certificate.XD: XD._generate_data(batch_size),
+        certificate.XI: XI._generate_data(batch_size),
+        certificate.XU: XU._generate_data(batch_size),
+    }
+
     ###############################
-    # This is a great idea!
     # takes 3.3 secs, at iter 3
     ###############################
 
     # using trajectory control
-    benchmark = ctrl_obstacle_avoidance
     n_vars = 3
-    system = benchmark
 
     # define NN parameters
     barr_activations = [ActivationType.TANH]
@@ -35,29 +51,21 @@ def test_lnn():
     # ctrl params
     n_ctrl_inputs = 1
 
-    start = timeit.default_timer()
     opts = CegisConfig(
+        SYSTEM=system,
+        DOMAINS=sets,
+        DATA=data,
         N_VARS=n_vars,
         CERTIFICATE=CertificateType.BARRIER,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=barr_activations,
-        SYSTEM=system,
         N_HIDDEN_NEURONS=barr_hidden_neurons,
         CTRLAYER=[20, n_ctrl_inputs],
         CTRLACTIVATION=[ActivationType.LINEAR],
         SYMMETRIC_BELT=True,
     )
-    c = Cegis(opts)
-    state, vars, f, iters = c.solve()
-    stop = timeit.default_timer()
-    print("Elapsed Time: {}".format(stop - start))
-
-    # plotting -- only for 2-d systems
-    if len(vars) == 2 and state[CegisStateKeys.found]:
-        plot_lyce(
-            np.array(vars), state[CegisStateKeys.V], state[CegisStateKeys.V_dot], f
-        )
+    main.run_benchmark(opts, record=False, plot=False, repeat=1)
 
 
 if __name__ == "__main__":

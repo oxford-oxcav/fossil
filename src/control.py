@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import sympy as sp
+from scipy import linalg
 
 from src.activations import activation
 from src.activations_symbolic import activation_sym
@@ -353,3 +355,62 @@ def cosine_reg(S: torch.Tensor, Sdot: torch.Tensor):
     l = torch.cosine_similarity(S, Sdot, dim=1)
     l = torch.relu(l) + torch.relu(-l - 0.5)
     return l.mean()
+
+
+class Lineariser:
+    """Linearises the model around the origin, which is assumed to be the equilibrium point"""
+
+    def __init__(self, model):
+        self.model = model
+        self.n_vars = self.model.n_vars
+        self.x = [sp.Symbol("x" + str(i), real=True) for i in range(self.n_vars)]
+        # zero = torch.tensor([0.0] * self.n_vars).unsqueeze(0)
+        # print(self.model(zero))
+
+    def get_model(self):
+        return self.model(self.x)
+
+    def get_jacobian(self):
+        J = sp.Matrix(self.model(self.x)).jacobian(self.x)
+        return J
+
+    def linearise(self):
+        J = self.get_jacobian()
+        J_0 = J.subs([(x, 0) for x in self.x])
+        return np.array(J_0).astype(np.float64)
+
+
+class LQR:
+    """Generates the LQR controller for a linear model"""
+
+    def __init__(self, A, B=None, Q=None, R=None):
+        """Initialises the LQR controller
+
+        Args:
+            A (np.ndarray): state matrix of the linear model
+            B (np.ndarray, optional): Defaults to Identity.
+            Q (np.ndarray, optional): Defaults to Identity.
+            R (np.ndarray, optional): Defaults to Identity.
+        """
+        self.A = A
+        self.n_vars = A.shape[0]
+        self.B = B if B is not None else np.eye(self.n_vars)
+        self.n_u = self.B.shape[1]
+        self.Q = Q if Q is not None else np.eye(self.n_vars)
+        self.R = R if R is not None else np.eye(self.n_u)
+
+    def solve(self):
+        P = linalg.solve_continuous_are(self.A, self.B, self.Q, self.R)
+        K = np.linalg.inv(self.R) @ self.B.T @ P
+        return K
+
+
+if __name__ == "__main__":
+    from experiments.benchmarks import models
+
+    model = models.NonPoly0()
+    l = Lineariser(model)
+
+    A = l.linearise()
+    K = LQR(A).solve()
+    print(K)

@@ -177,7 +177,6 @@ def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
 # generates points in a n-dim ellipse written as
 # (coeff1 * x1 - centre1) ** 2 + ... + (coeff_n * xn - centre_n) **2 <= radius**2
 def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False):
-
     dim = len(centre)
     u = torch.randn(
         batch_size, dim
@@ -190,11 +189,10 @@ def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False)
         r = radius * torch.ones(batch_size, dim) ** (1.0 / dim)
     else:
         r = radius * torch.rand(batch_size, dim) ** (1.0 / dim)
-    r = r/a
-    x = torch.div(r * u, norm[:, None]) + torch.tensor(centre)/a
+    r = r / a
+    x = torch.div(r * u, norm[:, None]) + torch.tensor(centre) / a
 
     return x
-
 
 
 # generates data for (X - centre)**2 <= radius
@@ -291,6 +289,18 @@ class Set:
         # return partial to deal with pickle
         return partial(self.generate_data, batch_size)
 
+    def sample_border(self, batch_size) -> torch.Tensor:
+        raise NotImplementedError
+
+    def _sample_border(self, batch_size) -> callable:
+        """
+        Lazy version of sample_border, returns a function that generates data when called
+        param batch_size: number of data points to generate
+        returns: data points generated in relevant domain according to shape
+        """
+        # return partial to deal with pickle
+        return partial(self.sample_border, batch_size)
+
     @staticmethod
     def set_functions(x):
         if verifier.VerifierDReal.check_type(x):
@@ -319,6 +329,10 @@ class Union(Set):
         X1 = self.S1.generate_data(int(batch_size / 2))
         X2 = self.S2.generate_data(int(batch_size / 2))
         return torch.cat([X1, X2])
+
+    def plot(self, *args, **kwargs):
+        self.S1.plot(*args, **kwargs)
+        self.S2.plot(*args, **kwargs)
 
 
 class Intersection(Set):
@@ -574,15 +588,6 @@ class Sphere(Set):
             self.centre, self.radius**2, batch_size, on_border=True
         )
 
-    def _sample_border(self, batch_size):
-        """
-        lazy implementation of sampling border
-        param batch_size: number of data points to generate
-        returns: data points generated on the border of the set
-        """
-        # use partial to deal with pickle
-        return partial(self.sample_border, batch_size)
-
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
             x = [x[:, i] for i in self.dim_select]
@@ -628,6 +633,7 @@ class Ellipse(Set):
     generates sets expressed as
     (coeff_1 * x1 - centre_1)^2 + ... + (coeff_n * xn - centre_n)^2 - radius^2 <= 0
     """
+
     def __init__(self, coeffs, centre, radius, dim_select=None):
         self.centre = centre
         self.radius = radius
@@ -664,7 +670,12 @@ class Ellipse(Set):
             assert len(self.coeffs) == len(self.dim_select)
             x = [x[i] for i in self.dim_select]
         return f["And"](
-            sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            sum(
+                [
+                    (self.coeffs[i] * x[i] - self.centre[i]) ** 2
+                    for i in range(self.dimension)
+                ]
+            )
             == self.radius**2
         )
 
@@ -683,7 +694,12 @@ class Ellipse(Set):
             assert len(self.coeffs) == len(self.dim_select)
             x = [x[i] for i in self.dim_select]
         return f["And"](
-            sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
+            sum(
+                [
+                    (self.coeffs[i] * x[i] - self.centre[i]) ** 2
+                    for i in range(self.dimension)
+                ]
+            )
             < self.radius**2
         )
 
@@ -709,7 +725,9 @@ class Ellipse(Set):
             coef = [self.coeffs[i] for i in self.dim_select]
             return n_dim_ellipse_init_data(coef, cen, self.radius, batch_size)
         else:
-            return n_dim_ellipse_init_data(self.coeffs, self.centre, self.radius, batch_size)
+            return n_dim_ellipse_init_data(
+                self.coeffs, self.centre, self.radius, batch_size
+            )
 
     def sample_border(self, batch_size):
         """
@@ -719,15 +737,6 @@ class Ellipse(Set):
         return n_dim_ellipse_init_data(
             self.coeffs, self.centre, self.radius, batch_size, on_border=True
         )
-
-    def _sample_border(self, batch_size):
-        """
-        lazy implementation of sampling border
-        param batch_size: number of data points to generate
-        returns: data points generated on the border of the set
-        """
-        # use partial to deal with pickle
-        return partial(self.sample_border, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -745,7 +754,7 @@ class Ellipse(Set):
             assert len(self.centre) == len(self.coeffs)
             x = x[:, :, self.dim_select]
         # returns 0 if it IS contained, a positive number otherwise
-        return torch.relu(( a * x - c).norm(2, dim=-1) - self.radius)
+        return torch.relu((a * x - c).norm(2, dim=-1) - self.radius)
 
     def plot(self, fig, ax, label=None):
         if self.dimension != 2 and self.dim_select is None:
@@ -763,8 +772,8 @@ class Ellipse(Set):
         colour, label = get_plot_colour(label)
         r = self.radius
         theta = np.linspace(0, 2 * np.pi, 50)
-        xc = centrex/coeffx + r/coeffx * np.cos(theta)
-        yc = centrey/coeffy + r/coeffy * np.sin(theta)
+        xc = centrex / coeffx + r / coeffx * np.cos(theta)
+        yc = centrey / coeffy + r / coeffy * np.sin(theta)
         ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
         return fig, ax
 
@@ -799,6 +808,17 @@ class PositiveOrthantSphere(Set):
         returns: data points generated in relevant domain according to shape
         """
         return slice_nd_init_data(self.centre, self.radius**2, batch_size)
+
+    def plot(self, fig, ax, label=None):
+        if self.dimension != 2:
+            raise NotImplementedError("Plotting only supported for 2D sets")
+        colour, label = get_plot_colour(label)
+        r = self.radius
+        theta = np.linspace(0, np.pi / 2, 50)
+        xc = self.centre[0] + r * np.cos(theta)
+        yc = self.centre[1] + r * np.sin(theta)
+        ax.plot(xc[:], yc[:], colour, linewidth=2, label=label)
+        return fig, ax
 
 
 class Torus(Set):
@@ -854,6 +874,15 @@ class Torus(Set):
         returns: data points generated in relevant domain according to shape
         """
         return round_init_data(self.centre, self.outer_radius**2, batch_size)
+
+    def sample_border(self, batch_size):
+        """
+        param batch_size: number of data points to generate
+        returns: data points generated on the border of the set
+        """
+        return round_init_data(
+            self.centre, self.outer_radius**2, batch_size, on_border=True
+        )
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
