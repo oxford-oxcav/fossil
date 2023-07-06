@@ -99,7 +99,9 @@ class SingleCegis:
         )
         x_map = {str(x): x for x in x}
         domains = {
-            label: domain.generate_domain(x)
+            label: domain.generate_boundary(x)
+            if label in certificate.BORDERS
+            else domain.generate_domain(x)
             for label, domain in self.config.DOMAINS.items()
         }
         return x, x_map, domains

@@ -27,6 +27,7 @@ class ActivationType(Enum):
     LIN_TO_SEPTIC = auto()
     LIN_TO_OCTIC = auto()
     SQUARE_DEC = auto()
+    RATIONAL = auto()
     # dReal only from here
     TANH = auto()
     SIGMOID = auto()

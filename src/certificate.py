@@ -23,6 +23,7 @@ XG = "goal"
 XG_BORDER = "goal_border"
 XS_BORDER = "safe_border"
 XF = "final"
+BORDERS = (XG_BORDER, XS_BORDER)
 
 
 class Certificate:
@@ -56,7 +57,7 @@ class Lyapunov(Certificate):
     def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[XD]
         self.bias = False
-        self.llo = CegisConfig.LLO
+        self.llo = config.LLO
         self.control = config.CTRLAYER is not None
         self.D = config.DOMAINS
         self.beta = None
@@ -178,8 +179,11 @@ class Lyapunov(Certificate):
             yield cs
 
     def estimate_beta(self, net):
-        border_D = self.D[XD].sample_border(300)
-        beta, _ = net.compute_minimum(border_D)
+        try:
+            border_D = self.D[XD].sample_border(300)
+            beta, _ = net.compute_minimum(border_D)
+        except NotImplementedError: 
+            beta = self.D[XD].generate_data(300)
         return beta
 
 
@@ -195,7 +199,7 @@ class ROA(Certificate):
         self.XD = domains[XD]
         self.XI = domains[XI]
         self.pos_def = False
-        self.llo = CegisConfig.LLO
+        self.llo = config.LLO
         self.control = config.CTRLAYER is not None
         self.D = config.DOMAINS
         self.bias = False
@@ -296,6 +300,7 @@ class ROA(Certificate):
                 learner.diagonalisation()
         SI = S[XI]
         self.beta = learner.compute_maximum(SI)[0]
+        learner.beta = self.beta
         return {}
 
     def estimate_beta(self, net):
@@ -751,7 +756,7 @@ class RWS(Certificate):
 
     def compute_loss(self, V_i, V_u, V_d, Vdot_d):
         margin = 0
-        margin_lie = 0.05
+        margin_lie = 0.0
         learn_accuracy = (V_i <= -margin).count_nonzero().item() + (
             V_u >= margin
         ).count_nonzero().item()
@@ -773,9 +778,7 @@ class RWS(Certificate):
                 ((A_lie <= -margin).count_nonzero()).item() * 100 / A_lie.shape[0]
             )
 
-            lie_loss = (relu(A_lie + 0 * margin_lie)).mean() - slope * relu(
-                -Vdot_d
-            ).mean()
+            lie_loss = (relu(A_lie + margin_lie)).mean() - slope * relu(-Vdot_d).mean()
             loss = loss + lie_loss
         else:
             lie_accuracy = 0.0
@@ -1152,7 +1155,7 @@ class RSWS(RWS):
         return False
 
 
-class StableSafe(Certificate):
+class SafeROA(Certificate):
     """Certificate to prove stable while safe"""
 
     def __init__(self, domains, config: CegisConfig) -> None:
@@ -1161,6 +1164,7 @@ class StableSafe(Certificate):
         self.unsafe_s = domains[XU]
         self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
         self.llo = config.LLO
+        self.beta = None
 
     def compute_lyap_loss(
         self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
@@ -1340,30 +1344,38 @@ class StableSafe(Certificate):
             loss.backward()
             optimizer.step()
 
+        SI = S[XI]
+        self.beta = lyap_learner.compute_maximum(SI)[0]
+        lyap_learner.beta = self.beta
+
         return {}
 
-    def _get_lyap_constraints(self, verifier, V, Vdot):
-        """Generates Lyapunov constraints
+    def _get_roa_constraints(self, verifier, V, Vdot):
+        # Inflate beta slightly to ensure it is not on the border
+        beta = self.beta * 1.1
 
-        Args:
-            verifier (Verifier): Verifier object
-            V: SMT formula of Lyapunov function
-            Vdot: SMT formula of Lyapunov lie derivative
-
-        Returns:
-            constr (dict): Lyapunov constraints
-        """
-        _Or = verifier.solver_fncts()["Or"]
         _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
+        _Or = verifier.solver_fncts()["Or"]
+        B = V <= beta
+
+        # We want to prove that XI lies entirely in B (the ROA)
+        B_cond = _And(self.initial_s, _Not(B))
 
         if self.llo:
             # V is positive definite by construction
             lyap_negated = Vdot > 0
         else:
             lyap_negated = _Or(V <= 0, Vdot > 0)
-        lyap_condition = _And(self.domain, lyap_negated)
 
-        return {XD: lyap_condition}
+        sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01 * 2
+
+        B_less_sphere = _And(B, _Not(sphere))
+        lyap_condition = _And(B_less_sphere, lyap_negated)
+
+        roa_condition = _Or(B_cond, lyap_condition)
+
+        return {XD: roa_condition}
 
     def _get_barrier_constraints(self, verifier, B, Bdot):
         """Generates Barrier constraints
@@ -1408,7 +1420,7 @@ class StableSafe(Certificate):
         """
         V, B = C
         Vdot, Bdot = Cdot
-        lyap_cs = self._get_lyap_constraints(verifier, V, Vdot)
+        lyap_cs = self._get_roa_constraints(verifier, V, Vdot)
         barrier_cs = self._get_barrier_constraints(verifier, B, Bdot)
 
         for cs in (lyap_cs, *barrier_cs):
@@ -1419,11 +1431,13 @@ class DoubleCertificate(Certificate):
     """In Devel class for synthesising any two certificates together"""
 
     def __init__(self, domains, config: CegisConfig):
-        self.certificate1 = get_certificate(config.CERTIFICATE)(domains, config)
-        self.certificate2 = get_certificate(config.CERTIFICATE_ALT)(domains, config)
+        self.certificate1 = None
+        self.certificate2 = None
 
     def compute_loss(self, C1, C2, Cdot1, Cdot2):
-        pass
+        loss1 = self.certificate1.compute_loss(C1, Cdot1)
+        loss2 = self.certificate2.compute_loss(C2, Cdot2)
+        return loss1[0] + loss2[0]
 
     def learn(
         self, learner: tuple, optimizer: Optimizer, S: dict, Sdot: dict, f_torch=None
@@ -1459,6 +1473,6 @@ def get_certificate(certificate: CertificateType) -> Type[Certificate]:
     elif certificate == CertificateType.RSWS:
         return RSWS
     elif certificate == CertificateType.STABLESAFE:
-        return StableSafe
+        return SafeROA
     else:
         raise ValueError("Unknown certificate type {}".format(certificate))

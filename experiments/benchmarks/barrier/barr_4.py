@@ -60,11 +60,11 @@ class UnsafeDomain(domains.Set):
         return torch.cat([xy, phi], dim=1)
 
 
-def test_lnn():
+def test_lnn(args):
     XD = Domain()
     XI = Init()
     XU = UnsafeDomain()
-    batch_size = 1000
+    batch_size = 2000
     sets = {
         certificate.XD: XD,
         certificate.XI: XI,
@@ -77,7 +77,7 @@ def test_lnn():
     }
 
     ###
-    # Takes ~ 20 seconds, iter 15
+    #
     ###
     system = models.ObstacleAvoidance
     activations = [ActivationType.LIN_TO_QUARTIC]
@@ -95,8 +95,15 @@ def test_lnn():
         CEGIS_MAX_ITERS=25,
     )
 
-    main.run_benchmark(opts, record=True, plot=False, repeat=1)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

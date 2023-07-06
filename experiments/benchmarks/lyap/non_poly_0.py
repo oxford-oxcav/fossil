@@ -13,7 +13,7 @@ from src import main
 from src.consts import *
 
 
-def test_lnn():
+def test_lnn(args):
     system = models.NonPoly0
     X = domains.Torus([0, 0], 1, 0.01)
     domain = {certificate.XD: X}
@@ -24,7 +24,7 @@ def test_lnn():
     n_hidden_neurons = [2] * len(activations)
 
     ###
-    # Takes ~1  seconds, iter 0
+    #
     ###
     opts = CegisConfig(
         SYSTEM=system,
@@ -37,10 +37,17 @@ def test_lnn():
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         LLO=True,
-        CEGIS_MAX_ITERS=1,
+        CEGIS_MAX_ITERS=25,
     )
-    main.run_benchmark(opts, record=True, plot=False, concurrent=True, repeat=3)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

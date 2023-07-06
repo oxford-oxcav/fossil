@@ -76,7 +76,9 @@ class CegisSupervisorQ:
                 if n_res == self.max_processes:
                     logging.debug("All workers failed, returning last result")
                     # Return the last result
-                    return res
+                    _id = res["id"]
+                    result = res["result" + str(_id)]
+                    return result
 
             except Empty:
                 pass

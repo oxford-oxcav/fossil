@@ -9,7 +9,7 @@ from unittest import mock
 import z3
 import src.learner as learner
 import src.translator as translator
-from src.consts import ActivationType, CegisStateKeys
+from src.consts import ActivationType, CegisStateKeys, CegisConfig
 from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 
@@ -51,7 +51,7 @@ class TranslatorTest(unittest.TestCase):
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = translator.TranslatorCT(self.x, self.xdot, None, 1, True)
+            regolo = translator.TranslatorCT(self.x, self.xdot, 1, CegisConfig())
             res = regolo.get(**{"net": lrner})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
@@ -107,7 +107,7 @@ class TranslatorDiscreteTest(unittest.TestCase):
             )
 
             # create a 'real' translator and compute V, Vdot
-            regolo = translator.TranslatorDT(self.x, self.xdot, None, 1, True)
+            regolo = translator.TranslatorDT(self.x, self.xdot, 1, CegisConfig())
             res = regolo.get(**{"net": lrner})
             V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 

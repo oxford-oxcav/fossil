@@ -1,4 +1,5 @@
 import timeit
+import argparse
 
 import torch
 
@@ -13,6 +14,26 @@ from src.cegis_supervisor import CegisSupervisorQ
 
 N_PROCS = 4
 BASE_SEED = 167
+
+
+def parse_benchmark_args():
+    """Utility function to allow basic command line interface for running benchmarks."""
+    parser = argparse.ArgumentParser(description="Choose basic benchmark options")
+    parser.add_argument("--record", action="store_true", help="Record to csv")
+    parser.add_argument("--plot", action="store_true", help="Plot benchmark")
+    parser.add_argument(
+        "--concurrent",
+        action="store_true",
+        help="Run multiple seeds in parallel and take first successful result",
+    )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="How many times to repeat over consecutive seeds",
+    )
+    args = parser.parse_args()
+    return args
 
 
 def run_benchmark(

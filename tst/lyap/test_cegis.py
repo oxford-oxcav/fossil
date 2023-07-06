@@ -47,10 +47,9 @@ class test_cegis(unittest.TestCase):
             "model lie derivative is not negative definite",
         )
 
-    def assertLyapunovOverPositiveOrthant(self, system, c):
-        f, domain, _, _ = system()
-        domain = domain["lie-&-pos"](list(c.x_map.values()))
-        tr = translator.TranslatorCT(c.x, c.xdot, None, 3, False)
+    def assertLyapunovOverPositiveOrthant(self, f, c, domain):
+        domain = domain["lie"].generate_domain(list(c.x_map.values()))
+        tr = translator.TranslatorCT(c.x, c.xdot, 3, CegisConfig())
         res = tr.get(**{"net": c.learner})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
 
@@ -66,16 +65,30 @@ class test_cegis(unittest.TestCase):
             res, z3.unsat, "Formally not lyapunov. Here is a cex : {}".format(model)
         )
 
-        Sdot = f(c.S["lie-&-pos"])
-        S = c.S["lie-&-pos"]
+        Sdot = f()(c.S["lie"])
+        S = c.S["lie"]
         self.assertNumericallyLyapunov(c.learner, S, Sdot)
 
     def test_poly_2(self):
         torch.manual_seed(167)
 
-        benchmark = poly_2
+        outer = 10.0
+        inner = 0.01
+        batch_size = 500
+
+        f = models.Poly2
+
+        XD = Torus([0.0, 0.0], outer, inner)
+
+        domains = {
+            certificate.XD: XD,
+        }
+
+        data = {
+            certificate.XD: XD._generate_data(batch_size),
+        }
+
         n_vars = 2
-        system = benchmark
 
         # define NN parameters
         activations = [ActivationType.SQUARE]
@@ -83,11 +96,13 @@ class test_cegis(unittest.TestCase):
 
         opts = CegisConfig(
             N_VARS=n_vars,
+            DATA=data,
+            DOMAINS=domains,
             TIME_DOMAIN=TimeDomain.CONTINUOUS,
             CERTIFICATE=CertificateType.LYAPUNOV,
             VERIFIER=VerifierType.Z3,
             ACTIVATION=activations,
-            SYSTEM=system,
+            SYSTEM=f,
             N_HIDDEN_NEURONS=n_hidden_neurons,
             LLO=True,
         )
@@ -97,13 +112,16 @@ class test_cegis(unittest.TestCase):
         c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunovOverPositiveOrthant(system, c)
+        self.assertLyapunovOverPositiveOrthant(f, c, domains)
 
     def test_non_poly_0(self):
         torch.manual_seed(167)
-        benchmark = nonpoly0_lyap
         n_vars = 2
-        system = benchmark
+        f = models.NonPoly0
+        domain = Torus([0, 0], 1, 0.01)
+
+        domains = {certificate.XD: domain}
+        data = {certificate.XD: domain._generate_data(1000)}
 
         # define domain constraints
 
@@ -111,28 +129,43 @@ class test_cegis(unittest.TestCase):
         activations = [ActivationType.SQUARE]
         n_hidden_neurons = [2] * len(activations)
 
-        start = timeit.default_timer()
         opts = CegisConfig(
             N_VARS=n_vars,
-            CERTIFICATE=CertificateType.LYAPUNOV,
+            DATA=data,
+            DOMAINS=domains,
             TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            CERTIFICATE=CertificateType.LYAPUNOV,
             VERIFIER=VerifierType.Z3,
             ACTIVATION=activations,
-            SYSTEM=system,
+            SYSTEM=f,
             N_HIDDEN_NEURONS=n_hidden_neurons,
             LLO=True,
         )
+
+        start = timeit.default_timer()
         c = Cegis(opts)
         c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunovOverPositiveOrthant(system, c)
+        self.assertLyapunovOverPositiveOrthant(f, c, domains)
 
     def test_non_poly_1(self):
         torch.manual_seed(167)
-        benchmark = nonpoly1
+        outer = 10.0
+        batch_size = 500
+
+        f = models.NonPoly1
+
+        XD = PositiveOrthantSphere([0.0, 0.0], outer)
+
+        domains = {
+            certificate.XD: XD,
+        }
+
+        data = {
+            certificate.XD: XD._generate_data(batch_size),
+        }
         n_vars = 2
-        system = benchmark
 
         # define NN parameters
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
@@ -140,26 +173,41 @@ class test_cegis(unittest.TestCase):
 
         opts = CegisConfig(
             N_VARS=n_vars,
-            CERTIFICATE=CertificateType.LYAPUNOV,
+            DATA=data,
+            DOMAINS=domains,
             TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            CERTIFICATE=CertificateType.LYAPUNOV,
             VERIFIER=VerifierType.Z3,
             ACTIVATION=activations,
-            SYSTEM=system,
+            SYSTEM=f,
             N_HIDDEN_NEURONS=n_hidden_neurons,
             LLO=True,
         )
+
         start = timeit.default_timer()
         c = Cegis(opts)
-        state, vars, f_learner, iters = c.solve()
+        c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunovOverPositiveOrthant(system, c)
+        self.assertLyapunovOverPositiveOrthant(f, c, domains)
 
     def test_non_poly_2(self):
         torch.manual_seed(167)
-        benchmark = nonpoly2
         n_vars = 3
-        system = benchmark
+        outer = 10.0
+        batch_size = 500
+
+        f = models.NonPoly2
+
+        XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
+
+        domains = {
+            certificate.XD: XD,
+        }
+
+        data = {
+            certificate.XD: XD._generate_data(batch_size),
+        }
 
         # define NN parameters
         activations = [ActivationType.LINEAR, ActivationType.SQUARE]
@@ -169,19 +217,23 @@ class test_cegis(unittest.TestCase):
 
         opts = CegisConfig(
             N_VARS=n_vars,
-            CERTIFICATE=CertificateType.LYAPUNOV,
+            DATA=data,
+            DOMAINS=domains,
             TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            CERTIFICATE=CertificateType.LYAPUNOV,
             VERIFIER=VerifierType.Z3,
             ACTIVATION=activations,
-            SYSTEM=system,
+            SYSTEM=f,
             N_HIDDEN_NEURONS=n_hidden_neurons,
             LLO=True,
         )
+
+        start = timeit.default_timer()
         c = Cegis(opts)
-        state, vars, f_learner, iters = c.solve()
+        c.solve()
         stop = timeit.default_timer()
 
-        self.assertLyapunovOverPositiveOrthant(system, c)
+        self.assertLyapunovOverPositiveOrthant(f, c, domains)
 
 
 if __name__ == "__main__":

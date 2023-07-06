@@ -26,12 +26,12 @@ class SimplifierTest(unittest.TestCase):
         domain = x * x + y * y + z * z <= 1
         return_value = "result"
         t = 1
-        lc = certificate.Lyapunov(domains={"lie-&-pos": domain}, config=CegisConfig())
+        lc = certificate.Lyapunov(domains={"lie": domain}, config=CegisConfig())
 
         with mock.patch.object(verifier.Verifier, "_solver_solve") as s:
             # setup
             s.return_value = return_value
-            v = verifier.Verifier(3, lc.get_constraints, 0, self.z3_vars, True)
+            v = verifier.Verifier(3, lc.get_constraints, self.z3_vars, True)
             v.timeout = t
 
             # call tested function

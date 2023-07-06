@@ -342,7 +342,7 @@ class Benchmark1(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
+        u1, u2 = u
         return [x + y + u1, -y - x + u2]
 
 
@@ -735,7 +735,7 @@ class Car(CTModel):
 
 class InvertedPendulum(ControllableCTModel):
     n_vars = 2
-    n_u = 1
+    n_u = 2
 
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
@@ -764,8 +764,42 @@ class InvertedPendulum(ControllableCTModel):
         return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
 
 
+class InvertedPendulumLQR(CTModel):
+    n_vars = 2
+    K = np.array([[7.21, 1.34], [1.34, 0.33]])
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        u1 = -self.K[0, 0] * x - self.K[0, 1] * y
+        u2 = -self.K[1, 0] * x - self.K[1, 1] * y
+
+        G = 9.81  # gravity
+        L = 0.5  # length of the pole
+        m = 0.15  # ball mass
+        b = 0.1  # friction
+
+        return torch.stack(
+            [y + u1, u2 + (m * G * L * torch.sin(x) - b * y) / (m * L**2)]
+        ).T
+
+    def f_smt(self, v):
+        x, y = v
+        u1 = -self.K[0, 0] * x - self.K[0, 1] * y
+        u2 = -self.K[1, 0] * x - self.K[1, 1] * y
+        sin = self.fncs["sin"]
+        cos = self.fncs["cos"]
+        # Dynamics
+        G = 9.81  # gravity
+        L = 0.5  # length of the pole
+        m = 0.15  # ball mass
+        b = 0.1  # friction
+
+        return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
+
+
 class LorenzSystem(ControllableCTModel):
     n_vars = 3
+    n_u = 3
 
     def f_torch(self, v, u):
         x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
@@ -844,7 +878,7 @@ class Quadrotor2d(ControllableCTModel):
     def f_smt(self, v, u):
         sin = self.fncs["sin"]
         cos = self.fncs["cos"]
-        u1, u2 = u[0], u[1]
+        u1, u2 = u
         # with respect to the original paper, we define
         # w1 = u1+u2
         # w2 = u1-u2
@@ -897,7 +931,7 @@ class LinearSatellite(ControllableCTModel):
         return torch.hstack([qdot, qddot])
 
     def f_smt(self, v, u):
-        u1, u2, u3 = u[0], u[1], u[2]
+        u1, u2, u3 = u
         # with respect to the original paper, we define
         # w1 = u1+u2
         # w2 = u1-u2
@@ -932,7 +966,7 @@ class CtrlObstacleAvoidance(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y, phi = v
-        u1 = u[0][0]
+        (u1,) = u
         velo = 1
         sin = self.fncs["sin"]
         cos = self.fncs["cos"]
@@ -954,7 +988,7 @@ class Identity(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
+        u1, u2 = u
         return [x + u1, y + u2]
 
 
@@ -972,7 +1006,7 @@ class DTAhmadi(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y = v
-        u1, u2 = u[0, 0], u[1, 0]
+        u1, u2 = u
         return [0.3 * x + u1, -x + 0.5 * y + 7.0 / 18.0 * x**2 + u2]
 
 
@@ -990,7 +1024,24 @@ class Linear1(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y = v
-        u1 = u[0, 0]
+        (u1,) = u
+        return [y, -x + u1]
+
+
+class Linear1LQR(CTModel):
+    """Linear1 with LQR controller"""
+
+    n_vars = 2
+    K = [0.414, 1.352]
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        u1 = -(self.K[0] * x + self.K[1] * y)
+        return torch.stack([y, -x + u1]).T
+
+    def f_smt(self, v):
+        x, y = v
+        u1 = -(self.K[0] * x + self.K[1] * y)
         return [y, -x + u1]
 
 
@@ -1005,7 +1056,22 @@ class SecondOrder(ControllableCTModel):
 
     def f_smt(self, v, u):
         x, y = v
-        u1 = u[0, 0]
+        (u1,) = u
+        return [y - x**3, u1]
+
+
+class SecondOrderLQR(CTModel):
+    n_vars = 2
+    K = [1.0, 1.73]
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        u1 = -(self.K[0] * x + self.K[1] * y)
+        return torch.stack([y - x**3, u1]).T
+
+    def f_smt(self, v):
+        x, y = v
+        u1 = -(self.K[0] * x + self.K[1] * y)
         return [y - x**3, u1]
 
 
@@ -1022,7 +1088,24 @@ class ThirdOrder(ControllableCTModel):
 
     def f_smt(self, v, u):
         x1, x2, x3 = v
-        u1 = u[0, 0]
+        (u1,) = u
+        return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
+
+
+class ThirdOrderLQR(CTModel):
+    n_vars = 3
+    K = [23.71, 18.49, 0.0]
+
+    def f_torch(self, v):
+        x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
+        u1 = -(self.K[0] * x1 + self.K[1] * x2 + self.K[2] * x3)
+        return torch.stack(
+            [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
+        ).T
+
+    def f_smt(self, v):
+        x1, x2, x3 = v
+        u1 = -(self.K[0] * x1 + self.K[1] * x2 + self.K[2] * x3)
         return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
 
 
@@ -1074,12 +1157,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model", type=str, default="VanDerPol")
+    parser.add_argument("-m", "--model", type=str, default="NonPoly1")
     args = parser.parse_args()
     model = read_model(args.model)
     ax = model.plot()
-    # plt.show()
-
-    x = sp.var("x, y")
-    f = Barr2()
-    print(f.to_latex())
+    plt.show()
+    print(model.to_latex())
