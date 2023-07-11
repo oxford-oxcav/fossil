@@ -17,9 +17,8 @@ from src.consts import CegisConfig, CertificateType
 from src import certificate
 
 
-DRF = DEFAULT_RESULTS_FILE = (
+DRF = DEFAULT_RESULTS_FILE = \
     os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
-)
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
 BenchmarkData = namedtuple(
