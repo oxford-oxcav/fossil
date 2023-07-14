@@ -108,6 +108,7 @@ class TranslatorCT(TranslatorNN):
         gradV = np.multiply(jacobian, np.broadcast_to(E, jacobian.shape)) + np.multiply(
             derivative_e, np.broadcast_to(z[0, 0], jacobian.shape)
         )
+
         # Vdot = gradV * f(x)
         Vdot = gradV @ xdot
 
@@ -119,6 +120,23 @@ class TranslatorCT(TranslatorNN):
             Vdot = Vdot[0, 0]
 
         return V, Vdot
+
+    def _debug_gradient(self, z, gradV):
+        """Checks that the gradient is correct rlative to DReal's calculation
+
+        Useful for debugging
+
+        Args:
+            z ((1,1) array): array containing the value of the NN
+            gradV: gradient of the NN as calculated by translator
+        """
+        for i in range(gradV.shape[1]):
+            gradV_i = gradV[:, i]
+            Vi = z[0, 0]
+            assert gradV_i.shape == (1,)
+            true_der = Vi.Differentiate(self.x[i, 0])
+            der = gradV_i.item()
+            assert sp.sympify(str(true_der)) == sp.sympify(str(der))
 
     def network_until_last_layer(self, net, x):
         """

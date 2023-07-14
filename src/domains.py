@@ -40,8 +40,13 @@ def get_plot_colour(label):
         return "tab:cyan", "Safe"
     elif label == "init":
         return "blue", "Initial"
-    else:
+    elif label == "lie":
         return "black", "Domain"
+    elif label == "final":
+        return "orange", "Final"
+    else:
+        # We don't want to plot border sets
+        raise AttributeError("Label does not correspond to a plottable set.")
 
 
 def sphere_to_cube(x):
@@ -205,7 +210,6 @@ def n_dim_sphere_init_data(centre, radius, batch_size, on_border=False):
 # generates points in a n-dim ellipse written as
 # (coeff1 * x1 - centre1) ** 2 + ... + (coeff_n * xn - centre_n) **2 <= radius**2
 def n_dim_ellipse_init_data(coeffs, centre, radius, batch_size, on_border=False):
-
     dim = len(centre)
     u = torch.randn(
         batch_size, dim
@@ -310,6 +314,24 @@ class Set:
 
     def generate_data(self, batch_size) -> torch.Tensor:
         raise NotImplementedError
+
+    def __repr__(self) -> str:
+        try:
+            return self.to_latex()
+        except TypeError:
+            return self.__class__.__name__
+
+    def generate_complement(self, x) -> verifier.SYMBOL:
+        """Generates complement of the set as a symbolic formulas
+
+        Args:
+            x (list): symbolic data point
+
+        Returns:
+            SMT variable: symbolic representation of complement of the rectangle
+        """
+        f = self.set_functions(x)
+        return f["Not"](self.generate_domain(x))
 
     def _generate_data(self, batch_size) -> callable:
         """
@@ -475,18 +497,6 @@ class Rectangle(Set):
         upper = f["And"](*[x[i] < self.upper_bounds[i] for i in range(self.dimension)])
         return f["And"](lower, upper)
 
-    def generate_complement(self, x):
-        """Generates complement of the set as a symbolic formulas
-
-        Args:
-            x (list): symbolic data point
-
-        Returns:
-            SMT variable: symbolic representation of complement of the rectangle
-        """
-        f = self.set_functions(x)
-        return f["Not"](self.generate_domain(x))
-
     def generate_data(self, batch_size):
         """
         param x: data point x
@@ -609,18 +619,6 @@ class Sphere(Set):
             < self.radius**2
         )
 
-    def generate_complement(self, x):
-        """Generates complement of the set as a symbolic formulas
-
-        Args:
-            x (list): symbolic data point
-
-        Returns:
-            SMT variable: symbolic representation of complement of the sphere
-        """
-        f = self.set_functions(x)
-        return f["Not"](self.generate_domain(x))
-
     def generate_data(self, batch_size):
         """
         param batch_size: number of data points to generate
@@ -636,15 +634,6 @@ class Sphere(Set):
         return round_init_data(
             self.centre, self.radius**2, batch_size, on_border=True
         )
-
-    def _sample_border(self, batch_size):
-        """
-        lazy implementation of sampling border
-        param batch_size: number of data points to generate
-        returns: data points generated on the border of the set
-        """
-        # use partial to deal with pickle
-        return partial(self.sample_border, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -761,18 +750,6 @@ class Ellipse(Set):
             < self.radius**2
         )
 
-    def generate_complement(self, x):
-        """Generates complement of the set as a symbolic formulas
-
-        Args:
-            x (list): symbolic data point
-
-        Returns:
-            SMT variable: symbolic representation of complement of the ellipse
-        """
-        f = self.set_functions(x)
-        return f["Not"](self.generate_domain(x))
-
     def generate_data(self, batch_size):
         """
         param batch_size: number of data points to generate
@@ -795,15 +772,6 @@ class Ellipse(Set):
         return n_dim_ellipse_init_data(
             self.coeffs, self.centre, self.radius, batch_size, on_border=True
         )
-
-    def _sample_border(self, batch_size):
-        """
-        lazy implementation of sampling border
-        param batch_size: number of data points to generate
-        returns: data points generated on the border of the set
-        """
-        # use partial to deal with pickle
-        return partial(self.sample_border, batch_size)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -1058,6 +1026,10 @@ class EmptySet(Set):
         f = self.set_functions(x)
         return f["False"]
 
+    def generate_boundary(self, x):
+        f = self.set_functions(x)
+        return f["False"]
+
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         return torch.zeros(x.shape[0], dtype=torch.bool)
 
@@ -1070,7 +1042,7 @@ class Reals(Set):
 
     # I think this set is useless because its negation is always False
     def __init__(self, dim):
-        self.dim = dim
+        self.dimension = dim
 
     def __repr__(self) -> str:
         return f"R^{self.dim}"
@@ -1108,6 +1080,46 @@ class Complement(Set):
 
     def plot(self, *args, **kwargs):
         return self.set.plot(*args, **kwargs)
+
+
+class AutoSets:
+    """Automates handling on sets for use with Fossil based on standard assumptions.
+
+    This class is used to automatically generate sets for use with Fossil.
+    """
+
+    def __init__(
+        self,
+        XD: Set = EmptySet,
+        XI: Set = EmptySet,
+        XU: Set = EmptySet,
+        XG: Set = EmptySet,
+        XF: Set = EmptySet,
+    ) -> None:
+        lyap = (XD,)
+        ROA = (XD, XI)
+        barrier = (XD, XI, XU)
+        barrier_alt = (XD, XI, XU)
+        RWS = (XD, XI, XU, XG)
+        RSWS = (XD, XI, XU, XG)
+        StableSafe = (XD, XI, XU)
+        RAR = (XD, XI, XU, XG, XF)
+        self.XD = XD
+        self.XI = XI
+        self.XU = XU
+        self.XG = XG
+        self.XF = XF
+
+    def __repr__(self) -> str:
+        return f"AutoSets(XD={self.XD}, XI={self.XI}, XU={self.XU}, XG={self.XG}, XF={self.XF})"
+
+    def sets(self):
+        xd = self.XD
+        xi = self.XI
+        xu = self.XU
+        xg = self.XG
+        xg_border = self.xg
+        xf = self.XF
 
 
 if __name__ == "__main__":

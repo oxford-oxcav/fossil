@@ -265,7 +265,10 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.SQUARE,
             ActivationType.COSH,
             ActivationType.SIGMOID,
-            ActivationType.SQUARE_DEC,
+            ActivationType.EVEN_POLY_4,
+            ActivationType.EVEN_POLY_6,
+            ActivationType.EVEN_POLY_8,
+            ActivationType.EVEN_POLY_10,
         ]
         return (activations[-1] in pd_acts) and (layers[-1].bias is None)
 

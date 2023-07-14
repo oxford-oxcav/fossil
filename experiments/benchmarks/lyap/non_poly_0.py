@@ -20,8 +20,8 @@ def test_lnn(args):
     data = {certificate.XD: X._generate_data(1000)}
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [2] * len(activations)
+    activations = [ActivationType.EVEN_POLY_6]
+    n_hidden_neurons = [6] * len(activations)
 
     ###
     #

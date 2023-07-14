@@ -9,6 +9,7 @@ from typing import Union, NamedTuple
 
 import torch
 
+from experiments.benchmarks.models import GeneralClosedLoopModel
 import src.certificate as certificate
 import src.consolidator as consolidator
 from src.consts import Any, torch
@@ -16,7 +17,6 @@ import src.control as control
 import src.learner as learner
 import src.translator as translator
 import src.verifier as verifier
-from experiments.benchmarks.models import GeneralClosedLoopModel, _PreTrainedModel
 from src.consts import *
 from src.utils import print_section, vprint
 
@@ -49,6 +49,7 @@ class SingleCegis:
         self.translator_type, self.translator = self._initialise_translator()
         self._result = None
         assert self.x is self.verifier.xs
+        self._assert_state()
 
     def _initialise_learner(self):
         learner_type = learner.get_learner(
@@ -91,6 +92,7 @@ class SingleCegis:
         else:
             f = system()
         xdot = f(self.x)
+        self.config = replace(self.config, SYSTEM=f)
         return f, xdot
 
     def _initialise_domains(self):
@@ -104,6 +106,10 @@ class SingleCegis:
             else domain.generate_domain(x)
             for label, domain in self.config.DOMAINS.items()
         }
+        if self.config.CERTIFICATE == CertificateType.RAR:
+            domains[certificate.XF] = self.config.DOMAINS[
+                certificate.XF
+            ].generate_complement(x)
         return x, x_map, domains
 
     def _initialise_data(self):
@@ -298,13 +304,15 @@ class SingleCegis:
                 state[CegisStateKeys.V_dot],
                 S,
             )
-            stop = True
+            # Only stop if we prove the final stay condition
+            stop = stay
             if stay:
                 print(f"Found a valid {self.config.CERTIFICATE.name} certificate")
             else:
                 print(
-                    f"Found a valid certificate, but could not prove the final stay condition"
+                    f"Found a valid RWS certificate, but could not prove the final stay condition. Keep searching..."
                 )
+                state[CegisStateKeys.found] = False
         else:
             if isinstance(self.f, GeneralClosedLoopModel):
                 ctrl = " and controller"
@@ -334,15 +342,17 @@ class SingleCegis:
         return S, Sdot
 
     def _assert_state(self):
-        assert self.verifier_type in [
-            VerifierType.Z3,
-            VerifierType.DREAL,
-            VerifierType.MARABOU,
-        ]
-        assert self.learner_type in [LearnerType.CONTINUOUS, LearnerType.DISCRETE]
-        assert self.batch_size > 0
-        assert self.learning_rate > 0
-        assert self.max_cegis_time > 0
+        assert self.config.BATCH_SIZE > 0
+        assert self.config.LEARNING_RATE > 0
+        assert self.config.CEGIS_MAX_TIME_S > 0
+        if self.config.TIME_DOMAIN == TimeDomain.DISCRETE:
+            assert self.config.CERTIFICATE in (
+                CertificateType.LYAPUNOV,
+                CertificateType.BARRIERALT,
+            )
+        # Passing sets to Fossil is complicated atm and I've messed it up (passing too many can lead to bugs too).
+        # This is a temporary debug check until some better way of passing sets is implemented.
+        self.certificate._assert_state(self.domains, self.S)
 
 
 class DoubleCegis(SingleCegis):
@@ -364,7 +374,10 @@ class DoubleCegis(SingleCegis):
 
     def _initialise_certificate(self):
         certificate_type = certificate.get_certificate(self.config.CERTIFICATE)
-        if self.config.CERTIFICATE != CertificateType.STABLESAFE:
+        if self.config.CERTIFICATE not in (
+            CertificateType.STABLESAFE,
+            CertificateType.RAR,
+        ):
             raise ValueError("DoubleCegis only supports StableSafe certificates")
         return certificate_type(self.domains, self.config)
 
@@ -377,7 +390,7 @@ class DoubleCegis(SingleCegis):
             self.config.N_VARS,
             self.certificate.learn,
             *self.config.N_HIDDEN_NEURONS,
-            bias=False,
+            bias=self.certificate.bias[0],
             activation=self.config.ACTIVATION,
             config=self.config,
         )
@@ -388,7 +401,7 @@ class DoubleCegis(SingleCegis):
             self.config.N_VARS,
             self.certificate.learn,
             *self.config.N_HIDDEN_NEURONS_ALT,
-            bias=True,
+            bias=self.certificate.bias[1],
             activation=self.config.ACTIVATION_ALT,
             config=replace(self.config, LLO=False),
         )
@@ -527,7 +540,16 @@ class DoubleCegis(SingleCegis):
 
 class Cegis:
     def __new__(cls, config: CegisConfig) -> Union[DoubleCegis, SingleCegis]:
-        if config.CERTIFICATE == certificate.CertificateType.STABLESAFE:
+        if config.CERTIFICATE in (
+            certificate.CertificateType.STABLESAFE,
+            certificate.CertificateType.RAR,
+        ):
             return DoubleCegis(config)
         else:
             return SingleCegis(config)
+
+    def __init__(self, config: CegisConfig):
+        pass
+
+    def solve(self) -> Result:
+        raise NotImplementedError("This should be implemented by child classes")

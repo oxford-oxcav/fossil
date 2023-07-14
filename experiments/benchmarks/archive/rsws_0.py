@@ -66,7 +66,7 @@ def test_lnn():
     # )
 
     # define NN parameters
-    activations = [ActivationType.LIN_TO_SEXTIC]
+    activations = [ActivationType.POLY_6]
     n_hidden_neurons = [16] * len(activations)
 
     opts = CegisConfig(

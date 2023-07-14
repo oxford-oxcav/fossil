@@ -34,7 +34,7 @@ def benchmark(
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
     if type(certificate) is tuple:
-        certificate = certificate[0]
+        certificate = certificate[1]
 
     if certificate.beta is not None:
         levels = [0, certificate.beta]
@@ -293,3 +293,33 @@ def plot_parabola(ax, color, legend):
     plt.legend(loc="upper right")
 
     return ax
+
+
+def grad_cert(certificate, model, ax=None, xrange=[-3, 3], yrange=[-3, 3]):
+    """Plot the gradient of the certificate."""
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot()
+    x = np.linspace(xrange[0], xrange[1], 100)
+    y = np.linspace(yrange[0], yrange[1], 100)
+    X, Y = np.meshgrid(x, y)
+    XT = torch.tensor(X, dtype=torch.float32)
+    YT = torch.tensor(Y, dtype=torch.float32)
+    ZT = certificate.compute_net_gradnet(
+        torch.cat((XT.reshape(-1, 1), YT.reshape(-1, 1)), dim=1)
+    )[1]
+    Z = ZT.detach().numpy()
+
+    df = Z  # np.stack([dx, dy], axis=1)
+
+    plt.streamplot(
+        X,
+        Y,
+        df[:, 0].reshape(X.shape),
+        df[:, 1].reshape(X.shape),
+        linewidth=0.8,
+        density=1.5,
+        arrowstyle="fancy",
+        arrowsize=1.5,
+        color="tab:gray",
+    )

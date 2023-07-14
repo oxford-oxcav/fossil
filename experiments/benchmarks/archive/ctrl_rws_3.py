@@ -54,7 +54,7 @@ def test_lnn():
     F = lambda *args: (system(*args), symbolic_domains, data, sets.inf_bounds_n(n_vars))
 
     # define NN parameters
-    activations = [ActivationType.LIN_TO_OCTIC]
+    activations = [ActivationType.POLY_8]
     n_hidden_neurons = [15] * len(activations)
 
     opts = CegisConfig(

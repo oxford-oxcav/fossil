@@ -80,7 +80,7 @@ def test_lnn(args):
     #
     ###
     system = models.ObstacleAvoidance
-    activations = [ActivationType.LIN_TO_QUARTIC]
+    activations = [ActivationType.POLY_4]
     hidden_neurons = [25]
     opts = CegisConfig(
         SYSTEM=system,

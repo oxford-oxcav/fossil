@@ -18,7 +18,7 @@ import torch
 
 def main():
     system = twod_hybrid
-    activations = [ActivationType.LIN_SQUARE]
+    activations = [ActivationType.POLY_2]
     hidden_neurons = [3] * len(activations)
     start = timeit.default_timer()
     opts = CegisConfig(

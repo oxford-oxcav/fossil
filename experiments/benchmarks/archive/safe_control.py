@@ -23,7 +23,7 @@ def test_lnn():
     system = benchmark
 
     # define NN parameters
-    activations = [ActivationType.LIN_TO_QUARTIC]
+    activations = [ActivationType.POLY_4]
     n_hidden_neurons = [8] * len(activations)
 
     start = timeit.default_timer()

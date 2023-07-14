@@ -88,6 +88,10 @@ class GeneralController(torch.nn.Module):
         z = self.layers[-1](y)
         return z
 
+    def reset_parameters(self):
+        for layer in self.layers:
+            torch.nn.init.uniform(layer.weight, -1, 1)
+
     def learn(self, x: torch.Tensor, f_open: torch.Tensor, optimizer: torch.optim):
         pass
 
@@ -363,7 +367,10 @@ class Lineariser:
     def __init__(self, model):
         self.model = model
         self.n_vars = self.model.n_vars
-        self.n_u = self.model.n_u
+        try:
+            self.n_u = self.model.n_u
+        except AttributeError:
+            self.n_u = 0
         self.x = [sp.Symbol("x" + str(i), real=True) for i in range(self.n_vars)]
         self.u = [sp.Symbol("u" + str(i), real=True) for i in range(self.n_u)]
         self._check_zero()
@@ -372,7 +379,10 @@ class Lineariser:
 
     def get_model(self) -> list[sp.Expr]:
         """Returns the model as a list of sympy expressions"""
-        return self.model(self.x, self.u)
+        try:
+            return self.model(self.x)
+        except TypeError:
+            return self.model(self.x, self.u)
 
     def _check_zero(self):
         """Checks if the model is zero at the origin"""
@@ -385,7 +395,7 @@ class Lineariser:
 
     def get_jacobian(self) -> sp.Matrix:
         """Returns the jacobian of the model"""
-        J = sp.Matrix(self.model(self.x, self.u)).jacobian(self.x)
+        J = sp.Matrix(self.get_model()).jacobian(self.x)
         return J
 
     def linearise(self) -> np.ndarray:
@@ -393,6 +403,35 @@ class Lineariser:
         J = self.get_jacobian()
         J_0 = J.subs([(x, 0) for x in self.x])
         return np.array(J_0).astype(np.float64)
+
+
+class EigenCalculator:
+    """Class to help calculate and analyse the eigenvalues of a linear model"""
+
+    def __init__(self, A) -> None:
+        self.A = A
+        self.dim = A.shape[0]
+        self.eigs = self.get_eigs()
+
+    def get_eigs(self) -> np.ndarray:
+        """Returns the eigenvalues of the model"""
+        return np.linalg.eigvals(self.A)
+
+    def get_real_parts(self) -> list[float]:
+        """Returns the real parts of the eigenvalues"""
+        return [e.real for e in self.eigs]
+
+    def is_stable(self) -> bool:
+        """Checks if the model is stable"""
+        return all([e.real < 0 for e in self.eigs])
+
+    def is_sufficiently_stable(self) -> bool:
+        """Checks if the poles are well places"""
+        return all([e.real < -1 for e in self.eigs])
+
+    def get_worst_pole(self) -> float:
+        "Returns least stable pole"
+        return max(self.get_real_parts())
 
 
 class LQR:
@@ -443,4 +482,9 @@ if __name__ == "__main__":
 
         A = l.linearise()
         K = LQR(A, B).solve()
+        A2 = A - B @ K
+        E_u = EigenCalculator(A)
+        E_s = EigenCalculator(A2)
         print("model: ", type(model).__name__, "K: ", K)
+        print("pre eigs: ", E_u.is_stable())
+        print("post eigs: ", E_s.is_stable())
