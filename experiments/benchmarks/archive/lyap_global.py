@@ -25,9 +25,9 @@ def test_lnn():
     system = Linear0()
     SD = sets.Torus([0, 0], 100.0, 0.0001)
     XD = sets.Complement(sets.Sphere([0, 0], 0.01))
-    D = {"lie-&-pos": XD}
-    domains = {"lie-&-pos": XD.generate_domain}
-    data = {"lie-&-pos": SD.generate_data(100)}
+    D = {"lie": XD}
+    domains = {"lie": XD.generate_domain}
+    data = {"lie": SD.generate_data(100)}
     F = lambda *args: (system, domains, data, sets.inf_bounds_n(2))
 
     # define NN parameters

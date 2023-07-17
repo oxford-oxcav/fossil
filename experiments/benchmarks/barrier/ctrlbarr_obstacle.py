@@ -14,7 +14,7 @@ from src import main
 from src.consts import *
 
 
-def test_lnn():
+def test_lnn(args):
     batch_size = 1000
     open_loop = models.CtrlObstacleAvoidance
 
@@ -38,7 +38,7 @@ def test_lnn():
     }
 
     ###############################
-    # takes 3.3 secs, at iter 3
+    #
     ###############################
 
     # using trajectory control
@@ -64,10 +64,17 @@ def test_lnn():
         CTRLAYER=[20, n_ctrl_inputs],
         CTRLACTIVATION=[ActivationType.LINEAR],
         SYMMETRIC_BELT=True,
+        CEGIS_MAX_ITERS=25,
     )
-    main.run_benchmark(opts, record=False, plot=False, repeat=1)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    torch.manual_seed(169)
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

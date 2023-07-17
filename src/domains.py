@@ -3,17 +3,28 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+from functools import partial
+import copy
 
 import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
+import sympy as sp
 import torch
 from matplotlib import pyplot as plt
-from functools import partial
 
 from src import verifier
 
 inf = 1e300
 inf_bounds = [-inf, inf]
+
+SP_FNCS = {
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "exp": sp.exp,
+    "And": sp.And,
+    "Or": sp.Or,
+    "Not": sp.Not,
+}
 
 
 def inf_bounds_n(n):
@@ -31,6 +42,23 @@ def get_plot_colour(label):
         return "blue", "Initial"
     else:
         return "black", "Domain"
+
+
+def sphere_to_cube(x):
+    """Take a point on the sphere and map it to the cube"""
+    if all(x == 0):
+        return x
+    p1 = torch.norm(x, p=2)
+    p2 = torch.max(torch.abs(x))
+    return x * (p1 / p2)
+
+
+def cube_move(x, lb, ub):
+    """Transform a point from the [-1, 1]^n cube to the cube defined by bounds"""
+    y = copy.deepcopy(x)
+    for i in range(len(x)):
+        y[i] = (x[i] + 1) * (ub[i] - lb[i]) / 2 + lb[i]
+    return y
 
 
 def square_init_data(domain, batch_size, on_border=False):
@@ -272,9 +300,10 @@ def inf_bounds_n(n):
 class Set:
     dreal_functions = verifier.VerifierDReal.solver_fncts()
     z3_functions = verifier.VerifierZ3.solver_fncts()
+    sp_functions = SP_FNCS
 
     def __init__(self) -> None:
-        pass
+        self.dimension = None
 
     def generate_domain(self, x) -> verifier.SYMBOL:
         raise NotImplementedError
@@ -303,12 +332,19 @@ class Set:
         # return partial to deal with pickle
         return partial(self.sample_border, batch_size)
 
+    def to_latex(self):
+        x = sp.symbols(",".join(("x" + str(i) for i in range(self.dimension))))
+        domain = self.generate_domain(x)
+        return sp.latex(domain)
+
     @staticmethod
     def set_functions(x):
         if verifier.VerifierDReal.check_type(x):
             return Set.dreal_functions
-        if verifier.VerifierZ3.check_type(x):
+        elif verifier.VerifierZ3.check_type(x):
             return Set.z3_functions
+        else:
+            return Set.sp_functions
 
 
 class Union(Set):
@@ -319,6 +355,7 @@ class Union(Set):
     def __init__(self, S1: Set, S2: Set) -> None:
         self.S1 = S1
         self.S2 = S2
+        self.dimension = max(S1.dimension, S2.dimension)
 
     def __repr__(self) -> str:
         return f"({self.S1} | {self.S2})"
@@ -345,6 +382,7 @@ class Intersection(Set):
     def __init__(self, S1: Set, S2: Set) -> None:
         self.S1 = S1
         self.S2 = S2
+        self.dimension = max(S1.dimension, S2.dimension)
 
     def __repr__(self) -> str:
         return f"({self.S1} & {self.S2})"
@@ -369,6 +407,7 @@ class SetMinus(Set):
     def __init__(self, S1: Set, S2: Set) -> None:
         self.S1 = S1
         self.S2 = S2
+        self.dimension = max(S1.dimension, S2.dimension)
 
     def __repr__(self):
         return f"({self.S1} \ {self.S2})"
@@ -421,9 +460,9 @@ class Rectangle(Set):
         """
 
         f = self.set_functions(x)
-        lower = f["And"](*[self.lower_bounds[i] == x[i] for i in range(self.dimension)])
-        upper = f["And"](*[x[i] == self.upper_bounds[i] for i in range(self.dimension)])
-        return f["And"](lower, upper)
+        lower = f["Or"](*[self.lower_bounds[i] == x[i] for i in range(self.dimension)])
+        upper = f["Or"](*[x[i] == self.upper_bounds[i] for i in range(self.dimension)])
+        return f["Or"](lower, upper)
 
     def generate_interior(self, x):
         """Returns interior of the rectangle
@@ -464,8 +503,16 @@ class Rectangle(Set):
         Returns:
             torch.Tensor: sampled boundary points
         """
-        # Any idea how to do this for arbitrary dimension?
-        raise NotImplementedError
+        # This won't be uniform but it should be fast
+
+        zero = [0] * self.dimension
+        unit_sphere = round_init_data(zero, 1.0, batch_size, on_border=True)
+        for i in range(unit_sphere.shape[0]):
+            unit_sphere[i] = sphere_to_cube(unit_sphere[i])
+            unit_sphere[i] = cube_move(
+                unit_sphere[i], self.lower_bounds, self.upper_bounds
+            )
+        return unit_sphere
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -1069,10 +1116,20 @@ if __name__ == "__main__":
     import z3
 
     x = [z3.Real("x" + str(i)) for i in range(2)]
-    P = Sphere([0, 0, 0, 0], 1)
-    S = P.sample_border(200)
+    P = Sphere([0, 0], 1)
+    C = Rectangle([-3, -4], [-2, -2])
+
+    S4 = C.sample_border(200)
 
     from matplotlib import pyplot as plt
 
-    plt.plot(S[:, 0], S[:, 1], ".")
+    plt.plot(S4[:, 0], S4[:, 1], ".", color="orange")
+    plt.show()
+
+    S = Rectangle([-1, -2, 0], [0, 0, 1]).sample_border(1000)
+    print(C.to_latex())
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.scatter(S[:, 0], S[:, 1], S[:, 2], marker=".")
     plt.show()

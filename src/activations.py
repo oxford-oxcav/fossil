@@ -54,6 +54,8 @@ def activation(select: consts.ActivationType, p):
         return l_o(p)
     elif select == consts.ActivationType.SQUARE_DEC:
         return s_d(p)
+    elif select == consts.ActivationType.RATIONAL:
+        return rational(p)
 
 
 def activation_der(select: consts.ActivationType, p):
@@ -98,6 +100,8 @@ def activation_der(select: consts.ActivationType, p):
         return l_o_der(p)
     elif select == consts.ActivationType.SQUARE_DEC:
         return s_d_der(p)
+    elif select == consts.ActivationType.RATIONAL:
+        return rational_der(p)
 
 
 ##################################################################
@@ -279,6 +283,11 @@ def cosh(x):
     return torch.cosh(x) - 1
 
 
+def rational(x):
+    # tanh approximation
+    return x / (1 + torch.sqrt(torch.pow(x, 2)))
+
+
 ##################################################################
 # DERIVATIVES
 ##################################################################
@@ -458,3 +467,7 @@ def s_d_der(x):
         ],
         dim=1,
     )
+
+
+def rational_der(x):
+    return 1 / (1 + torch.pow(x, 2))

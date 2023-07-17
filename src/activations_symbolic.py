@@ -55,6 +55,8 @@ def activation_sym(select, p):
         return l_o_z3(p)
     elif select == consts.ActivationType.SQUARE_DEC:
         return sd(p)
+    elif select == consts.ActivationType.RATIONAL:
+        return rational_sym(p)
 
 
 def activation_der_sym(select, p):
@@ -94,6 +96,8 @@ def activation_der_sym(select, p):
         return l_o_der_z3(p)
     elif select == consts.ActivationType.SQUARE_DEC:
         return sd_der(p)
+    elif select == consts.ActivationType.RATIONAL:
+        return rational_der_sym(p)
 
 
 def relu(x):
@@ -291,6 +295,10 @@ def sd(x):
     )
 
 
+def rational_sym(x):
+    return x / (1 + (x**2) ** 0.5)
+
+
 ##############################
 # DERIVATIVE
 ##############################
@@ -486,3 +494,7 @@ def sd_der(x):
 
 def softplus_der_dr(x):
     return sigm_dr(x)
+
+
+def rational_der_sym(x):
+    return 1 / (1 + x**2)

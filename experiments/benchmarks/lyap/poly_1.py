@@ -13,7 +13,7 @@ from src import main
 from src.consts import *
 
 
-def test_lnn():
+def test_lnn(args):
     outer = 10.0
     inner = 0.1
     batch_size = 500
@@ -51,8 +51,15 @@ def test_lnn():
         CEGIS_MAX_ITERS=25,
     )
 
-    main.run_benchmark(opts, record=True, plot=False, repeat=1)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

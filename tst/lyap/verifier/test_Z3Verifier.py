@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import unittest
-from functools import partial
-from unittest import mock
 
 from z3 import *
 
@@ -16,9 +14,7 @@ from experiments.benchmarks.benchmarks_lyap import *
 import src.translator as translator
 import src.certificate as certificate
 from src.consts import (
-    TranslatorType,
     CegisStateKeys,
-    ActivationType,
     CegisConfig,
 )
 
@@ -31,10 +27,10 @@ class TestZ3Verifier(unittest.TestCase):
         ver = verifier.VerifierZ3
         x = ver.new_vars(n_vars)
 
-        f, domain, _, var_bounds = system()
-        domain_z3 = domain["lie-&-pos"](x)
-        lc = certificate.Lyapunov(domains={"lie-&-pos": domain_z3}, config=CegisConfig)
-        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, var_bounds, x, True)
+        (f, domain, _, _) = system()
+        domain_z3 = domain["lie"](x)
+        lc = certificate.Lyapunov(domains={"lie": domain_z3}, config=CegisConfig)
+        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, x, True)
 
         # model
         model = learner.LearnerCT(2, None, *[2], bias=False)
@@ -48,14 +44,14 @@ class TestZ3Verifier(unittest.TestCase):
 
         xdot = f(x)
         tr = translator.TranslatorCT(
-            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), None, 1, True
+            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), 1, CegisConfig()
         )
         res = tr.get(**{"net": model})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
         print(V)
         res = ver.verify(V, Vdot)
         self.assertEqual(
-            res[CegisStateKeys.found], res[CegisStateKeys.cex] == {"lie-&-pos": []}
+            res[CegisStateKeys.found], res[CegisStateKeys.cex] == {"lie": []}
         )
         self.assertTrue(res[CegisStateKeys.found])
 
@@ -66,10 +62,10 @@ class TestZ3Verifier(unittest.TestCase):
         ver = verifier.VerifierZ3
         x = ver.new_vars(n_vars)
 
-        f, domain, _, var_bounds = system()
-        domain_z3 = domain["lie-&-pos"](x)
-        lc = certificate.Lyapunov(domains={"lie-&-pos": domain_z3}, config=CegisConfig)
-        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, var_bounds, x, True)
+        (f, domain, _, _) = system()
+        domain_z3 = domain["lie"](x)
+        lc = certificate.Lyapunov(domains={"lie": domain_z3}, config=CegisConfig)
+        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, x, True)
 
         # model
         model = learner.LearnerCT(2, None, 2, bias=True)
@@ -84,7 +80,7 @@ class TestZ3Verifier(unittest.TestCase):
 
         xdot = f(x)
         tr = translator.TranslatorCT(
-            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), None, 1, True
+            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), 1, CegisConfig()
         )
         res = tr.get(**{"net": model})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
@@ -99,10 +95,10 @@ class TestZ3Verifier(unittest.TestCase):
         ver = verifier.VerifierZ3
         x = ver.new_vars(n_vars)
 
-        f, domain, _, var_bounds = system()
-        domain_z3 = domain["lie-&-pos"](x)
-        lc = certificate.Lyapunov(domains={"lie-&-pos": domain_z3}, config=CegisConfig)
-        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, var_bounds, x, True)
+        (f, domain, _, _) = system()
+        domain_z3 = domain["lie"](x)
+        lc = certificate.Lyapunov(domains={"lie": domain_z3}, config=CegisConfig)
+        ver = verifier.VerifierZ3(n_vars, lc.get_constraints, x, True)
 
         # model
         model = learner.LearnerCT(2, None, *[2], bias=False)
@@ -114,7 +110,7 @@ class TestZ3Verifier(unittest.TestCase):
 
         xdot = f(x)
         tr = translator.TranslatorCT(
-            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), None, 1, True
+            np.array(x).reshape(-1, 1), np.array(xdot).reshape(-1, 1), 1, CegisConfig()
         )
         res = tr.get(**{"net": model})
         V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]

@@ -12,7 +12,7 @@ from src import main
 from src.consts import *
 
 
-def test_lnn():
+def test_lnn(args):
     outer = 1
     inner = 0.1
     batch_size = 1500
@@ -28,9 +28,6 @@ def test_lnn():
     data = {
         certificate.XD: XD._generate_data(batch_size),
     }
-
-    # TEST for Control Lyapunov
-    # pass the ctrl parameters from here (i.e. the main)
     n_vars = 2
 
     # define NN parameters
@@ -53,10 +50,17 @@ def test_lnn():
         N_HIDDEN_NEURONS=lyap_hidden_neurons,
         CTRLAYER=[25, n_ctrl_inputs],
         CTRLACTIVATION=[ActivationType.LINEAR],
+        CEGIS_MAX_ITERS=25,
     )
-    main.run_benchmark(opts, record=False, plot=True, repeat=1)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    torch.manual_seed(167)
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

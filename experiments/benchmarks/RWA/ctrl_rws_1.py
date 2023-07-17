@@ -6,51 +6,61 @@
 
 
 # pylint: disable=not-callable
-
 from experiments.benchmarks import models
+from src import domains
+from src import certificate
 from src import main
-import src.domains as domains
-import src.certificate as certificate
 from src.consts import *
 
 
 def test_lnn(args):
     ###########################################
-    #
+    ###
     #############################################
     n_vars = 2
+    batch_size = 1000
 
-    system = models.NonPoly1
-    batch_size = 500
+    ol_system = models.Linear1
+    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
-    XD = domains.Torus([0, 0], 2, 0.01)
-    XI = domains.Torus([0, 0], 0.5, 0.01)
+    XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
+    XS = domains.Rectangle([-1, -1], [1, 1])
+    XI = domains.Rectangle([-0.5, -0.5], [0.5, 0.5])
+    XG = domains.Rectangle([-0.1, -0.1], [0.1, 0.1])
+
+    SU = domains.SetMinus(XD, XS)  # Data for unsafe set
+    SD = domains.SetMinus(XS, XG)  # Data for lie set
 
     sets = {
         certificate.XD: XD,
         certificate.XI: XI,
+        certificate.XS_BORDER: XS,
+        certificate.XS: XS,
+        certificate.XG: XG,
     }
     data = {
         certificate.XD: XD._generate_data(batch_size),
-        certificate.XI: XI._sample_border(batch_size),
+        certificate.XI: XI._generate_data(100),
+        certificate.XU: SU._generate_data(1000),
     }
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [10] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
-        N_VARS=n_vars,
-        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        CERTIFICATE=CertificateType.ROA,
+        SYSTEM=system,
+        N_VARS=n_vars,
+        CERTIFICATE=CertificateType.RWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
-        LLO=True,
+        CTRLAYER=[8, 1],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     main.run_benchmark(

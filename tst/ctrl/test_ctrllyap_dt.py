@@ -242,7 +242,7 @@ class test_init(unittest.TestCase):
         learner = c.learner
         opt = c.optimizer
         samples = c.S
-        samples_dot = c.f.f_torch(samples["lie-&-pos"])
+        samples_dot = c.f.f_torch(samples["lie"])
         f_torch = c.f.f_torch
         f_smt = c.f.f_smt
         xs = [dr.Variable("x0"), dr.Variable("x1")]

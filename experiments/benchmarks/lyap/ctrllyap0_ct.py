@@ -14,7 +14,7 @@ from src import main
 from src.consts import *
 
 
-def test_lnn():
+def test_lnn(args):
     # TEST for Control Lyapunov
     # pass the ctrl parameters from here (i.e. the main)
     n_vars = 2
@@ -39,7 +39,7 @@ def test_lnn():
     n_hidden_neurons = [4] * len(activations)
 
     ###
-    # Takes ~6 seconds, iter 1
+    #
     ###
 
     opts = CegisConfig(
@@ -55,9 +55,17 @@ def test_lnn():
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CTRLAYER=[15, 2],
         CTRLACTIVATION=[ActivationType.LINEAR],
+        CEGIS_MAX_ITERS=25,
     )
-    main.run_benchmark(opts, record=False, plot=True, repeat=1, concurrent=True)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)

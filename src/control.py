@@ -91,7 +91,7 @@ class GeneralController(torch.nn.Module):
     def learn(self, x: torch.Tensor, f_open: torch.Tensor, optimizer: torch.optim):
         pass
 
-    def to_symbolic(self, x, verbose=False):
+    def to_symbolic(self, x, verbose=False) -> list:
         y = np.atleast_2d(x).T
         rounding = 5
 
@@ -106,7 +106,7 @@ class GeneralController(torch.nn.Module):
 
         vprint(f"Controller: \n{z}", verbose)
 
-        return z
+        return z.reshape(-1).tolist()
 
 
 class StabilityCT(BaseController):
@@ -363,18 +363,33 @@ class Lineariser:
     def __init__(self, model):
         self.model = model
         self.n_vars = self.model.n_vars
+        self.n_u = self.model.n_u
         self.x = [sp.Symbol("x" + str(i), real=True) for i in range(self.n_vars)]
+        self.u = [sp.Symbol("u" + str(i), real=True) for i in range(self.n_u)]
+        self._check_zero()
         # zero = torch.tensor([0.0] * self.n_vars).unsqueeze(0)
         # print(self.model(zero))
 
-    def get_model(self):
-        return self.model(self.x)
+    def get_model(self) -> list[sp.Expr]:
+        """Returns the model as a list of sympy expressions"""
+        return self.model(self.x, self.u)
 
-    def get_jacobian(self):
-        J = sp.Matrix(self.model(self.x)).jacobian(self.x)
+    def _check_zero(self):
+        """Checks if the model is zero at the origin"""
+        f = sp.Matrix(self.get_model())
+        f = f.subs([(x, 0) for x in self.x])
+        f = f.subs([(u, 0) for u in self.u])
+        f0 = [fi != 0 for fi in f]
+        if any(f0):
+            raise ValueError("Model is not zero at the origin")
+
+    def get_jacobian(self) -> sp.Matrix:
+        """Returns the jacobian of the model"""
+        J = sp.Matrix(self.model(self.x, self.u)).jacobian(self.x)
         return J
 
-    def linearise(self):
+    def linearise(self) -> np.ndarray:
+        """Linearises the model around the origin, returning the A matrix"""
         J = self.get_jacobian()
         J_0 = J.subs([(x, 0) for x in self.x])
         return np.array(J_0).astype(np.float64)
@@ -388,18 +403,20 @@ class LQR:
 
         Args:
             A (np.ndarray): state matrix of the linear model
-            B (np.ndarray, optional): Defaults to Identity.
+            B (np.ndarray): input matrix of the linear model
             Q (np.ndarray, optional): Defaults to Identity.
             R (np.ndarray, optional): Defaults to Identity.
         """
         self.A = A
         self.n_vars = A.shape[0]
-        self.B = B if B is not None else np.eye(self.n_vars)
+        self.B = B
+        assert B.shape[0] == self.n_vars
         self.n_u = self.B.shape[1]
         self.Q = Q if Q is not None else np.eye(self.n_vars)
         self.R = R if R is not None else np.eye(self.n_u)
 
-    def solve(self):
+    def solve(self) -> np.ndarray:
+        """Solves the LQR Riccati equation, returning the K matrix"""
         P = linalg.solve_continuous_are(self.A, self.B, self.Q, self.R)
         K = np.linalg.inv(self.R) @ self.B.T @ P
         return K
@@ -408,9 +425,22 @@ class LQR:
 if __name__ == "__main__":
     from experiments.benchmarks import models
 
-    model = models.NonPoly0()
-    l = Lineariser(model)
+    L = [
+        models.Linear1(),
+        models.SecondOrder(),
+        models.ThirdOrder(),
+        models.InvertedPendulum(),
+    ]
 
-    A = l.linearise()
-    K = LQR(A).solve()
-    print(K)
+    Bs = [
+        np.array([[0], [1.0]]),
+        np.array([[0], [1.0]]),
+        np.array([[1.0], [0], [0.0]]),
+        np.array([[1.0, 0], [0, 1.0]]),
+    ]
+    for model, B in zip(L, Bs):
+        l = Lineariser(model)
+
+        A = l.linearise()
+        K = LQR(A, B).solve()
+        print("model: ", type(model).__name__, "K: ", K)

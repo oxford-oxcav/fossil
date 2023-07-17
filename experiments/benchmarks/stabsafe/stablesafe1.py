@@ -14,15 +14,10 @@ import src.certificate as certificate
 from src.consts import *
 
 
-def test_lnn():
-    ###########################################
-    ### Converges in 1.6s in second step
-    ### Trivial example
-    ### Currently DoubleCegis does not work with consolidator
-    #############################################
+def test_lnn(args):
     n_vars = 2
 
-    system = models.NonPoly1
+    system = models.NonPoly0
     batch_size = 500
 
     XD = domains.Torus([0, 0], 3, 0.01)
@@ -31,7 +26,7 @@ def test_lnn():
     XU = domains.Union(
         domains.Sphere([0.4, 0.4], 0.2), domains.Sphere([-0.4, 0.4], 0.2)
     )
-    XI = domains.Sphere([-0.6, -0.6], 0.1)
+    XI = domains.Sphere([-0.9, -0.9], 1.0)
 
     sets = {
         certificate.XD: XD,
@@ -45,9 +40,9 @@ def test_lnn():
     }
 
     # define NN parameters
-    activations = [ActivationType.SQUARE, ActivationType.SQUARE]
+    activations = [ActivationType.SQUARE]
     activations_alt = [ActivationType.TANH]
-    n_hidden_neurons = [10] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
     n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(
@@ -55,20 +50,27 @@ def test_lnn():
         SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        CERTIFICATE=CertificateType.LYAPUNOV,
+        CERTIFICATE=CertificateType.STABLESAFE,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.Z3,
+        VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         ACTIVATION_ALT=activations_alt,
         N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         SYMMETRIC_BELT=False,
-        CEGIS_MAX_ITERS=100,
+        CEGIS_MAX_ITERS=25,
         LLO=True,
     )
 
-    main.run_benchmark(opts, record=False, plot=True, repeat=1)
+    main.run_benchmark(
+        opts,
+        record=args.record,
+        plot=args.plot,
+        concurrent=args.concurrent,
+        repeat=args.repeat,
+    )
 
 
 if __name__ == "__main__":
-    test_lnn()
+    args = main.parse_benchmark_args()
+    test_lnn(args)
