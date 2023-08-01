@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 from functools import partial
 import copy
+import warnings
 
 import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
@@ -439,6 +440,11 @@ class SetMinus(Set):
         return f["And"](
             self.S1.generate_domain(x), f["Not"](self.S2.generate_domain(x))
         )
+
+    def generate_boundary(self, x):
+        f = self.set_functions(x)
+        warnings.warn("Assuming that boundary of S1 and S2 is the union of the two boundaries. This is not true in general, eg if the boundaries intersect.")
+        return f["Or"](self.S1.generate_boundary(x), self.S2.generate_boundary(x))
 
     def generate_data(self, batch_size):
         data = self.S1.generate_data(batch_size)
@@ -1057,6 +1063,7 @@ class Complement(Set):
 
     def __init__(self, set: Set):
         self.set = set
+        self.dimension = set.dimension
 
     def __repr__(self) -> str:
         return f"Complement({self.set})"

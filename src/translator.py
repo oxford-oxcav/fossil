@@ -98,6 +98,8 @@ class TranslatorCT(TranslatorNN):
             last_layer = np.round(net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
+        if net.layers[-1].bias is not None:
+            z += net.layers[-1].bias.data.numpy()[:, None]
         jacobian = last_layer @ jacobian  # jacobian now contains the grad V
 
         assert z.shape == (1, 1)
@@ -192,6 +194,8 @@ class TranslatorDT(TranslatorNN):
             last_layer = np.round(net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
+        if net.layers[-1].bias is not None:
+            z += net.layers[-1].bias.data.numpy()[:, None]
         z_xdot = last_layer @ z_xdot
 
         assert z.shape == (1, 1)

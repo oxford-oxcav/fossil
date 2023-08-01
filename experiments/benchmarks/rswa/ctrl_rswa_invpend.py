@@ -15,7 +15,9 @@ from src.consts import *
 def test_lnn(args):
     n_vars = 2
 
-    system = models.InvertedPendulumLQR
+    ol_system = models.InvertedPendulum
+    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+
     batch_size = 500
 
     XD = domains.Rectangle([-3, -3], [3, 3])
@@ -43,7 +45,7 @@ def test_lnn(args):
     }
 
     # define NN parameters
-    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    activations = [ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
@@ -57,6 +59,8 @@ def test_lnn(args):
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        CTRLAYER=[8, 2],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     main.run_benchmark(

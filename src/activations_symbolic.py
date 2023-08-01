@@ -291,7 +291,7 @@ def even_poly4_sym(x):
     h = int(x.shape[0] / 2)
     x1, x2 = (
         x[:h],
-        x[h : 2 * h],
+        x[h:],
     )
     return np.vstack(
         [
@@ -306,7 +306,7 @@ def even_poly6_sym(x):
     x1, x2, x3 = (
         x[:h],
         x[h : 2 * h],
-        x[2 * h : 3 * h],
+        x[2 * h :],
     )
     return np.vstack(
         [
@@ -323,7 +323,7 @@ def even_poly8_sym(x):
         x[:h],
         x[h : 2 * h],
         x[2 * h : 3 * h],
-        x[3 * h : 4 * h],
+        x[3 * h :],
     )
     return np.vstack(
         [
@@ -542,7 +542,7 @@ def even_poly4_der_sym(x):
     h = int(x.shape[0] / 2)
     x1, x2 = (
         x[:h],
-        x[h : 2 * h],
+        x[h:],
     )
     return np.vstack(
         [
@@ -557,7 +557,7 @@ def even_poly6_der_sym(x):
     x1, x2, x3 = (
         x[:h],
         x[h : 2 * h],
-        x[2 * h : 3 * h],
+        x[2 * h :],
     )
     return np.vstack(
         [
@@ -574,7 +574,7 @@ def even_poly8_der_sym(x):
         x[:h],
         x[h : 2 * h],
         x[2 * h : 3 * h],
-        x[3 * h : 4 * h],
+        x[3 * h :],
     )
     return np.vstack(
         [

@@ -190,7 +190,7 @@ class SingleCegis:
             state = {**state, **outputs}
 
             if state[CegisStateKeys.found]:
-                stop = self.process_certificate(S, state)
+                stop = self.process_certificate(S, state, iters)
 
             elif state[CegisStateKeys.verification_timed_out]:
                 print("Verification timed out")
@@ -287,7 +287,7 @@ class SingleCegis:
         return state
 
     def process_certificate(
-        self, S: dict[str, torch.Tensor], state: dict[str, Any]
+        self, S: dict[str, torch.Tensor], state: dict[str, Any], iters: int
     ) -> bool:
         stop = False
         if (
@@ -313,6 +313,8 @@ class SingleCegis:
                     f"Found a valid RWS certificate, but could not prove the final stay condition. Keep searching..."
                 )
                 state[CegisStateKeys.found] = False
+                if self.config.CEGIS_MAX_ITERS == iters:
+                    stop = True
         else:
             if isinstance(self.f, GeneralClosedLoopModel):
                 ctrl = " and controller"
@@ -470,7 +472,7 @@ class DoubleCegis(SingleCegis):
             # state = {**state, **outputs}
 
             if state[CegisStateKeys.found]:
-                stop = self.process_certificate(S, state)
+                stop = self.process_certificate(S, state, iters)
 
             elif state[CegisStateKeys.verification_timed_out]:
                 print("Verification timed out")

@@ -356,9 +356,23 @@ def ridge_reg_param(W: list[torch.Tensor]):
 
 
 def cosine_reg(S: torch.Tensor, Sdot: torch.Tensor):
-    l = torch.cosine_similarity(S, Sdot, dim=1)
-    l = torch.relu(l) + torch.relu(-l - 0.5)
-    return l.mean()
+    cosine = torch.nn.CosineSimilarity(dim=1)
+    loss = cosine(Sdot, S)
+    return loss.mean()
+
+
+def saturated_cosine_reg(S: torch.Tensor, Sdot: torch.Tensor):
+    cosine = torch.nn.CosineSimilarity(dim=1)
+    relu = torch.nn.Softplus()
+    loss = relu(cosine(Sdot, S))
+    return loss.mean()
+
+
+def saturated_cosine_reg2(S: torch.Tensor, Sdot: torch.Tensor):
+    cosine = torch.nn.CosineSimilarity(dim=1)
+    relu = torch.nn.ReLU()
+    loss = relu(cosine(Sdot, S) + 0.1)
+    return loss.mean()
 
 
 class Lineariser:

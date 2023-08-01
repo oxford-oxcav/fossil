@@ -13,37 +13,40 @@ from src.consts import *
 
 
 def test_lnn(args):
-    n_vars = 2
+    ###########################################
+    ###
+    #############################################
+    ol_system = models.ThirdOrder
+    n_vars = ol_system.n_vars
+    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
-    system = models.InvertedPendulumLQR
-    batch_size = 500
-
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.3, -0.3], [0.3, 0.3])
+    XD = domains.Rectangle([-6, -6, -6], [6, 6, 6])
+    XS = domains.Rectangle([-5, -5, -5], [5, 5, 5])
+    XI = domains.Rectangle([-1.2, -1.2, -1.2], [1.2, 1.2, 1.2])
+    XG = domains.Rectangle([-0.3, -0.3, -0.3], [0.3, 0.3, 0.3])
 
     SU = domains.SetMinus(XD, XS)  # Data for unsafe set
     SD = domains.SetMinus(XS, XG)  # Data for lie set
+
+    # define NN parameters
+    activations = [ActivationType.POLY_8]
+    n_hidden_neurons = [15] * len(activations)
+
     sets = {
-        "lie": XD,
-        "init": XI,
-        "safe_border": XS,
-        "safe": XS,
-        "goal": XG,
-        "goal_border": XG,
+        certificate.XD: XD,
+        certificate.XI: XI,
+        certificate.XS_BORDER: XS,
+        certificate.XS: XS,
+        certificate.XG: XG,
     }
     data = {
-        "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
-        "unsafe": SU._generate_data(1000),
-        "safe": XS._generate_data(100),  # These are just for the beta search
-        "goal_border": XG._sample_border(200),
-        "goal": XG._generate_data(300),
+        certificate.XD: XD._generate_data(1000),
+        certificate.XI: XI._generate_data(100),
+        certificate.XU: SU._generate_data(1000),
     }
 
     # define NN parameters
-    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    activations = [ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
@@ -51,12 +54,14 @@ def test_lnn(args):
         DATA=data,
         SYSTEM=system,
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RSWS,
+        CERTIFICATE=CertificateType.RWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        CTRLAYER=[8, 1],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     main.run_benchmark(

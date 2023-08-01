@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 # pylint: disable=not-callable
 from experiments.benchmarks import models
 from src import domains
@@ -13,18 +14,23 @@ from src.consts import *
 
 
 def test_lnn(args):
+    ###########################################
+    ###
+    #############################################
     n_vars = 2
+    batch_size = 1000
 
-    system = models.InvertedPendulumLQR
-    batch_size = 500
+    ol_system = models.Linear1
+    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.3, -0.3], [0.3, 0.3])
+    XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
+    XS = domains.Rectangle([-1, -1], [1, 1])
+    XI = domains.Rectangle([-0.5, -0.5], [0.5, 0.5])
+    XG = domains.Rectangle([-0.1, -0.1], [0.1, 0.1])
 
     SU = domains.SetMinus(XD, XS)  # Data for unsafe set
     SD = domains.SetMinus(XS, XG)  # Data for lie set
+
     sets = {
         "lie": XD,
         "init": XI,
@@ -35,7 +41,7 @@ def test_lnn(args):
     }
     data = {
         "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
+        "init": XI._generate_data(100),
         "unsafe": SU._generate_data(1000),
         "safe": XS._generate_data(100),  # These are just for the beta search
         "goal_border": XG._sample_border(200),
@@ -43,7 +49,7 @@ def test_lnn(args):
     }
 
     # define NN parameters
-    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    activations = [ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
@@ -57,6 +63,8 @@ def test_lnn(args):
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        CTRLAYER=[8, 1],
+        CTRLACTIVATION=[ActivationType.LINEAR],
     )
 
     main.run_benchmark(

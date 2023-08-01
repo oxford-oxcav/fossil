@@ -31,19 +31,15 @@ def test_lnn(args):
         "safe_border": XS,
         "safe": XS,
         "goal": XG,
-        "goal_border": XG,
     }
     data = {
         "lie": SD._generate_data(batch_size),
         "init": XI._generate_data(1000),
         "unsafe": SU._generate_data(1000),
-        "safe": XS._generate_data(100),  # These are just for the beta search
-        "goal_border": XG._sample_border(200),
-        "goal": XG._generate_data(300),
     }
 
     # define NN parameters
-    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    activations = [ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
@@ -51,7 +47,7 @@ def test_lnn(args):
         DATA=data,
         SYSTEM=system,
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RSWS,
+        CERTIFICATE=CertificateType.RWS,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,

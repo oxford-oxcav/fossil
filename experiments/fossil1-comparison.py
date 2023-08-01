@@ -319,7 +319,7 @@ def make_table():
 if __name__ == "__main__":
     BASE_SEED = 169
     benchmarks = [non_poly1, poly2, barr_1, barr_3]
-    N_REPEATS = 0
+    N_REPEATS = 10
     for benchmark in benchmarks:
         for i in range(N_REPEATS):
             torch.manual_seed(BASE_SEED + i)

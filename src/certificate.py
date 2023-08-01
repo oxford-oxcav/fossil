@@ -87,7 +87,167 @@ class Lyapunov(Certificate):
             loss = cosine(gradV, f).mean()
             learn_accuracy = (Vdot <= 0).count_nonzero().item()
         else:
-            loss = cosine(gradV, f) + relu(-V)
+            loss = cosine(gradV, f) + relu(-(V))
+            loss = loss.mean()
+            learn_accuracy = 0.5 * (
+                (Vdot <= -0).count_nonzero().item() + (V >= 0).count_nonzero().item()
+            )
+        accuracy = {"acc": learn_accuracy * 100 / len(Vdot)}
+        return loss, accuracy
+
+    def compute_loss(
+        self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
+    ) -> tuple[torch.Tensor, dict]:
+        """_summary_
+
+        Args:
+            V (torch.Tensor): Lyapunov samples over domain
+            Vdot (torch.Tensor): Lyapunov derivative samples over domain
+            circle (torch.Tensor): Circle
+
+        Returns:
+            tuple[torch.Tensor, float]: loss and accuracy
+        """
+        margin = 0
+        relu = torch.nn.Softplus()
+        # compute loss function. if last layer of ones (llo), can drop parts with V
+        if self.llo:
+            learn_accuracy = (Vdot <= -margin).count_nonzero().item()
+            loss = (relu(Vdot + margin * circle)).mean()
+        else:
+            learn_accuracy = 0.5 * (
+                (Vdot <= -margin).count_nonzero().item()
+                + (V >= margin).count_nonzero().item()
+            )
+            loss = (relu(Vdot + margin * circle)).mean() + (
+                relu(-V + margin * circle)
+            ).mean()
+
+        accuracy = {"acc": learn_accuracy * 100 / len(Vdot)}
+
+        return loss, accuracy
+
+    def learn(
+        self,
+        learner: learner.LearnerNN,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
+    ) -> dict:
+        """
+        :param learner: learner object
+        :param optimizer: torch optimiser
+        :param S: list of tensors of data
+        :param Sdot: list of tensors containing f(data)
+        :return: --
+        """
+
+        batch_size = len(S[XD])
+        learn_loops = 1000
+        samples = S[XD]
+
+        if f_torch:
+            samples_dot = f_torch(samples)
+        else:
+            samples_dot = Sdot[XD]
+
+        assert len(samples) == len(samples_dot)
+
+        for t in range(learn_loops):
+            optimizer.zero_grad()
+            if self.control:
+                samples_dot = f_torch(samples)
+
+            V, Vdot, circle = learner.get_all(samples, samples_dot)
+
+            # circle = x0*x0 + ... + xN*xN
+
+            loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
+
+            if t % 100 == 0 or t == learn_loops - 1:
+                print_loss_acc(t, loss, learn_accuracy, learner.verbose)
+
+            # t>=1 ensures we always have at least 1 optimisation step
+            if learn_accuracy["acc"] == 100 and t >= 1:
+                break
+
+            loss.backward()
+            optimizer.step()
+
+            if learner._diagonalise:
+                learner.diagonalisation()
+
+        return {}
+
+    def get_constraints(self, verifier, V, Vdot) -> Generator:
+        """
+        :param verifier: verifier object
+        :param V: SMT formula of Lyapunov Function
+        :param Vdot: SMT formula of Lyapunov lie derivative
+        :return: tuple of dictionaries of lyapunov conditons
+        """
+        _Or = verifier.solver_fncts()["Or"]
+        _And = verifier.solver_fncts()["And"]
+
+        if self.llo:
+            # V is positive definite by construction
+            lyap_negated = Vdot > 0
+        else:
+            lyap_negated = _Or(V <= 0, Vdot > 0)
+        lyap_condition = _And(self.domain, lyap_negated)
+        for cs in ({XD: lyap_condition},):
+            yield cs
+
+    def estimate_beta(self, net):
+        try:
+            border_D = self.D[XD].sample_border(300)
+            beta, _ = net.compute_minimum(border_D)
+        except NotImplementedError:
+            beta = self.D[XD].generate_data(300)
+        return beta
+
+    def _assert_state(self, domains, data):
+        domain_labels = set(domains.keys())
+        data_labels = set(data.keys())
+        assert domain_labels == set([XD])
+        assert data_labels == set([XD])
+
+
+class ROA(Certificate):
+    """Certifies that a set a region of attraction for the origin
+
+    For this certificate, the domain XD is relatively unimportant, as the
+    verification is done with respect to XI, and (hopefully) the smallest sub-level set of V
+    that contains XI. XD is expected to be much larger than XI, and provides training data
+    over a larger region than XI."""
+
+    def __init__(self, domains, config: CegisConfig) -> None:
+        self.XD = domains[XD]
+        self.XI = domains[XI]
+        self.llo = config.LLO
+        self.control = config.CTRLAYER is not None
+        self.D = config.DOMAINS
+        self.bias = False
+
+    def alt_loss(
+        self, V: torch.Tensor, gradV: torch.Tensor, f: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        param V: Lyapunov function
+        param gradV: gradient of Lyapunov function
+        param f: system dynamics
+        return: loss function
+        """
+        relu = torch.nn.Softplus()
+        cosine = torch.nn.CosineSimilarity(dim=1)
+        Vdot = torch.sum(torch.mul(gradV, f), dim=1)
+        if self.llo:
+            loss = cosine(gradV, f).mean()
+            learn_accuracy = (Vdot <= 0).count_nonzero().item()
+        else:
+            loss = cosine(gradV, f) + relu(-(V))
+            loss = loss.mean()
             learn_accuracy = 0.5 * (
                 (Vdot <= -0).count_nonzero().item() + (V >= 0).count_nonzero().item()
             )
@@ -160,157 +320,9 @@ class Lyapunov(Certificate):
             if self.control:
                 samples_dot = f_torch(samples)
 
-            # V, Vdot, circle = learner.get_all(samples, samples_dot)
-
-            nn, grad_nn = learner.compute_net_gradnet(samples)
-            # circle = x0*x0 + ... + xN*xN
-
-            V, gradV = learner.compute_V_gradV(nn, grad_nn, samples)
-
-            loss, learn_accuracy = self.alt_loss(V, gradV, samples_dot)
-
-            # if self.control:
-            # loss = loss + control.nonzero_loss2(samples, samples_dot)
-            # loss = loss + control.cosine_reg(samples, samples_dot)
-
-            if t % 100 == 0 or t == learn_loops - 1:
-                print_loss_acc(t, loss, learn_accuracy, learner.verbose)
-
-            # t>=1 ensures we always have at least 1 optimisation step
-            if learn_accuracy["acc"] == 100 and t >= 1:
-                break
-
-            loss.backward()
-            optimizer.step()
-
-            if learner._diagonalise:
-                learner.diagonalisation()
-
-        return {}
-
-    def get_constraints(self, verifier, V, Vdot) -> Generator:
-        """
-        :param verifier: verifier object
-        :param V: SMT formula of Lyapunov Function
-        :param Vdot: SMT formula of Lyapunov lie derivative
-        :return: tuple of dictionaries of lyapunov conditons
-        """
-        _Or = verifier.solver_fncts()["Or"]
-        _And = verifier.solver_fncts()["And"]
-
-        if self.llo:
-            # V is positive definite by construction
-            lyap_negated = Vdot > 0
-        else:
-            lyap_negated = _Or(V <= 0, Vdot > 0)
-        lyap_condition = _And(self.domain, lyap_negated)
-        for cs in ({XD: lyap_condition},):
-            yield cs
-
-    def estimate_beta(self, net):
-        try:
-            border_D = self.D[XD].sample_border(300)
-            beta, _ = net.compute_minimum(border_D)
-        except NotImplementedError:
-            beta = self.D[XD].generate_data(300)
-        return beta
-
-    def _assert_state(self, domains, data):
-        domain_labels = set(domains.keys())
-        data_labels = set(data.keys())
-        assert domain_labels == set([XD])
-        assert data_labels == set([XD])
-
-
-class ROA(Certificate):
-    """Certifies that a set a region of attraction for the origin
-
-    For this certificate, the domain XD is relatively unimportant, as the
-    verification is done with respect to XI, and (hopefully) the smallest sub-level set of V
-    that contains XI. XD is expected to be much larger than XI, and provides training data
-    over a larger region than XI."""
-
-    def __init__(self, domains, config: CegisConfig) -> None:
-        self.XD = domains[XD]
-        self.XI = domains[XI]
-        self.llo = config.LLO
-        self.control = config.CTRLAYER is not None
-        self.D = config.DOMAINS
-        self.bias = False
-
-    def compute_loss(
-        self, V: torch.Tensor, Vdot: torch.Tensor, circle: torch.Tensor
-    ) -> tuple[torch.Tensor, dict]:
-        """_summary_
-
-        Args:
-            V (torch.Tensor): Lyapunov samples over domain
-            Vdot (torch.Tensor): Lyapunov derivative samples over domain
-            circle (torch.Tensor): Circle
-
-        Returns:
-            tuple[torch.Tensor, float]: loss and accuracy
-        """
-        margin = 0 * 0.01
-
-        slope = 10 ** (learner.LearnerNN.order_of_magnitude(max(abs(Vdot)).detach()))
-        leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
-        # compute loss function. if last layer of ones (llo), can drop parts with V
-        if self.llo:
-            learn_accuracy = (Vdot <= -margin).count_nonzero().item()
-            loss = (leaky_relu(Vdot + margin * circle)).mean()
-        else:
-            learn_accuracy = 0.5 * (
-                (Vdot <= -margin).count_nonzero().item()
-                + (V >= margin).count_nonzero().item()
-            )
-            loss = (leaky_relu(Vdot + margin * circle)).mean() + (
-                leaky_relu(-V + margin * circle)
-            ).mean()
-
-        accuracy = {"acc": learn_accuracy * 100 / len(Vdot)}
-
-        return loss, accuracy
-
-    def learn(
-        self,
-        learner: learner.LearnerNN,
-        optimizer: Optimizer,
-        S: list,
-        Sdot: list,
-        f_torch=None,
-    ) -> dict:
-        """
-        :param learner: learner object
-        :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
-        :return: --
-        """
-
-        batch_size = len(S[XD])
-        learn_loops = 1000
-        samples = S[XD]
-
-        if f_torch:
-            samples_dot = f_torch(samples)
-        else:
-            samples_dot = Sdot[XD]
-
-        assert len(samples) == len(samples_dot)
-
-        for t in range(learn_loops):
-            optimizer.zero_grad()
-            if self.control:
-                samples_dot = f_torch(samples)
-
             V, Vdot, circle = learner.get_all(samples, samples_dot)
 
             loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
-
-            if self.control:
-                loss = loss + control.nonzero_loss2(samples, samples_dot)
-                # loss = loss + control.cosine_reg(samples, samples_dot)
 
             if t % 100 == 0 or t == learn_loops - 1:
                 print_loss_acc(t, loss, learn_accuracy, learner.verbose)
@@ -782,7 +794,17 @@ class RWS(Certificate):
         self.goal = domains[XG]
         self.bias = True
 
-    def compute_loss(self, V_i, V_u, V_d, Vdot_d):
+    def alt_Vdot_loss(self, gradV: torch.Tensor, f: torch.Tensor) -> torch.Tensor:
+        """
+        param V: Lyapunov function
+        param gradV: gradient of Lyapunov function
+        param f: system dynamics
+        return: loss function
+        """
+        cosine = torch.nn.CosineSimilarity(dim=1)
+        return cosine(gradV, f).mean()
+
+    def compute_loss(self, V_i, V_u, V_d, grad_V, f):
         margin = 0
         margin_lie = 0.0
         learn_accuracy = (V_i <= -margin).count_nonzero().item() + (
@@ -792,26 +814,28 @@ class RWS(Certificate):
         slope = 0  # 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu = torch.nn.Softplus()
 
-        init_loss = (torch.relu(V_i + margin) - slope * relu(-V_i + margin)).mean()
-        unsafe_loss = (torch.relu(-V_u + margin) - slope * relu(V_u + margin)).mean()
-        loss = init_loss + unsafe_loss
-
-        # Penalise pos lie derivative for all points not in unsafe set or goal set where V <= 0
-        # This assumes V_d has no points in the unsafe set or goal set - is this reasonable?
-
         lie_index = torch.nonzero(V_d < -margin)
+
         if lie_index.nelement() != 0:
-            A_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
+            init_loss = relu(V_i + margin).mean()
+            unsafe_loss = relu(-V_u + margin).mean()
+            loss = init_loss + unsafe_loss
+            # get Vdot_d at lie_index
+            # Penalise pos lie derivative for all points not in unsafe set or goal set where V <= 0
+            # This assumes V_d has no points in the unsafe set or goal set - is this reasonable?
+            Vdot = torch.sum(torch.mul(grad_V, f), dim=1)
+            A_lie = torch.index_select(Vdot, dim=0, index=lie_index[:, 0])
             lie_accuracy = (
                 ((A_lie <= -margin).count_nonzero()).item() * 100 / A_lie.shape[0]
             )
 
-            lie_loss = (relu(A_lie + margin_lie)).mean() - slope * relu(-Vdot_d).mean()
+            lie_loss = (relu(A_lie + margin_lie)).mean()
             loss = loss + lie_loss
         else:
+            # If this set is empty then the function is not negative enough across XS, so only penalise the initial set
             lie_accuracy = 0.0
+            loss = relu(V_i + margin).mean()
 
-        loss = loss
         accuracy = {
             "acc init unsafe": percent_accuracy_init_unsafe,
             "acc lie": lie_accuracy,
@@ -854,27 +878,27 @@ class RWS(Certificate):
             if f_torch:
                 samples_dot = f_torch(samples)
 
-            V, Vdot, _ = learner.get_all(samples, samples_dot)
+            nn, grad_nn = learner.compute_net_gradnet(samples)
+
+            V, gradV = learner.compute_V_gradV(nn, grad_nn, samples)
             (
                 V_d,
-                Vdot_d,
+                gradV_d,
             ) = (
                 V[:i1],
-                Vdot[:i1],
+                gradV[:i1],
             )
             V_i = V[i1 : i1 + i2]
             V_u = V[i1 + i2 :]
 
-            loss, accuracy = self.compute_loss(V_i, V_u, V_d, Vdot_d)
+            samples_dot_d = samples_dot[:i1]
+
+            loss, accuracy = self.compute_loss(V_i, V_u, V_d, gradV_d, samples_dot_d)
 
             if f_torch:
-                s = samples[:i1]
-                sdot = samples_dot[:i1]
-                loss = loss + 0.05 * control.ridge_reg(s, sdot)
-                # loss = loss + control.nonzero_loss2(samples, samples_dot)
-                # loss = loss + control.cosine_reg(samples, samples_dot)
-                # W = optimizer.param_groups[1]["params"]
-                # loss = loss + 0.05 * control.ridge_reg2(W)
+                S_d = samples[:i1]
+                loss = loss + control.cosine_reg(S_d, samples_dot_d)
+
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 print_loss_acc(t, loss, accuracy, learner.verbose)
 
@@ -978,20 +1002,22 @@ class RSWS(RWS):
         self.goal_border = domains[XG_BORDER]
         self.bias = True
 
-    def compute_beta_loss(self, beta, V_d, Vdot_d):
-        """Compute the loss for the beta condition"""
-        lie_index = torch.nonzero(V_d <= beta)
+    def compute_beta_loss(self, beta, V_g, Vdot_g, V_d):
+        """Compute the loss for the beta condition
+        :param beta: the guess value of beta based on the min of V of XG_border
+        :param V_d: the value of V at points in the goal set
+        :param Vdot_d: the value of the lie derivative of V at points in the goal set"""
+        lie_index = torch.nonzero(V_g <= beta)
         relu = torch.nn.Softplus()
-        margin = 0
-        slope = 0
         if lie_index.nelement() != 0:
-            beta_lie = torch.index_select(Vdot_d, dim=0, index=lie_index[:, 0])
-            beta_lie_loss = (relu(beta_lie + 0 * margin)).mean() - slope * relu(
-                -Vdot_d
-            ).mean()
+            beta_lie = torch.index_select(Vdot_g, dim=0, index=lie_index[:, 0])
+            beta_lie_loss = relu(beta_lie).mean()
             accuracy = (beta_lie <= 0).count_nonzero().item() * 100 / beta_lie.shape[0]
         else:
+            # Do we penalise V > beta in safe set, or  V < beta in goal set?
+            # print("No lie points: {}", beta)
             beta_lie_loss = 0
+
         return beta_lie_loss
 
     def learn(
@@ -1038,30 +1064,31 @@ class RSWS(RWS):
             if f_torch:
                 samples_dot = f_torch(samples)
 
-            V, Vdot, _ = learner.get_all(samples, samples_dot)
+            nn, grad_nn = learner.compute_net_gradnet(samples)
+
+            V, gradV = learner.compute_V_gradV(nn, grad_nn, samples)
             (
                 V_d,
-                Vdot_d,
-            ) = (
-                V[: lie_indices[1]],
-                Vdot[: lie_indices[1]],
-            )
+                gradV_d,
+            ) = (V[: lie_indices[1]], gradV[: lie_indices[1]])
+
             V_i = V[init_indices[0] : init_indices[1]]
             V_u = V[unsafe_indices[0] : unsafe_indices[1]]
             S_dg = samples[goal_border_indices[0] : goal_border_indices[1]]
             V_g = V[goal_indices[0] : goal_indices[1]]
+            Vdot = torch.sum(torch.mul(gradV, samples_dot), dim=1)
             Vdot_g = Vdot[goal_indices[0] : goal_indices[1]]
+            samples_dot_d = samples_dot[: lie_indices[1]]
 
-            loss, accuracy = self.compute_loss(V_i, V_u, V_d, Vdot_d)
-
-            beta = learner.compute_minimum(S_dg)[0]
-            beta_loss = self.compute_beta_loss(beta, V_g, Vdot_g)
-            loss = loss + beta_loss
+            loss, accuracy = self.compute_loss(V_i, V_u, V_d, gradV_d, samples_dot_d)
 
             if f_torch:
-                s = samples[: lie_indices[1]]
-                sdot = samples_dot[: lie_indices[1]]
-                loss = loss + 0.0075 * (s @ sdot.T).diag().mean()
+                S_d = samples[: lie_indices[1]]
+                loss = loss + control.cosine_reg(S_d, samples_dot_d)
+
+            beta = learner.compute_minimum(S_dg)[0]
+            beta_loss = self.compute_beta_loss(beta, V_g, Vdot_g, V_d)
+            loss = loss + beta_loss
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 print_loss_acc(t, loss, accuracy, learner.verbose)
@@ -1335,15 +1362,20 @@ class ReachAvoidRemain(Certificate):
                 samples_dot = f_torch(samples)
 
             # This is messy
-            V, Vdot, _ = rws_learner.get_all(samples, samples_dot)
-            B, Bdot, _ = barrier_learner.get_all(samples, samples_dot)
+            nn, grad_nn = rws_learner.compute_net_gradnet(samples)
+
+            V, gradV = rws_learner.compute_V_gradV(nn, grad_nn, samples)
             V_i = V[init_indices[0] : init_indices[1]]
             V_u = V[unsafe_indices[0] : unsafe_indices[1]]
             V_d = V[lie_indices[0] : lie_indices[1]]
-            Vdot_d = Vdot[lie_indices[0] : lie_indices[1]]
+            gradV_d = gradV[lie_indices[0] : lie_indices[1]]
+            samples_dot_d = samples_dot[lie_indices[0] : lie_indices[1]]
 
-            rws_loss, rws_acc = self.RWS.compute_loss(V_i, V_u, V_d, Vdot_d)
+            rws_loss, rws_acc = self.RWS.compute_loss(
+                V_i, V_u, V_d, gradV_d, samples_dot_d
+            )
 
+            B, Bdot, _ = barrier_learner.get_all(samples, samples_dot)
             B_i = B[goal_indices[0] : goal_indices[1]]
             B_u = B[final_indices[0] : final_indices[1]]
             B_d = B[lie_indices[0] : lie_indices[1]]

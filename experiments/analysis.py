@@ -26,8 +26,8 @@ class AnalysisConfig:
 
     results_file: str = DRF
     benchmarks: tuple[str] = ()
-    latex: bool = True
-    latex_file: str = "experiments/main_tab.tex"
+    output_type = "tex"  # "csv" or "tex" or "md"
+    output_file: str = "experiments/main_tab"
 
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
@@ -219,7 +219,10 @@ class Analyser:
     """Analyse results for given benchmarks."""
 
     def __init__(self, config=AnalysisConfig()) -> None:
+        print(config.results_file)
         self.results = pd.read_csv(config.results_file)
+        self.output_type = config.output_type
+        self.output_file = config.output_file + "." + self.output_type
 
     def get_benchmarks(self):
         """Get list of benchmarks in results file."""
@@ -383,13 +386,18 @@ class Analyser:
         )
         print(table)
 
-        table.to_latex(
-            "experiments/main_tab.tex",
-            float_format="%.2f",
-            bold_rows=False,
-            escape=False,
-            multicolumn_format="c",
-        )
+        if self.output_type == "tex":
+            table.to_latex(
+                self.output_file,
+                float_format="%.2f",
+                bold_rows=False,
+                escape=False,
+                multicolumn_format="c",
+            )
+        elif self.output_type == "csv":
+            table.to_csv(self.output_file)
+        elif self.output_type == "md":
+            table.to_markdown(self.output_file)
 
 
 if __name__ == "__main__":
