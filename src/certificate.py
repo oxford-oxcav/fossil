@@ -109,7 +109,9 @@ class Lyapunov(Certificate):
             tuple[torch.Tensor, float]: loss and accuracy
         """
         margin = 0
-        relu = torch.nn.Softplus()
+        slope = 10 ** (learner.LearnerNN.order_of_magnitude(Vdot.detach().abs().max()))
+        relu = torch.nn.LeakyReLU(1 / slope.item())
+        # relu = torch.nn.Softplus()
         # compute loss function. if last layer of ones (llo), can drop parts with V
         if self.llo:
             learn_accuracy = (Vdot <= -margin).count_nonzero().item()
@@ -122,8 +124,7 @@ class Lyapunov(Certificate):
             loss = (relu(Vdot + margin * circle)).mean() + (
                 relu(-V + margin * circle)
             ).mean()
-
-        accuracy = {"acc": learn_accuracy * 100 / len(Vdot)}
+        accuracy = {"acc": learn_accuracy * 100 / Vdot.shape[0]}
 
         return loss, accuracy
 
@@ -175,8 +176,8 @@ class Lyapunov(Certificate):
             loss.backward()
             optimizer.step()
 
-            if learner._diagonalise:
-                learner.diagonalisation()
+            if learner._take_abs:
+                learner.make_final_layer_positive()
 
         return {}
 
@@ -223,7 +224,6 @@ class ROA(Certificate):
     over a larger region than XI."""
 
     def __init__(self, domains, config: CegisConfig) -> None:
-        self.XD = domains[XD]
         self.XI = domains[XI]
         self.llo = config.LLO
         self.control = config.CTRLAYER is not None
@@ -284,7 +284,7 @@ class ROA(Certificate):
                 leaky_relu(-V + margin * circle)
             ).mean()
 
-        accuracy = {"acc": learn_accuracy * 100 / len(Vdot)}
+        accuracy = {"acc": learn_accuracy * 100 / Vdot.shape[0]}
 
         return loss, accuracy
 
@@ -304,7 +304,6 @@ class ROA(Certificate):
         :return: --
         """
 
-        batch_size = len(S[XD])
         learn_loops = 1000
         samples = S[XD]
 
@@ -334,8 +333,10 @@ class ROA(Certificate):
             loss.backward()
             optimizer.step()
 
-            if learner._diagonalise:
-                learner.diagonalisation()
+            if learner._take_abs:
+                learner.make_final_layer_positive()
+
+
         SI = S[XI]
         self.beta = learner.compute_maximum(SI)[0]
         learner.beta = self.beta
@@ -358,7 +359,7 @@ class ROA(Certificate):
         B_cond = _And(self.XI, _Not(B))
 
         if self.llo:
-            # V is positive definite by construction
+            lyap_negated = Vdot >= 0
             lyap_negated = Vdot > 0
         else:
             lyap_negated = _Or(V <= 0, Vdot > 0)
@@ -368,7 +369,7 @@ class ROA(Certificate):
         # but it could be better to pass a specific domain to CEGIS that excludes the origin. It cannot
         # be done with XI or XD, because they might not contain B and the conditions must hold everywhere
         # in B (except sphere around origin). This could be a goal set?
-
+        sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01**2
         sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01 * 2
 
         B_less_sphere = _And(B, _Not(sphere))
@@ -381,7 +382,7 @@ class ROA(Certificate):
 
     def _assert_state(self, domains, data):
         domain_labels = set(domains.keys())
-        data_labels = set(data.keys())
+        assert domain_labels == set([XI])
         assert domain_labels == set([XD, XI])
         assert data_labels == set([XD, XI])
 

@@ -443,7 +443,9 @@ class SetMinus(Set):
 
     def generate_boundary(self, x):
         f = self.set_functions(x)
-        warnings.warn("Assuming that boundary of S1 and S2 is the union of the two boundaries. This is not true in general, eg if the boundaries intersect.")
+        warnings.warn(
+            "Assuming that boundary of S1 and S2 is the union of the two boundaries. This is not true in general, eg if the boundaries intersect."
+        )
         return f["Or"](self.S1.generate_boundary(x), self.S2.generate_boundary(x))
 
     def generate_data(self, batch_size):
@@ -572,6 +574,36 @@ class Rectangle(Set):
         return fig, ax
 
 
+class OpenRectangle(Rectangle):
+    def __init__(self, lb: tuple[float, ...], ub: tuple[float, ...], dim_select=None):
+        super().__init__(lb, ub, dim_select)
+
+    def __repr__(self):
+        return f"OpenRectangle{self.lower_bounds, self.upper_bounds}"
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain
+        """
+        f = self.set_functions(x)
+        lower = f["And"](*[self.lower_bounds[i] < x[i] for i in range(self.dimension)])
+        upper = f["And"](*[x[i] < self.upper_bounds[i] for i in range(self.dimension)])
+        return f["And"](lower, upper)
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+        all_constr = torch.logical_and(
+            torch.tensor(self.upper_bounds) > x, torch.tensor(self.lower_bounds) < x
+        )
+        ans = torch.zeros((x.shape[0]))
+        for idx in range(all_constr.shape[0]):
+            ans[idx] = all_constr[idx, :].all()
+
+        return ans.bool()
+
+
 class Sphere(Set):
     def __init__(self, centre, radius, dim_select=None):
         self.centre = centre
@@ -679,6 +711,33 @@ class Sphere(Set):
         # if ax.name == "3d":
         #     art3d.pathpatch_2d_to_3d(circle, z=0, zdir="z")
         # return fig, ax
+
+
+class OpenSphere(Sphere):
+    def __init__(self, centre, radius, dim_select=None):
+        super().__init__(centre, radius, dim_select)
+
+    def __repr__(self) -> str:
+        return f"OpenSphere{self.centre, self.radius}"
+
+    def generate_domain(self, x):
+        """
+        param x: data point x
+        returns: symbolic formula for domain
+        """
+        if self.dim_select:
+            x = [x[i] for i in self.dim_select]
+        f = self.set_functions(x)
+        return f["And"](
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
+            < self.radius**2
+        )
+
+    def check_containment(self, x: torch.Tensor) -> torch.Tensor:
+        if self.dim_select:
+            x = [x[:, i] for i in self.dim_select]
+        c = torch.tensor(self.centre).reshape(1, -1)
+        return (x - c).norm(2, dim=-1) < self.radius**2
 
 
 class Ellipse(Set):

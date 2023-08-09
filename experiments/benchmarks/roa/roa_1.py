@@ -23,21 +23,24 @@ def test_lnn(args):
     system = models.NonPoly1
     batch_size = 500
 
-    XD = domains.Torus([0, 0], 2, 0.01)
-    XI = domains.Torus([0, 0], 0.5, 0.01)
+    XD = domains.Union(
+        domains.Sphere([0.75, -0.75], 1), domains.Sphere([-0.75, 0.75], 1)
+    )
+    XD = domains.Union(XD, domains.Sphere([0, 0], 1))
+    XI = domains.Union(domains.Sphere([-1, 1], 0.1), domains.Sphere([1, -1], 0.2))
 
     sets = {
-        certificate.XD: XD,
+        # certificate.XD: XD,
         certificate.XI: XI,
     }
     data = {
         certificate.XD: XD._generate_data(batch_size),
-        certificate.XI: XI._sample_border(batch_size),
+        certificate.XI: XI._generate_data(batch_size),
     }
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [10] * len(activations)
+    activations = [ActivationType.SOFTPLUS]
+    n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
@@ -56,7 +59,7 @@ def test_lnn(args):
     main.run_benchmark(
         opts,
         record=args.record,
-        plot=args.plot,
+        plot=True,
         concurrent=args.concurrent,
         repeat=args.repeat,
     )
