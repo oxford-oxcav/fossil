@@ -27,7 +27,7 @@ def activation_sym(select, p):
         return p
     elif select == consts.ActivationType.SQUARE:
         return square_z3(p)
-    elif select == consts.ActivationType.LIN_SQUARE:
+    elif select == consts.ActivationType.POLY_2:
         return lin_square_z3(p)
     elif select == consts.ActivationType.RELU_SQUARE:
         return relu_square_z3(p)
@@ -41,20 +41,26 @@ def activation_sym(select, p):
         return softplus_dr(p)
     elif select == consts.ActivationType.COSH:
         return cosh(p)
-    elif select == consts.ActivationType.LIN_TO_CUBIC:
-        return lqc_z3(p)
-    elif select == consts.ActivationType.LIN_TO_QUARTIC:
-        return lqcq_z3(p)
-    elif select == consts.ActivationType.LIN_TO_QUINTIC:
-        return lqcqp_z3(p)
-    elif select == consts.ActivationType.LIN_TO_SEXTIC:
-        return l_e_z3(p)
-    elif select == consts.ActivationType.LIN_TO_SEPTIC:
-        return l_s_z3(p)
-    elif select == consts.ActivationType.LIN_TO_OCTIC:
-        return l_o_z3(p)
-    elif select == consts.ActivationType.SQUARE_DEC:
-        return sd(p)
+    elif select == consts.ActivationType.POLY_3:
+        return poly3_sym(p)
+    elif select == consts.ActivationType.POLY_4:
+        return poly4_sym(p)
+    elif select == consts.ActivationType.POLY_5:
+        return poly5_sym(p)
+    elif select == consts.ActivationType.POLY_6:
+        return poly6_sym(p)
+    elif select == consts.ActivationType.POLY_7:
+        return poly7_sym(p)
+    elif select == consts.ActivationType.POLY_8:
+        return poly8_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_4:
+        return even_poly4_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_6:
+        return even_poly6_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_8:
+        return even_poly8_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_10:
+        return even_poly10_sym(p)
     elif select == consts.ActivationType.RATIONAL:
         return rational_sym(p)
 
@@ -68,8 +74,8 @@ def activation_der_sym(select, p):
         return np.ones((p.shape))
     elif select == consts.ActivationType.SQUARE:
         return 2 * p
-    elif select == consts.ActivationType.LIN_SQUARE:
-        return lin_square_der_z3(p)
+    elif select == consts.ActivationType.POLY_2:
+        return poly2_der_sym(p)
     elif select == consts.ActivationType.RELU_SQUARE:
         return relu_square_der_z3(p)
     elif select == consts.ActivationType.REQU:
@@ -82,20 +88,26 @@ def activation_der_sym(select, p):
         return softplus_der_dr(p)
     elif select == consts.ActivationType.COSH:
         return sinh(p)
-    elif select == consts.ActivationType.LIN_TO_CUBIC:
-        return lqc_der_z3(p)
-    elif select == consts.ActivationType.LIN_TO_QUARTIC:
-        return lqcq_der_z3(p)
-    elif select == consts.ActivationType.LIN_TO_QUINTIC:
-        return lqcqp_der_z3(p)
-    elif select == consts.ActivationType.LIN_TO_SEXTIC:
-        return l_e_der_z3(p)
-    elif select == consts.ActivationType.LIN_TO_SEPTIC:
-        return l_s_der_z3(p)
-    elif select == consts.ActivationType.LIN_TO_OCTIC:
-        return l_o_der_z3(p)
-    elif select == consts.ActivationType.SQUARE_DEC:
-        return sd_der(p)
+    elif select == consts.ActivationType.POLY_3:
+        return poly3_der_sym(p)
+    elif select == consts.ActivationType.POLY_4:
+        return poly4_der_sym(p)
+    elif select == consts.ActivationType.POLY_5:
+        return poly5_der_sym(p)
+    elif select == consts.ActivationType.POLY_6:
+        return poly6_der_sym(p)
+    elif select == consts.ActivationType.POLY_7:
+        return poly7_der_sym(p)
+    elif select == consts.ActivationType.POLY_8:
+        return poly8_der_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_4:
+        return even_poly4_der_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_6:
+        return even_poly6_der_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_8:
+        return even_poly8_der_sym(p)
+    elif select == consts.ActivationType.EVEN_POLY_10:
+        return even_poly10_der_sym(p)
     elif select == consts.ActivationType.RATIONAL:
         return rational_der_sym(p)
 
@@ -171,21 +183,21 @@ def cosh(x):
     return y  # .reshape(original_shape)
 
 
-def lqc_z3(x):
+def poly3_sym(x):
     # linear - quadratic - cubic activation
     h = int(x.shape[0] / 3)
     x1, x2, x3 = x[:h], x[h : 2 * h], x[2 * h :]
     return np.vstack([x1, np.power(x2, 2), np.power(x3, 3)])
 
 
-def lqcq_z3(x):
+def poly4_sym(x):
     # # linear - quadratic - cubic - quartic activation
     h = int(x.shape[0] / 4)
     x1, x2, x3, x4 = x[:h], x[h : 2 * h], x[2 * h : 3 * h], x[3 * h :]
     return np.vstack([x1, np.power(x2, 2), np.power(x3, 3), np.power(x4, 4)])
 
 
-def lqcqp_z3(x):
+def poly5_sym(x):
     # # linear - quadratic - cubic - quartic -penta activation
     h = int(x.shape[0] / 5)
     x1, x2, x3, x4, x5 = (
@@ -200,7 +212,7 @@ def lqcqp_z3(x):
     )
 
 
-def l_e_z3(x):
+def poly6_sym(x):
     # # linear - quadratic - cubic - quartic -penta activation
     h = int(x.shape[0] / 6)
     x1, x2, x3, x4, x5, x6 = (
@@ -223,7 +235,7 @@ def l_e_z3(x):
     )
 
 
-def l_s_z3(x):
+def poly7_sym(x):
     # # linear - quadratic - cubic - quartic -penta activation
     h = int(x.shape[0] / 7)
     x1, x2, x3, x4, x5, x6, x7 = (
@@ -248,7 +260,7 @@ def l_s_z3(x):
     )
 
 
-def l_o_z3(x):
+def poly8_sym(x):
     # # linear - quadratic - cubic - quartic -penta activation
     h = int(x.shape[0] / 8)
     x1, x2, x3, x4, x5, x6, x7, x8 = (
@@ -275,7 +287,55 @@ def l_o_z3(x):
     )
 
 
-def sd(x):
+def even_poly4_sym(x):
+    h = int(x.shape[0] / 2)
+    x1, x2 = (
+        x[:h],
+        x[h:],
+    )
+    return np.vstack(
+        [
+            np.power(x1, 2),
+            np.power(x2, 4),
+        ]
+    )
+
+
+def even_poly6_sym(x):
+    h = int(x.shape[0] / 3)
+    x1, x2, x3 = (
+        x[:h],
+        x[h : 2 * h],
+        x[2 * h :],
+    )
+    return np.vstack(
+        [
+            np.power(x1, 2),
+            np.power(x2, 4),
+            np.power(x3, 6),
+        ]
+    )
+
+
+def even_poly8_sym(x):
+    h = int(x.shape[0] / 4)
+    x1, x2, x3, x4 = (
+        x[:h],
+        x[h : 2 * h],
+        x[2 * h : 3 * h],
+        x[3 * h :],
+    )
+    return np.vstack(
+        [
+            np.power(x1, 2),
+            np.power(x2, 4),
+            np.power(x3, 6),
+            np.power(x4, 8),
+        ]
+    )
+
+
+def even_poly10_sym(x):
     h = int(x.shape[0] / 5)
     x1, x2, x3, x4, x5 = (
         x[:h],
@@ -288,7 +348,7 @@ def sd(x):
         [
             np.power(x1, 2),
             np.power(x2, 4),
-            np.power(x4, 6),
+            np.power(x3, 6),
             np.power(x4, 8),
             np.power(x5, 10),
         ]
@@ -325,7 +385,7 @@ def step_z3(x):
     return y.reshape(original_shape)
 
 
-def lin_square_der_z3(x):
+def poly2_der_sym(x):
     h = int(len(x) / 2)
     x1, x2 = x[:h], x[h:]
     return np.vstack((np.ones(x1.shape), 2 * x2))
@@ -342,7 +402,12 @@ def requ_der_z3(x):
 
 
 def hyper_tan_der_dr(x):
-    return np.ones((x.shape)) - np.power(hyper_tan_dr(x), 2)
+    y = x.copy()
+    # original_shape = y.shape
+    # y = y.reshape(max(y.shape[0], y.shape[1]), 1)
+    for idx in range(len(y)):
+        y[idx, 0] = 1 / dr.pow(dr.cosh(y[idx, 0]), 2)
+    return y  # .reshape(original_shape)
 
 
 def sinh(x):
@@ -355,19 +420,20 @@ def sinh(x):
 
 
 def sigm_der_dr(x):
-    y = sigm_dr(x)
-    # elem-wise multiplication
-    return np.multiply(y, (np.ones(x.shape) - y))
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = dr.exp(-y[idx, 0]) / dr.pow((1 + dr.exp(-y[idx, 0])), 2)
+    return y
 
 
-def lqc_der_z3(x):
+def poly3_der_sym(x):
     # linear - quadratic - cubic activation
     h = int(x.shape[0] / 3)
     x1, x2, x3 = x[:h], x[h : 2 * h], x[2 * h :]
     return np.vstack([np.ones((h, 1)), 2 * x2, 3 * np.power(x3, 2)])
 
 
-def lqcq_der_z3(x):
+def poly4_der_sym(x):
     # # linear - quadratic - cubic - quartic activation
     h = int(x.shape[0] / 4)
     x1, x2, x3, x4 = x[:h], x[h : 2 * h], x[2 * h : 3 * h], x[3 * h :]
@@ -376,7 +442,7 @@ def lqcq_der_z3(x):
     )  # torch.pow(x, 2)
 
 
-def lqcqp_der_z3(x):
+def poly5_der_sym(x):
     # # linear - quadratic - cubic - quartic - penta activation
     h = int(x.shape[0] / 5)
     x1, x2, x3, x4, x5 = (
@@ -397,7 +463,7 @@ def lqcqp_der_z3(x):
     )
 
 
-def l_e_der_z3(x):
+def poly6_der_sym(x):
     # # linear - quadratic - cubic - quartic - penta activation
     h = int(x.shape[0] / 6)
     x1, x2, x3, x4, x5, x6 = (
@@ -420,7 +486,7 @@ def l_e_der_z3(x):
     )
 
 
-def l_s_der_z3(x):
+def poly7_der_sym(x):
     # # linear - quadratic - cubic - quartic - penta activation
     h = int(x.shape[0] / 7)
     x1, x2, x3, x4, x5, x6, x7 = (
@@ -445,7 +511,7 @@ def l_s_der_z3(x):
     )
 
 
-def l_o_der_z3(x):
+def poly8_der_sym(x):
     # # linear - quadratic - cubic - quartic - penta activation
     h = int(x.shape[0] / 8)
     x1, x2, x3, x4, x5, x6, x7, x8 = (
@@ -472,7 +538,55 @@ def l_o_der_z3(x):
     )
 
 
-def sd_der(x):
+def even_poly4_der_sym(x):
+    h = int(x.shape[0] / 2)
+    x1, x2 = (
+        x[:h],
+        x[h:],
+    )
+    return np.vstack(
+        [
+            2 * x1,
+            4 * np.power(x2, 3),
+        ]
+    )
+
+
+def even_poly6_der_sym(x):
+    h = int(x.shape[0] / 3)
+    x1, x2, x3 = (
+        x[:h],
+        x[h : 2 * h],
+        x[2 * h :],
+    )
+    return np.vstack(
+        [
+            2 * x1,
+            4 * np.power(x2, 3),
+            6 * np.power(x3, 5),
+        ]
+    )
+
+
+def even_poly8_der_sym(x):
+    h = int(x.shape[0] / 4)
+    x1, x2, x3, x4 = (
+        x[:h],
+        x[h : 2 * h],
+        x[2 * h : 3 * h],
+        x[3 * h :],
+    )
+    return np.vstack(
+        [
+            2 * x1,
+            4 * np.power(x2, 3),
+            6 * np.power(x3, 5),
+            8 * np.power(x4, 7),
+        ]
+    )
+
+
+def even_poly10_der_sym(x):
     h = int(x.shape[0] / 5)
     x1, x2, x3, x4, x5 = (
         x[:h],
@@ -493,7 +607,10 @@ def sd_der(x):
 
 
 def softplus_der_dr(x):
-    return sigm_dr(x)
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = dr.exp(y[idx, 0]) / (1 + dr.exp(y[idx, 0]))
+    return y
 
 
 def rational_der_sym(x):

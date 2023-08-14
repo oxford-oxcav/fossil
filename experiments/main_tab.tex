@@ -4,31 +4,37 @@
                        &       &       &             &         &                      & $R$    & $\max$                  & $\mu$ & $\min$ \\
     Benchmark          & $N_s$ & $N_u$ & Certificate & Neurons & Activations          &        &                         &       &        \\
     \midrule
-    barr\_2            & 2     & 0     & BARRIER     & [15]    & ['TANH']             & 0.9    & 7.39                    & 4.27  & 1.14   \\
+    barr\_2            & 2     & 0     & BARRIER     & [15]    & ['TANH']             & 0.90   & 7.39                    & 4.27  & 1.14   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    barr\_4            & 3     & 0     & BARRIER     & [25]    & ['LIN\_TO\_QUARTIC'] & 0.8    & 66.1                    & 20.7  & 6.81   \\
+    barr\_4            & 3     & 0     & BARRIER     & [25]    & ['LIN\_TO\_QUARTIC'] & 0.80   & 66.08                   & 20.66 & 6.81   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrl\_rws\_1       & 2     & 1     & RWS         & [5]     & ['SQUARE']           & 0.9    & 58.3                    & 16    & 0.3    \\
+    ctrl\_rws\_1       & 2     & 1     & RWS         & [5]     & ['SQUARE']           & 0.90   & 58.28                   & 16.02 & 0.30   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrlbarr\_obstacle & 3     & 1     & BARRIER     & [15]    & ['TANH']             & 0.8    & 13                      & 5.73  & 0.311  \\
+    ctrlbarr\_obstacle & 3     & 1     & BARRIER     & [15]    & ['TANH']             & 0.80   & 13.04                   & 5.73  & 0.31   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrllyap0\_ct      & 2     & 2     & LYAPUNOV    & [4]     & ['SQUARE']           & 1      & 144                     & 20.7  & 0.208  \\
+    ctrllyap0\_ct      & 2     & 2     & LYAPUNOV    & [4]     & ['SQUARE']           & 1.00   & 144.14                  & 20.66 & 0.21   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrllyap\_invpend  & 2     & 2     & LYAPUNOV    & [5]     & ['SQUARE']           & 1      & 32.8                    & 11.5  & 0.249  \\
+    ctrllyap\_invpend  & 2     & 2     & LYAPUNOV    & [5]     & ['SQUARE']           & 1.00   & 32.76                   & 11.49 & 0.25   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    non\_poly\_0       & 2     & 0     & LYAPUNOV    & [2]     & ['SQUARE']           & 1      & 0.444                   & 0.156 & 0.0184 \\
+    non\_poly\_0       & 2     & 0     & LYAPUNOV    & [2]     & ['SQUARE']           & 1.00   & 0.44                    & 0.16  & 0.02   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    poly\_1            & 3     & 0     & LYAPUNOV    & [8]     & ['SQUARE']           & 1      & 22.7                    & 3.77  & 0.405  \\
+    poly\_1            & 3     & 0     & LYAPUNOV    & [8]     & ['SQUARE']           & 1.00   & 22.67                   & 3.77  & 0.40   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    roa\_1             & 2     & 0     & ROA         & [10]    & ['SQUARE']           & 0.9    & 36.3                    & 9.66  & 0.0274 \\
+    roa\_1             & 2     & 0     & ROA         & [10]    & ['SQUARE']           & 0.90   & 36.30                   & 9.66  & 0.03   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_1             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1      & 2.06                    & 0.478 & 0.189  \\
+    rswa\_1            & 2     & 0     & RSWS        & [4]     & ['SQUARE']           & 1.00   & 2.42                    & 0.88  & 0.41   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_2             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1      & 2.71                    & 0.906 & 0.235  \\
+    rswa\_2            & 2     & 0     & RSWS        & [4]     & ['SQUARE']           & 1.00   & 5.96                    & 2.08  & 0.29   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_3             & 3     & 0     & RWS         & [16]    & ['SQUARE']           & 0.9    & 10.5                    & 5.64  & 1.6    \\
+    rswa\_3            & 3     & 0     & RSWS        & [16]    & ['SQUARE']           & 0.70   & 66.61                   & 31.01 & 1.16   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    stablesafe1        & 2     & 0     & STABLESAFE  & [5]     & ['SQUARE']           & 0.9    & 2.49                    & 0.939 & 0.321  \\
+    rwa\_1             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1.00   & 2.06                    & 0.48  & 0.19   \\
+    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
+    rwa\_2             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1.00   & 2.71                    & 0.91  & 0.23   \\
+    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
+    rwa\_3             & 3     & 0     & RWS         & [16]    & ['SQUARE']           & 0.90   & 10.47                   & 5.64  & 1.60   \\
+    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
+    stablesafe1        & 2     & 0     & STABLESAFE  & [5]     & ['SQUARE']           & 0.90   & 2.49                    & 0.94  & 0.32   \\
     \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
     \bottomrule
 \end{tabular}

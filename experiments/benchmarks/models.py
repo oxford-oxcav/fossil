@@ -201,6 +201,7 @@ class GeneralClosedLoopModel(CTModel):
         self.controller = controller
         self.n_vars = f_open.n_vars
         self.n_u = f_open.n_u
+        # self.reset_controller()
 
     def f_torch(self, v):
         u = self.controller(v)
@@ -219,6 +220,19 @@ class GeneralClosedLoopModel(CTModel):
         """Prepare object for pickling"""
         self.fncs = None
         self.open_loop.clean()
+
+    def reset_controller(self):
+        while not self.check_stabilty():
+            self.controller.reset_parameters()
+
+    def check_stabilty(self):
+        lin = control.Lineariser(self)
+        A = lin.linearise()
+        E = control.EigenCalculator(A)
+        print("Eigenvalues of linearised system: ", E.eigs)
+        # self.plot()
+        # plt.show()
+        return E.is_stable()
 
     @classmethod
     def prepare_from_open(cls, f_open: ControllableCTModel):
@@ -1157,7 +1171,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model", type=str, default="NonPoly1")
+    parser.add_argument("-m", "--model", type=str, default="InvertedPendulumLQR")
     args = parser.parse_args()
     model = read_model(args.model)
     ax = model.plot()

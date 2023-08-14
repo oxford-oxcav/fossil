@@ -17,16 +17,19 @@ class ActivationType(Enum):
     RELU = auto()
     LINEAR = auto()
     SQUARE = auto()
-    LIN_SQUARE = auto()
+    POLY_2 = auto()
     RELU_SQUARE = auto()
     REQU = auto()
-    LIN_TO_CUBIC = auto()
-    LIN_TO_QUARTIC = auto()
-    LIN_TO_QUINTIC = auto()
-    LIN_TO_SEXTIC = auto()
-    LIN_TO_SEPTIC = auto()
-    LIN_TO_OCTIC = auto()
-    SQUARE_DEC = auto()
+    POLY_3 = auto()
+    POLY_4 = auto()
+    POLY_5 = auto()
+    POLY_6 = auto()
+    POLY_7 = auto()
+    POLY_8 = auto()
+    EVEN_POLY_4 = auto()
+    EVEN_POLY_6 = auto()
+    EVEN_POLY_8 = auto()
+    EVEN_POLY_10 = auto()
     RATIONAL = auto()
     # dReal only from here
     TANH = auto()
@@ -82,6 +85,7 @@ class CertificateType(Enum):
     RWS = auto()
     RSWS = auto()
     STABLESAFE = auto()
+    RAR = auto()
 
 
 @dataclass
@@ -147,3 +151,29 @@ class CegisComponentsState:
     name = "name"
     instance = "instance"
     to_next_component = "to_next_component"
+
+
+ACTIVATION_NAMES = {
+    ActivationType.IDENTITY: "identity",
+    ActivationType.RELU: "$ReLU$",
+    ActivationType.LINEAR: "$\\varphi_{1}$",
+    ActivationType.SQUARE: "$\\varphi_{2}$",
+    ActivationType.POLY_2: "$\\varphi_{2}$",
+    ActivationType.RELU_SQUARE: "$ReLU\\varphi_{2}$",
+    ActivationType.REQU: "$ReLU\\varphi_{2}$",
+    ActivationType.POLY_3: "$\\varphi_{3}$",
+    ActivationType.POLY_4: "$\\varphi_{4}$",
+    ActivationType.POLY_5: "$\\varphi_{5}$",
+    ActivationType.POLY_6: "$\\varphi_{6}$",
+    ActivationType.POLY_7: "$\\varphi_{7}$",
+    ActivationType.POLY_8: "$\\varphi_{8}$",
+    ActivationType.EVEN_POLY_4: "$\\varphi_{4}$",
+    ActivationType.EVEN_POLY_6: "$\\varphi_{6}$",
+    ActivationType.EVEN_POLY_8: "$\\varphi_{8}$",
+    ActivationType.EVEN_POLY_10: "$\\varphi_{10}$",
+    ActivationType.RATIONAL: "$\\varphi_{rat}$",
+    ActivationType.TANH: "$tanh$",
+    ActivationType.SIGMOID: "$sigmoid$",
+    ActivationType.SOFTPLUS: "$softplus$",
+    ActivationType.COSH: "$cosh$",
+}

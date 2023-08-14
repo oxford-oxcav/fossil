@@ -65,7 +65,7 @@ def test_lnn():
     # )
 
     # define NN parameters
-    activations = [ActivationType.LIN_TO_QUARTIC]
+    activations = [ActivationType.POLY_4]
     n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(

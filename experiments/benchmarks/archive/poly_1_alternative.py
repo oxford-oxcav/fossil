@@ -20,7 +20,7 @@ def test_lnn():
     system = poly_1
 
     # define NN parameters
-    activations = [ActivationType.SQUARE_DEC]
+    activations = [ActivationType.EVEN_POLY_10]
     n_hidden_neurons = [20] * len(activations)
 
     opts = CegisConfig(

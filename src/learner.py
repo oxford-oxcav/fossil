@@ -70,13 +70,15 @@ class LearnerNN(nn.Module, Learner):
             k = k + 1
 
             # last layer
-        layer = nn.Linear(n_prev, 1, bias=False)
+        layer = nn.Linear(n_prev, 1, bias=bias)
         # last layer of ones
         if config.LLO:
             layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
             self.layers.append(layer)
         else:  # free output layer
             self.register_parameter("W" + str(k), layer.weight)
+            if bias:
+                self.register_parameter("b" + str(k), layer.bias)
             self.layers.append(layer)
         if config.LLO and not self.is_positive_definite():
             raise RuntimeError("LLO set but function is not positive definite")
@@ -124,7 +126,7 @@ class LearnerNN(nn.Module, Learner):
             z = layer(y)
             y = activation(self.acts[idx], z)
 
-        nn = torch.matmul(y, self.layers[-1].weight.T)[:, 0]
+        nn = self.layers[-1](y)
         return nn
 
     def compute_net_gradnet(self, S: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -265,7 +267,10 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.SQUARE,
             ActivationType.COSH,
             ActivationType.SIGMOID,
-            ActivationType.SQUARE_DEC,
+            ActivationType.EVEN_POLY_4,
+            ActivationType.EVEN_POLY_6,
+            ActivationType.EVEN_POLY_8,
+            ActivationType.EVEN_POLY_10,
         ]
         return (activations[-1] in pd_acts) and (layers[-1].bias is None)
 

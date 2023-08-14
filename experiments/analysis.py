@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 import csv
 import os.path
 import warnings
@@ -11,14 +12,23 @@ from collections import namedtuple
 
 import pandas as pd
 
-import __main__
 
-from src.consts import CegisConfig, CertificateType
+from src.consts import CegisConfig, CertificateType, ACTIVATION_NAMES
 from src import certificate
 
 
-DRF = DEFAULT_RESULTS_FILE = \
-    os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
+DRF = DEFAULT_RESULT_FILE = os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
+
+
+@dataclasses.dataclass
+class AnalysisConfig:
+    """Class for storing configuration for analysis."""
+
+    results_file: str = DRF
+    benchmarks: tuple[str] = ()
+    output_type = "tex"  # "csv" or "tex" or "md"
+    output_file: str = "experiments/main_tab"
+
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
 BenchmarkData = namedtuple(
@@ -58,7 +68,21 @@ HEADER = [
 
 
 def ratio(x):
+    """Returns ratio of True to False values in x."""
     return x.sum() / x.count()
+
+
+def _get_model_name(model):
+    """Returns the class name of the model, or the open_loop class name if model is a GeneralClosedLoopModel."""
+    try:
+        name = model.__name__
+    except AttributeError:
+        name = type(model(None).open_loop).__name__
+    return name
+
+
+def get_activations(acts):
+    return "[" + ",".join([ACTIVATION_NAMES[act] for act in acts]) + "]"
 
 
 class CSVWriter:
@@ -113,13 +137,13 @@ class Recorder:
     but this is not enforced and might not be the best practice in the end.
     """
 
-    def __init__(self, filename=DRF) -> None:
+    def __init__(self, config=AnalysisConfig) -> None:
         """Initialises ExperimentRecorder.
 
         Args:
             filename (str): filename of csv file.
         """
-        self.filename = filename
+        self.filename = config.results_file
 
     def record(self, config: CegisConfig, result, T: float):
         """records results of abstraction to csv file.
@@ -131,9 +155,7 @@ class Recorder:
         """
 
         headers = HEADER
-        main_file = __main__.__file__.split("/")[-1][
-            :-3
-        ]  # This is the name of the file that is being run
+        model_name = _get_model_name(config.SYSTEM)
         cegis_stats = result.cegis_stats
         timers = cegis_stats.times
         N_data = cegis_stats.N_data
@@ -163,7 +185,7 @@ class Recorder:
             config.N_VARS,
             N_u,
             result.res,
-            main_file,
+            model_name,
             cegis_stats.seed,
             XD,
             XI,
@@ -171,7 +193,7 @@ class Recorder:
             XG,
             N_data,
             config.N_HIDDEN_NEURONS,
-            [act.name for act in config.ACTIVATION],
+            get_activations(config.ACTIVATION),
             ctrlayer,
             ctrl_act,
             alt_layers,
@@ -196,8 +218,11 @@ class Recorder:
 class Analyser:
     """Analyse results for given benchmarks."""
 
-    def __init__(self, results_file=DRF) -> None:
-        self.results = pd.read_csv(results_file)
+    def __init__(self, config=AnalysisConfig()) -> None:
+        print(config.results_file)
+        self.results = pd.read_csv(config.results_file)
+        self.output_type = config.output_type
+        self.output_file = config.output_file + "." + self.output_type
 
     def get_benchmarks(self):
         """Get list of benchmarks in results file."""
@@ -314,7 +339,7 @@ class Analyser:
         return loop_stats
 
     def table_main(self, benchmarks=[]):
-        df = pd.read_csv(DRF)
+        df = self.results
         if benchmarks == []:
             benchmarks = self.get_benchmarks()
 
@@ -361,13 +386,18 @@ class Analyser:
         )
         print(table)
 
-        table.to_latex(
-            "experiments/main_tab.tex",
-            float_format="%.3g",
-            bold_rows=False,
-            escape=False,
-            multicolumn_format="c",
-        )
+        if self.output_type == "tex":
+            table.to_latex(
+                self.output_file,
+                float_format="%.2f",
+                bold_rows=False,
+                escape=False,
+                multicolumn_format="c",
+            )
+        elif self.output_type == "csv":
+            table.to_csv(self.output_file)
+        elif self.output_type == "md":
+            table.to_markdown(self.output_file)
 
 
 if __name__ == "__main__":

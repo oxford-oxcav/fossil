@@ -67,7 +67,7 @@ def barrier_synthesis(benchmark, n_vars):
     system = partial(benchmark, batch_size)
     activations = [
         ActivationType.LINEAR,
-        ActivationType.LIN_TO_CUBIC,
+        ActivationType.POLY_3,
         ActivationType.LINEAR,
     ]
     hidden_neurons = [2] * len(activations)
