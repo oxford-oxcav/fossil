@@ -13,6 +13,8 @@ from mpl_toolkits.mplot3d import axes3d
 import mpl_toolkits.mplot3d.art3d as art3d
 from matplotlib import cm
 
+from src import consts
+
 
 def show():
     plt.show()
@@ -33,11 +35,12 @@ def benchmark(
         xrange (tuple, optional): Range of the x-axis. Defaults to None.
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
-    if type(certificate) is tuple:
-        certificate = certificate[1]
+    try:
+        iter(certificate)
+    except TypeError:
+        certificate = [certificate]
 
-    if certificate.beta is not None:
-        levels = [0, certificate.beta]
+    levels = [[0, cert.beta] if cert.beta is not None else [0] for cert in certificate]
 
     ax1 = benchmark_plane(model, certificate, domains, levels, xrange, yrange)
 
@@ -46,9 +49,31 @@ def benchmark(
     ax3 = benchmark_lie(model, certificate, domains, levels, xrange, yrange)
     show()
 
+    return (ax1, "plane"), (ax2, "surface"), (ax3, "Cdot")
+
+
+def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
+    prop = config.CERTIFICATE.name
+    model = config.SYSTEM
+    seed = torch.initial_seed()
+    try:
+        name = model.__name__
+    except AttributeError:
+        name = type(model(None).open_loop).__name__
+
+    plot_name = f"model={name}_property={prop}_type={plot_type}_seed={seed}.pdf"
+    plot_name = "plots/" + plot_name
+    try:
+        fig = ax.get_figure()
+        fig.savefig(plot_name, bbox_inches="tight")
+    except AttributeError:
+        fig = ax[0].get_figure()
+        fig.savefig(plot_name, bbox_inches="tight")
+    plt.close(fig)
+
 
 def benchmark_plane(
-    model, certificate=None, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3, 3]
+    model, certificate=[None], domains={}, levels=[[0]], xrange=[-3, 3], yrange=[-3, 3]
 ):
     """Plot the benchmark. If certificate is provided, it is plotted as well.
 
@@ -65,19 +90,20 @@ def benchmark_plane(
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
 
-    ax, fig = plt.subplots()
+    fig, ax = plt.subplots()
     ax = model.plot(ax, xrange=xrange, yrange=yrange)
     ax = plot_domains(domains, ax=ax)
 
-    if certificate is not None:
-        ax = certificate_countour(certificate, ax=ax, levels=levels)
+    for cert, lev in zip(certificate, levels):
+        if cert is not None:
+            ax = certificate_countour(cert, ax=ax, levels=lev)
 
     ax = add_legend(ax)
     ax.set_title("Phase Plane")
     return ax
 
 
-def benchmark_3d(certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3, 3]):
+def benchmark_3d(certificate, domains={}, levels=[[0]], xrange=[-3, 3], yrange=[-3, 3]):
     """Plot surface of the certificate benchmark.  If the domains are provided, they are plotted as well.
 
     Plots the surface of a 2D learner.
@@ -85,26 +111,31 @@ def benchmark_3d(certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3
     defined by the levels argument.
 
     Args:
-        certificate (NNLearner): . Defaults to None.
+        certificate tuple[NNLearner]:
         sets (dict, option): label:set pairs of the domains.
         levels (list, optional): Level sets of the certificate to plot. Defaults to zero contour.
         xrange (tuple, optional): Range of the x-axis. Defaults to None.
         yrange (tuple, optional): Range of the y-axis. Defaults to None.
     """
     fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax = certificate_surface(
-        certificate, ax=ax, levels=levels, xrange=xrange, yrange=yrange
-    )
-    ax = plot_domains(domains, ax)
+    axs = []
+    l = len(certificate)
+    pos = 1
 
-    ax = add_legend(ax)
-    ax.set_title("Certificate")
-    return ax
+    for cert, lev in zip(certificate, levels):
+        ax = fig.add_subplot(1, l, pos, projection="3d")
+
+        ax = certificate_surface(cert, ax=ax, levels=lev, xrange=xrange, yrange=yrange)
+        ax = plot_domains(domains, ax)
+        ax = add_legend(ax)
+        ax.set_title("{} Certificate".format(cert._type))
+        axs.append(ax)
+        pos += 1
+    return axs
 
 
 def benchmark_lie(
-    model, certificate, domains={}, levels=[0], xrange=[-3, 3], yrange=[-3, 3]
+    model, certificate, domains={}, levels=[[0]], xrange=[-3, 3], yrange=[-3, 3]
 ):
     """Plot the lie derivative of the certificate benchmark.  If the domains are provided, they are plotted as well.
     Args:
@@ -116,12 +147,19 @@ def benchmark_lie(
     """
 
     fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax = certificate_lie(certificate, model, ax=ax, xrange=xrange, yrange=yrange)
-    ax = plot_domains(domains, ax)
-    ax = add_legend(ax)
-    ax.set_title("Lie Derivative")
-    return ax
+    axs = []
+    l = len(certificate)
+    pos = 1
+    for cert, lev in zip(certificate, levels):
+        ax = fig.add_subplot(1, l, pos, projection="3d")
+
+        ax = certificate_lie(cert, model, ax=ax, xrange=xrange, yrange=yrange)
+        ax = plot_domains(domains, ax)
+        ax = add_legend(ax)
+        ax.set_title("{} Lie Derivative".format(cert._type))
+        axs.append(ax)
+        pos += 1
+    return axs
 
 
 def plot_domains(domains, ax):
@@ -220,7 +258,8 @@ def certificate_countour(certificate, ax=None, levels=[0]):
     ZT = certificate(torch.cat((XT.reshape(-1, 1), YT.reshape(-1, 1)), dim=1))
     Z = ZT.detach().numpy().reshape(X.shape)
     levels.sort()
-    ax.contour(X, Y, Z, levels=levels, colors="black", linestyles="dashed")
+    CS = ax.contour(X, Y, Z, levels=levels, colors="black", linestyles="dashed")
+    ax.clabel(CS, inline=True, fontsize=10)
     return ax
 
 
@@ -228,7 +267,7 @@ def add_legend(ax):
     """Add legend to the axis without duplicate labels."""
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys(), loc="upper left")
+    ax.legend(by_label.values(), by_label.keys(), loc="upper right")
     return ax
 
 

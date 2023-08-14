@@ -4,58 +4,62 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import timeit
+
 # pylint: disable=not-callable
-from experiments.benchmarks import models
+import torch
+
 from src import domains
 from src import certificate
 from src import main
+from experiments.benchmarks import models
+from experiments.benchmarks.models import SecondOrder
 from src.consts import *
 
 
 def test_lnn(args):
+    ###########################################
+    ###
+    #############################################
     n_vars = 2
 
-    ol_system = models.InvertedPendulum
+    ol_system = SecondOrder
     system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
-    batch_size = 500
-
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.01, -0.01], [0.01, 0.01])
+    XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
+    XS = domains.Rectangle([-1, -1], [1, 1])
+    XU = domains.Complement(XS)
+    XI = domains.Rectangle([-0.5, -0.5], [0.5, 0.5])
 
     SU = domains.SetMinus(XD, XS)  # Data for unsafe set
-    SD = domains.SetMinus(XS, XG)  # Data for lie set
+
     sets = {
-        "lie": XD,
-        "init": XI,
-        "safe_border": XS,
-        "safe": XS,
-        "goal": XG,
-    }
-    data = {
-        "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
-        "unsafe": SU._generate_data(1000),
+        certificate.XD: XD,
+        certificate.XI: XI,
+        certificate.XU: XU,
     }
 
+    data = {
+        certificate.XD: XD._generate_data(1000),
+        certificate.XI: XI._generate_data(1000),
+        certificate.XU: SU._generate_data(1000),
+    }
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [8] * len(activations)
 
     opts = CegisConfig(
         DOMAINS=sets,
         DATA=data,
         SYSTEM=system,
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWS,
+        CERTIFICATE=CertificateType.STABLESAFE,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
-        CTRLAYER=[8, 2],
+        CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],
     )
 

@@ -16,6 +16,8 @@ from src.consts import *
 
 
 class Domain(domains.Set):
+    dimension = 3
+
     def generate_domain(self, v):
         x, y, phi = v
         f = self.set_functions(v)
@@ -35,6 +37,8 @@ class Domain(domains.Set):
 
 
 class Init(domains.Set):
+    dimension = 3
+
     def generate_domain(self, v):
         x, y, phi = v
         f = self.set_functions(v)
@@ -50,6 +54,8 @@ class Init(domains.Set):
 
 
 class UnsafeDomain(domains.Set):
+    dimension = 3
+
     def generate_domain(self, v):
         x, y, _phi = v
         return x**2 + y**2 <= 0.04

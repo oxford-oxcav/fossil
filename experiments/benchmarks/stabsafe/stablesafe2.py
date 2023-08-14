@@ -5,58 +5,55 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-from experiments.benchmarks import models
+
 from src import domains
 from src import certificate
 from src import main
+from experiments.benchmarks import models
 from src.consts import *
 
 
 def test_lnn(args):
-    n_vars = 2
+    system = models.Barr3
+    XD = domains.Rectangle([-3, -2], [2.5, 1])
+    XR = domains.Torus([0, 0], 0.4, 0.01)
+    XI = domains.Rectangle([0.4, 0.1], [0.8, 0.5])
+    # XI = domains.Sphere((0, 0), 0.2)
+    XU = domains.Sphere([-1, -1], 0.4)
 
-    ol_system = models.InvertedPendulum
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
-
-    batch_size = 500
-
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.01, -0.01], [0.01, 0.01])
-
-    SU = domains.SetMinus(XD, XS)  # Data for unsafe set
-    SD = domains.SetMinus(XS, XG)  # Data for lie set
     sets = {
-        "lie": XD,
-        "init": XI,
-        "safe_border": XS,
-        "safe": XS,
-        "goal": XG,
+        certificate.XD: XD,
+        certificate.XI: XI,
+        certificate.XU: XU,
     }
     data = {
-        "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
-        "unsafe": SU._generate_data(1000),
+        certificate.XD: XD._generate_data(500),
+        certificate.XR: XR._generate_data(500),
+        certificate.XI: XI._generate_data(500),
+        certificate.XU: XU._generate_data(500),
     }
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
+    activations_alt = [ActivationType.SIGMOID, ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(
+        N_VARS=2,
+        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        SYSTEM=system,
-        N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWS,
+        CERTIFICATE=CertificateType.STABLESAFE,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
+        ACTIVATION_ALT=activations_alt,
+        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        SYMMETRIC_BELT=True,
         CEGIS_MAX_ITERS=25,
-        CTRLAYER=[8, 2],
-        CTRLACTIVATION=[ActivationType.LINEAR],
+        LLO=True,
     )
 
     main.run_benchmark(

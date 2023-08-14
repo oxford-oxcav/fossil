@@ -1,0 +1,162 @@
+\textbf{ [1] NonPoly0 LYAPUNOV }
+$$\left[ x_{0} x_{1} - x_{0}, \  - x_{1}\right]
+    XD: x_{0}^{2} + x_{1}^{2} \geq 0.0001 \wedge x_{0}^{2} + x_{1}^{2} \leq 1$$
+Activation: [$\varphi_{2}$], Neurons: [6]
+
+\textbf{ [2] Poly1 LYAPUNOV }
+$$\left[ - x_{0}^{3} - x_{0} x_{2}^{2}, \  - x_{0}^{2} x_{1} - x_{1}, \  3 x_{0}^{2} x_{2} - 4 x_{2}\right]
+    XD: x_{0}^{2} + x_{1}^{2} + x_{2}^{2} \geq 0.01 \wedge x_{0}^{2} + x_{1}^{2} + x_{2}^{2} \leq 100.0$$
+Activation: [$\varphi_{2}$], Neurons: [8]
+
+\textbf{ [3] Benchmark1 LYAPUNOV }
+$$\left[ u_{0} + x_{0} + x_{1}, \  u_{1} - x_{0} - x_{1}\right]
+    XD: x_{0}^{2} + x_{1}^{2} \geq 0.01 \wedge x_{0}^{2} + x_{1}^{2} \leq 100.0$$
+Activation: [$\varphi_{2}$], Neurons: [4]CTRLActivation: [$\varphi_{1}$], Neurons: [15, 2]
+
+\textbf{ [4] InvertedPendulum LYAPUNOV }
+$$\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]
+    XD: x_{0}^{2} + x_{1}^{2} \geq 0.01 \wedge x_{0}^{2} + x_{1}^{2} \leq 1$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [25, 2]
+
+\textbf{ [5] NonPoly1 ROA }
+$$\left[ 2 x_{0}^{2} x_{1} - x_{0}, \  - x_{1}\right]
+    XI: \left(x_{0} - 1\right)^{2} + \left(x_{1} + 1\right)^{2} \leq 0.04 \vee \left(x_{0} + 1\right)^{2} + \left(x_{1} - 1\right)^{2} \leq 0.01$$
+Activation: [$softplus$], Neurons: [5]
+
+\textbf{ [6] Barr2 BARRIER }
+$$\left[ x_{1} - 1 + e^{- x_{0}}, \  - \sin^{2}{\left(x_{0} \right)}\right]
+    XD: x_{0} \geq -2 \wedge x_{1} \leq 2 XI: \left(x_{0} + 0.5\right)^{2} + \left(x_{1} - 0.5\right)^{2} \leq 0.16 XU: \left(x_{0} - 0.7\right)^{2} + \left(x_{1} + 0.7\right)^{2} \leq 0.09$$
+Activation: [$tanh$], Neurons: [15]
+
+\textbf{ [7] ObstacleAvoidance BARRIER }
+$$\left[ \sin{\left(x_{2} \right)}, \  \cos{\left(x_{2} \right)}, \  \frac{3 x_{0} \sin{\left(x_{2} \right)} + 3 x_{1} \cos{\left(x_{2} \right)}}{x_{0}^{2} + x_{1}^{2} + 0.5} - \sin{\left(x_{2} \right)}\right]
+    XD: x_{0} \geq -2 \wedge x_{1} \geq -2 \wedge x_{2} \geq -1.57 \wedge x_{0} \leq 2 \wedge x_{1} \leq 2 \wedge x_{2} \leq 1.57 XI: x_{0} \geq -0.1 \wedge x_{1} \geq -2 \wedge x_{2} \geq -0.52 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq -1.8 \wedge x_{2} \leq 0.52 XU: x_{0}^{2} + x_{1}^{2} \leq 0.04$$
+Activation: [$\varphi_{4}$], Neurons: [25]
+
+\textbf{ [8] CtrlObstacleAvoidance BARRIER }
+$$\left[ \sin{\left(x_{2} \right)}, \  \cos{\left(x_{2} \right)}, \  u_{0} - \sin{\left(x_{2} \right)}\right]
+    XD: x_{0} \geq -10.0 \wedge x_{1} \geq -10.0 \wedge x_{2} \geq -3.14159265358979 \wedge x_{0} \leq 10.0 \wedge x_{1} \leq 10.0 \wedge x_{2} \leq 3.14159265358979 XI: x_{0} \geq 4.0 \wedge x_{1} \geq 4.0 \wedge x_{2} \geq -1.5707963267949 \wedge x_{0} \leq 6.0 \wedge x_{1} \leq 6.0 \wedge x_{2} \leq 1.5707963267949 XU: x_{0} \geq -9 \wedge x_{1} \geq -9 \wedge x_{2} \geq -1.5707963267949 \wedge x_{0} \leq -7.0 \wedge x_{1} \leq -6.0 \wedge x_{2} \leq 1.5707963267949$$
+Activation: [$tanh$], Neurons: [15]CTRLActivation: [$\varphi_{1}$], Neurons: [20, 1]
+
+\textbf{ [9] NonPoly0 STABLESAFE }
+$$\left[ x_{0} x_{1} - x_{0}, \  - x_{1}\right]
+    XD: x_{0}^{2} + x_{1}^{2} \geq 0.0001 \wedge x_{0}^{2} + x_{1}^{2} \leq 9 XD: x_{0}^{2} + x_{1}^{2} \geq 0.0001 \wedge x_{0}^{2} + x_{1}^{2} \leq 9 XI: \left(x_{0} + 0.9\right)^{2} + \left(x_{1} + 0.9\right)^{2} \leq 1.0 XU: \left(x_{0} - 0.4\right)^{2} + \left(x_{1} - 0.4\right)^{2} \leq 0.04 \vee \left(x_{0} + 0.4\right)^{2} + \left(x_{1} - 0.4\right)^{2} \leq 0.04$$
+Activation: [$\varphi_{2}$], Neurons: [5]AltActivation: [$tanh$], AltNeurons: [5]
+
+\textbf{ [10] Barr3 STABLESAFE }
+$$\left[ x_{1}, \  0.333333333333333 x_{0}^{3} - x_{0} - x_{1}\right]
+    XD: x_{0} \geq -3 \wedge x_{1} \geq -2 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 1 XD: x_{0} \geq -3 \wedge x_{1} \geq -2 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 1 XI: x_{0} \geq 0.4 \wedge x_{1} \geq 0.1 \wedge x_{0} \leq 0.8 \wedge x_{1} \leq 0.5 XU: \left(x_{0} + 1\right)^{2} + \left(x_{1} + 1\right)^{2} \leq 0.16$$
+Activation: [$\varphi_{2}$], Neurons: [5]AltActivation: [$sigmoid$,$\varphi_{2}$], AltNeurons: [5, 5]
+
+\textbf{ [11] SecondOrder STABLESAFE }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XU:
+    eg \left(x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1\right)$$
+Activation: [$\varphi_{2}$], Neurons: [8]AltActivation: [$\varphi_{2}$], AltNeurons: (10,)CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [12] ThirdOrder STABLESAFE }
+$$\left[ u_{0} - 10 x_{0} + 10 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]
+    XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6 XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6 XI: x_{0} \geq -1.2 \wedge x_{1} \geq -1.2 \wedge x_{2} \geq -1.2 \wedge x_{0} \leq 1.2 \wedge x_{1} \leq 1.2 \wedge x_{2} \leq 1.2 XU:
+    eg \left(x_{0} \geq -5 \wedge x_{1} \geq -5 \wedge x_{2} \geq -5 \wedge x_{0} \leq 5 \wedge x_{1} \leq 5 \wedge x_{2} \leq 5\right)$$
+Activation: [$\varphi_{2}$], Neurons: [10]AltActivation: [$\varphi_{2}$], AltNeurons: [8]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [13] Linear1LQR RWA }
+$$\left[ x_{1}, \  - 1.414 x_{0} - 1.352 x_{1}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1$$
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [14] SecondOrderLQR RWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [15] ThirdOrderLQR RWA }
+$$\left[ - 33.71 x_{0} - 8.49 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]
+    XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6 XS: x_{0} \geq -5 \wedge x_{1} \geq -5 \wedge x_{2} \geq -5 \wedge x_{0} \leq 5 \wedge x_{1} \leq 5 \wedge x_{2} \leq 5 XI: x_{0} \geq -1.2 \wedge x_{1} \geq -1.2 \wedge x_{2} \geq -1.2 \wedge x_{0} \leq 1.2 \wedge x_{1} \leq 1.2 \wedge x_{2} \leq 1.2 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{2} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3 \wedge x_{2} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [16]
+
+\textbf{ [16] InvertedPendulumLQR RWA }
+$$\left[ - 7.21 x_{0} - 0.34 x_{1}, \  - 1.34 x_{0} - 2.99666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]
+    XD: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3 XS: x_{0} \geq -2.5 \wedge x_{1} \geq -2.5 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 2.5 XI: x_{0} \geq -0.6 \wedge x_{1} \geq -0.6 \wedge x_{0} \leq 0.6 \wedge x_{1} \leq 0.6 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [5]
+
+\textbf{ [17] Linear1 RWA }
+$$\left[ x_{1}, \  u_{0} - x_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [18] SecondOrder RWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$\varphi_{2}$], Neurons: [8]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [19] SecondOrder RWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -2 \wedge x_{1} \geq -2 \wedge x_{0} \leq 2 \wedge x_{1} \leq 2 XS: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge \left(x_{0} - 0.6\right)^{2} + \left(x_{1} - 0.6\right)^{2} \geq 0.09 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XI: x_{0} \geq -0.6 \wedge x_{1} \geq -0.6 \wedge x_{0} \leq -0.2 \wedge x_{1} \leq -0.2 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$sigmoid$,$\varphi_{2}$], Neurons: [8, 8]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [20] SecondOrder RWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XS: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge \left(x_{0} - 0.5\right)^{2} + \left(x_{1} - 0.5\right)^{2} \geq 0.04 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq -0.1 \wedge x_{1} \leq -0.1 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$sigmoid$,$\varphi_{2}$], Neurons: [4, 4]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [21] ThirdOrder RWA }
+$$\left[ u_{0} - 10 x_{0} + 10 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]
+    XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6 XS: x_{0} \geq -5 \wedge x_{1} \geq -5 \wedge x_{2} \geq -5 \wedge x_{0} \leq 5 \wedge x_{1} \leq 5 \wedge x_{2} \leq 5 XI: x_{0} \geq -1.2 \wedge x_{1} \geq -1.2 \wedge x_{2} \geq -1.2 \wedge x_{0} \leq 1.2 \wedge x_{1} \leq 1.2 \wedge x_{2} \leq 1.2 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{2} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3 \wedge x_{2} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [22] InvertedPendulum RWA }
+$$\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]
+    XD: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3 XS: x_{0} \geq -2.5 \wedge x_{1} \geq -2.5 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 2.5 XI: x_{0} \geq -0.6 \wedge x_{1} \geq -0.6 \wedge x_{0} \leq 0.6 \wedge x_{1} \leq 0.6 XG: x_{0} \geq -0.01 \wedge x_{1} \geq -0.01 \wedge x_{0} \leq 0.01 \wedge x_{1} \leq 0.01$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 2]
+
+\textbf{ [23] Linear1LQR RSWA }
+$$\left[ x_{1}, \  - 1.414 x_{0} - 1.352 x_{1}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5  XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1$$
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [24] SecondOrderLQR RSWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5  XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [25] ThirdOrderLQR RSWA }
+$$\left[ - 33.71 x_{0} - 8.49 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]
+    XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6  XS: x_{0} \geq -5 \wedge x_{1} \geq -5 \wedge x_{2} \geq -5 \wedge x_{0} \leq 5 \wedge x_{1} \leq 5 \wedge x_{2} \leq 5 XI: x_{0} \geq -1.2 \wedge x_{1} \geq -1.2 \wedge x_{2} \geq -1.2 \wedge x_{0} \leq 1.2 \wedge x_{1} \leq 1.2 \wedge x_{2} \leq 1.2 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{2} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3 \wedge x_{2} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [16]
+
+\textbf{ [26] InvertedPendulumLQR RSWA }
+$$\left[ - 7.21 x_{0} - 0.34 x_{1}, \  - 1.34 x_{0} - 2.99666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]
+    XD: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3  XS: x_{0} \geq -2.5 \wedge x_{1} \geq -2.5 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 2.5 XI: x_{0} \geq -0.6 \wedge x_{1} \geq -0.6 \wedge x_{0} \leq 0.6 \wedge x_{1} \leq 0.6 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3$$
+Activation: [$sigmoid$,$\varphi_{2}$], Neurons: [5, 5]
+
+\textbf{ [27] Linear1 RSWA }
+$$\left[ x_{1}, \  u_{0} - x_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5  XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [28] SecondOrder RSWA }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -1.5 \wedge x_{1} \geq -1.5 \wedge x_{0} \leq 1.5 \wedge x_{1} \leq 1.5  XS: x_{0} \geq -1 \wedge x_{1} \geq -1 \wedge x_{0} \leq 1 \wedge x_{1} \leq 1 XI: x_{0} \geq -0.5 \wedge x_{1} \geq -0.5 \wedge x_{0} \leq 0.5 \wedge x_{1} \leq 0.5 XG: x_{0} \geq -0.05 \wedge x_{1} \geq -0.05 \wedge x_{0} \leq 0.05 \wedge x_{1} \leq 0.05$$
+Activation: [$\varphi_{2}$], Neurons: [8]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [29] ThirdOrder RSWA }
+$$\left[ u_{0} - 10 x_{0} + 10 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]
+    XD: x_{0} \geq -6 \wedge x_{1} \geq -6 \wedge x_{2} \geq -6 \wedge x_{0} \leq 6 \wedge x_{1} \leq 6 \wedge x_{2} \leq 6  XS: x_{0} \geq -5 \wedge x_{1} \geq -5 \wedge x_{2} \geq -5 \wedge x_{0} \leq 5 \wedge x_{1} \leq 5 \wedge x_{2} \leq 5 XI: x_{0} \geq -1.2 \wedge x_{1} \geq -1.2 \wedge x_{2} \geq -1.2 \wedge x_{0} \leq 1.2 \wedge x_{1} \leq 1.2 \wedge x_{2} \leq 1.2 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{2} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3 \wedge x_{2} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [12]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [30] InvertedPendulum RSWA }
+$$\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]
+    XD: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3  XS: x_{0} \geq -2.5 \wedge x_{1} \geq -2.5 \wedge x_{0} \leq 2.5 \wedge x_{1} \leq 2.5 XI: x_{0} \geq -0.6 \wedge x_{1} \geq -0.6 \wedge x_{0} \leq 0.6 \wedge x_{1} \leq 0.6 XG: x_{0} \geq -0.3 \wedge x_{1} \geq -0.3 \wedge x_{0} \leq 0.3 \wedge x_{1} \leq 0.3$$
+Activation: [$\varphi_{2}$], Neurons: [5]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 2]
+
+\textbf{ [31] SecondOrderLQR RAR }
+$$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]
+    XD: x_{0} \geq -3.5 \wedge x_{1} \geq -3.5 \wedge x_{0} \leq 3.5 \wedge x_{1} \leq 3.5 XS: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3 XI: x_{0} \geq -2 \wedge x_{1} \geq -2 \wedge x_{0} \leq 2 \wedge x_{1} \leq 2 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1 XF: x_{0} \geq -0.15 \wedge x_{1} \geq -0.15 \wedge x_{0} \leq 0.15 \wedge x_{1} \leq 0.15$$
+Activation: [$\varphi_{2}$], Neurons: [6]AltActivation: [$\varphi_{2}$], AltNeurons: [6]
+
+\textbf{ [32] SecondOrder RAR }
+$$\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right]
+    XD: x_{0} \geq -3.5 \wedge x_{1} \geq -3.5 \wedge x_{0} \leq 3.5 \wedge x_{1} \leq 3.5 XS: x_{0} \geq -3 \wedge x_{1} \geq -3 \wedge x_{0} \leq 3 \wedge x_{1} \leq 3 XI: x_{0} \geq -2 \wedge x_{1} \geq -2 \wedge x_{0} \leq 2 \wedge x_{1} \leq 2 XG: x_{0} \geq -0.1 \wedge x_{1} \geq -0.1 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq 0.1 XF: x_{0} \geq -0.15 \wedge x_{1} \geq -0.15 \wedge x_{0} \leq 0.15 \wedge x_{1} \leq 0.15$$
+Activation: [$\varphi_{2}$], Neurons: [6]AltActivation: [$\varphi_{2}$], AltNeurons: [6]CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+

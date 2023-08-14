@@ -21,6 +21,8 @@ def test_lnn(args):
     system = models.Barr2
 
     class Barr2Domain(domains.Set):
+        dimension = 2
+
         def generate_domain(self, v):
             x, y = v
             f = self.set_functions(v)

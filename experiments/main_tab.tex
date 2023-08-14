@@ -1,40 +1,39 @@
-\begin{tabular}{llllllrrrr}
+\begin{tabular}{lrrlllrrrr}
     \toprule
-                       &       &       &             &         &                      & Result & \multicolumn{3}{c}{$T$}                  \\
-                       &       &       &             &         &                      & $R$    & $\max$                  & $\mu$ & $\min$ \\
-    Benchmark          & $N_s$ & $N_u$ & Certificate & Neurons & Activations          &        &                         &       &        \\
+       & $N_s$ & $N_u$ & Certificate & Neurons & Activations                                  & \multicolumn{3}{c}{$T$} & Result                 \\
+       &       &       &             &         &                                              & $\min$                  & $\mu$  & $\max$ & $R$  \\
     \midrule
-    barr\_2            & 2     & 0     & BARRIER     & [15]    & ['TANH']             & 0.90   & 7.39                    & 4.27  & 1.14   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    barr\_4            & 3     & 0     & BARRIER     & [25]    & ['LIN\_TO\_QUARTIC'] & 0.80   & 66.08                   & 20.66 & 6.81   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrl\_rws\_1       & 2     & 1     & RWS         & [5]     & ['SQUARE']           & 0.90   & 58.28                   & 16.02 & 0.30   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrlbarr\_obstacle & 3     & 1     & BARRIER     & [15]    & ['TANH']             & 0.80   & 13.04                   & 5.73  & 0.31   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrllyap0\_ct      & 2     & 2     & LYAPUNOV    & [4]     & ['SQUARE']           & 1.00   & 144.14                  & 20.66 & 0.21   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    ctrllyap\_invpend  & 2     & 2     & LYAPUNOV    & [5]     & ['SQUARE']           & 1.00   & 32.76                   & 11.49 & 0.25   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    non\_poly\_0       & 2     & 0     & LYAPUNOV    & [2]     & ['SQUARE']           & 1.00   & 0.44                    & 0.16  & 0.02   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    poly\_1            & 3     & 0     & LYAPUNOV    & [8]     & ['SQUARE']           & 1.00   & 22.67                   & 3.77  & 0.40   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    roa\_1             & 2     & 0     & ROA         & [10]    & ['SQUARE']           & 0.90   & 36.30                   & 9.66  & 0.03   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rswa\_1            & 2     & 0     & RSWS        & [4]     & ['SQUARE']           & 1.00   & 2.42                    & 0.88  & 0.41   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rswa\_2            & 2     & 0     & RSWS        & [4]     & ['SQUARE']           & 1.00   & 5.96                    & 2.08  & 0.29   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rswa\_3            & 3     & 0     & RSWS        & [16]    & ['SQUARE']           & 0.70   & 66.61                   & 31.01 & 1.16   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_1             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1.00   & 2.06                    & 0.48  & 0.19   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_2             & 2     & 0     & RWS         & [4]     & ['SQUARE']           & 1.00   & 2.71                    & 0.91  & 0.23   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    rwa\_3             & 3     & 0     & RWS         & [16]    & ['SQUARE']           & 0.90   & 10.47                   & 5.64  & 1.60   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
-    stablesafe1        & 2     & 0     & STABLESAFE  & [5]     & ['SQUARE']           & 0.90   & 2.49                    & 0.94  & 0.32   \\
-    \cline{1-10} \cline{2-10} \cline{3-10} \cline{4-10} \cline{5-10}
+    1  & 2     & 0     & LYAPUNOV    & [6]     & [$\varphi\_{2}$],                            & 0.01                    & 0.15   & 1.49   & 1.00 \\
+    2  & 3     & 0     & LYAPUNOV    & [8]     & [$\varphi\_{2}$],                            & 0.28                    & 2.18   & 12.26  & 1.00 \\
+    3  & 2     & 2     & LYAPUNOV    & [4]     & [$\varphi\_{2}$],                            & 0.06                    & 0.21   & 0.56   & 1.00 \\
+    4  & 2     & 2     & LYAPUNOV    & [5]     & [$\varphi\_{2}$],                            & 0.10                    & 0.28   & 0.56   & 1.00 \\
+    5  & 2     & 0     & ROA         & [5]     & [$softplus$],                                & 0.20                    & 14.52  & 25.95  & 0.40 \\
+    6  & 2     & 0     & BARRIER     & [15]    & [$tanh$],                                    & 1.92                    & 4.11   & 9.68   & 1.00 \\
+    7  & 3     & 0     & BARRIER     & [25]    & [$\varphi\_{4}$],                            & 3.20                    & 19.87  & 33.38  & 1.00 \\
+    8  & 3     & 1     & BARRIER     & [15]    & [$tanh$],                                    & 2.18                    & 12.21  & 44.91  & 0.90 \\
+    9  & 2     & 0     & STABLESAFE  & [5]     & [$\varphi\_{2}$], [$tanh$]                   & 0.07                    & 0.39   & 1.55   & 1.00 \\
+    10 & 2     & 0     & STABLESAFE  & [5]     & [$\varphi\_{2}$], [$sigmoid$,$\varphi\_{2}$] & 0.15                    & 0.31   & 0.46   & 1.00 \\
+    11 & 2     & 1     & STABLESAFE  & [8]     & [$\varphi\_{2}$], [$\varphi\_{2}$]           & 0.08                    & 0.22   & 0.74   & 0.90 \\
+    12 & 3     & 1     & STABLESAFE  & [10]    & [$\varphi\_{2}$], [$\varphi\_{2}$]           & 5.27                    & 74.48  & 262.02 & 0.50 \\
+    13 & 2     & 0     & RWA         & [4]     & [$\varphi\_{2}$],                            & 0.04                    & 0.55   & 4.66   & 1.00 \\
+    14 & 2     & 0     & RWA         & [4]     & [$\varphi\_{2}$],                            & 0.14                    & 1.97   & 5.14   & 1.00 \\
+    15 & 3     & 0     & RWA         & [16]    & [$\varphi\_{2}$],                            & 1.43                    & 14.43  & 74.59  & 0.90 \\
+    16 & 2     & 0     & RWA         & [5]     & [$\varphi\_{2}$],                            & 0.04                    & 0.09   & 0.15   & 1.00 \\
+    17 & 2     & 1     & RWA         & [5]     & [$\varphi\_{2}$],                            & 0.05                    & 0.10   & 0.16   & 1.00 \\
+    18 & 2     & 1     & RWA         & [8]     & [$\varphi\_{2}$],                            & 0.08                    & 0.14   & 0.22   & 1.00 \\
+    19 & 2     & 1     & RWA         & [8, 8]  & [$sigmoid$,$\varphi\_{2}$],                  & 5.91                    & 17.30  & 25.58  & 0.90 \\
+    20 & 2     & 1     & RWA         & [4, 4]  & [$sigmoid$,$\varphi\_{2}$],                  & 0.62                    & 6.83   & 19.15  & 1.00 \\
+    21 & 3     & 1     & RWA         & [5]     & [$\varphi\_{2}$],                            & 0.47                    & 16.58  & 74.32  & 0.80 \\
+    22 & 2     & 2     & RWA         & [5]     & [$\varphi\_{2}$],                            & 0.43                    & 0.97   & 1.62   & 1.00 \\
+    23 & 2     & 0     & RSWA        & [4]     & [$\varphi\_{2}$],                            & 0.22                    & 0.52   & 1.24   & 1.00 \\
+    24 & 2     & 0     & RSWA        & [4]     & [$\varphi\_{2}$],                            & 0.19                    & 1.28   & 3.69   & 1.00 \\
+    25 & 3     & 0     & RSWA        & [16]    & [$\varphi\_{2}$],                            & 4.76                    & 27.05  & 80.96  & 1.00 \\
+    26 & 2     & 0     & RSWA        & [5, 5]  & [$sigmoid$,$\varphi\_{2}$],                  & 1.63                    & 4.56   & 11.22  & 1.00 \\
+    27 & 2     & 1     & RSWA        & [5]     & [$\varphi\_{2}$],                            & 0.17                    & 4.01   & 36.76  & 0.90 \\
+    28 & 2     & 1     & RSWA        & [8]     & [$\varphi\_{2}$],                            & 0.21                    & 0.74   & 1.33   & 1.00 \\
+    29 & 3     & 1     & RSWA        & [12]    & [$\varphi\_{2}$],                            & 2.48                    & 53.45  & 131.18 & 1.00 \\
+    30 & 2     & 2     & RSWA        & [5]     & [$\varphi\_{2}$],                            & 0.18                    & 0.35   & 1.39   & 1.00 \\
+    31 & 2     & 0     & RAR         & [6]     & [$\varphi\_{2}$], [$\varphi\_{2}$]           & 2.28                    & 12.47  & 29.36  & 1.00 \\
+    32 & 2     & 1     & RAR         & [6]     & [$\varphi\_{2}$], [$\varphi\_{2}$]           & 6.66                    & 94.62  & 253.93 & 1.00 \\
     \bottomrule
 \end{tabular}

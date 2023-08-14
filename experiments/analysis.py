@@ -42,10 +42,8 @@ HEADER = [
     "Result",
     "Benchmark_file",
     "seed",
-    "XD",
-    "XI",
-    "XU",
-    "XG",
+    "latex",
+    "domains",
     "N_Data",
     "Neurons",
     "Activations",
@@ -168,17 +166,18 @@ class Recorder:
             ctrlayer = None
             ctrl_act = None
 
-        if config.CERTIFICATE == CertificateType.STABLESAFE:
+        if (
+            config.CERTIFICATE == CertificateType.STABLESAFE
+            or config.CERTIFICATE == CertificateType.RAR
+        ):
             alt_layers = config.N_HIDDEN_NEURONS_ALT
-            alt_act = [act.name for act in config.ACTIVATION_ALT]
+            alt_act = get_activations(config.ACTIVATION_ALT)
         else:
             alt_layers = None
             alt_act = None
 
-        XD = config.DOMAINS.get(certificate.XD, None)
-        XI = config.DOMAINS.get(certificate.XI, None)
-        XU = config.DOMAINS.get(certificate.XU, None)
-        XG = config.DOMAINS.get(certificate.XG, None)
+        latex = benchmark_to_latex(config)
+        domains = domains_to_string(config.DOMAINS)
 
         result = [
             config.CERTIFICATE.name,
@@ -187,10 +186,8 @@ class Recorder:
             result.res,
             model_name,
             cegis_stats.seed,
-            XD,
-            XI,
-            XU,
-            XG,
+            latex,
+            domains,
             N_data,
             config.N_HIDDEN_NEURONS,
             get_activations(config.ACTIVATION),
@@ -228,130 +225,21 @@ class Analyser:
         """Get list of benchmarks in results file."""
         return self.results["Benchmark_file"].unique()
 
-    def analyse_benchmark(self, benchmark_file: str):
-        """Analyse results for given benchmark, across all seeds.
-
-        If multiple rows have the same seed, the first one will be kept.
-        Does not distinguish between other config options, so these should be kept constant,
-        or another function should be used to analyse the results.
-
-        Args:
-            filename (str): filename of csv file.
-        """
-
-        df = self.results[self.results["Benchmark_file"] == benchmark_file]
-        self.check_sanitisation(df)
-
-        df = df.drop(
-            columns=[
-                "XD",
-                "XI",
-                "XU",
-                "XG",
-                "Neurons",
-                "Activations",
-                "Factors",
-                "LLO",
-                "Symmetric_Belt",
-                "Time_Domain",
-                "Verifier",
-            ]
-        )
-        df = df.drop_duplicates(subset=["seed"])
-        SR = self.get_success_ratio(df)
-
-        # Only analyse successful runs
-        df = df[df["Result"] == True]
-        times = self.time_analysis(df)
-        loops = self.loop_analysis(df)
-        cert = df["Certificate"].unique()[0]
-        benchmark = BenchmarkData(benchmark_file, cert, SR, times, loops)
-        return benchmark
-
-    @staticmethod
-    def check_sanitisation(df):
-        """Check that all columns have the same value. Warn if not.
-        Assumes frame consists of only one benchmark."""
-        to_check = [
-            "Certificate",
-            "XD",
-            "XI",
-            "XU",
-            "XG",
-            "Neurons",
-            "Activations",
-            "Factors",
-            "LLO",
-            "Symmetric_Belt",
-            "Time_Domain",
-        ]
-        for col in to_check:
-            if df[col].unique().shape[0] > 1:
-                warnings.warn("Column {} has multiple values".format(col))
-
-    @staticmethod
-    def get_success_ratio(df):
-        """Get success ratio for given dataframe.
-
-        Args:
-            df (pd.DataFrame): dataframe to analyse
-
-        Returns:
-            float: success ratio
-        """
-        return df[df["Result"] == True].shape[0] / df.shape[0]
-
-    @staticmethod
-    def time_analysis(df):
-        """Get time data for given dataframe.
-
-        Args:
-            df (pd.DataFrame): dataframe to analyse
-
-        Returns:
-            float: average time
-        """
-        mean = df["Total_Time"].mean()
-        std = df["Total_Time"].std()
-        Max = df["Total_Time"].max()
-        Min = df["Total_Time"].min()
-
-        time_stats = Stats(mean, std, Max, Min)
-
-        return time_stats
-
-    @staticmethod
-    def loop_analysis(df):
-        """Get loop data for given dataframe.
-
-        Args:
-            df (pd.DataFrame): dataframe to analyse
-
-        Returns:
-            float: average loops
-        """
-        mean = df["Loops"].mean()
-        std = df["Loops"].std()
-        Max = df["Loops"].max()
-        Min = df["Loops"].min()
-
-        loop_stats = Stats(mean, std, Max, Min)
-        return loop_stats
-
     def table_main(self, benchmarks=[]):
         df = self.results
-        if benchmarks == []:
-            benchmarks = self.get_benchmarks()
-
-        df = df[df["Benchmark_file"].isin(benchmarks)]
 
         df.rename(
-            {"N_s": "$N_s$", "N_u": "$N_u$", "Benchmark_file": "Benchmark"},
+            {"N_s": "$N_s$", "N_u": "$N_u$", "Benchmark_file": "Model"},
             axis=1,
             inplace=True,
         )
-        df["Benchmark"].replace({"_": "\_"}, inplace=True, regex=True)
+        df["Model"].replace({"_": "\_"}, inplace=True, regex=True)
         df["Activations"].replace({"_": "\_"}, inplace=True, regex=True)
+        df["Alt_Activations"].replace({"_": "\_"}, inplace=True, regex=True)
+
+        df["Activations"] = df["Activations"] + ", " + df["Alt_Activations"].fillna("")
+        df["Certificate"] = df["Certificate"].str.replace("RWS", "RWA")
+        df["Certificate"] = df["Certificate"].str.replace("RSWS", "RSWA")
 
         # grouped = df.groupby(["Benchmark_file"])
         vals = [
@@ -359,7 +247,9 @@ class Analyser:
             "Result",
         ]
         ind = [
-            "Benchmark",
+            "latex",
+            "domains",
+            "Model",
             "$N_s$",
             "$N_u$",
             "Certificate",
@@ -371,7 +261,9 @@ class Analyser:
             values=vals,
             index=ind,
             aggfunc={"Total_Time": ["min", "mean", "max"], "Result": ratio},
+            sort=False,
         )
+
         table.rename(
             {
                 "Total_Time": "$T$",
@@ -384,6 +276,10 @@ class Analyser:
             axis=1,
             inplace=True,
         )
+        table.reset_index(inplace=True)
+        table.index = table.index + 1
+        df_to_latex(table, None)
+        table.drop(["latex", "Model", "domains"], axis=1, inplace=True)
         print(table)
 
         if self.output_type == "tex":
@@ -400,9 +296,120 @@ class Analyser:
             table.to_markdown(self.output_file)
 
 
+def benchmark_to_latex(config: CegisConfig):
+    """Convert a benchmark to latex format.
+
+    Args:
+        model (str): name of model
+        domains (list): list of domains
+
+    Returns:
+        str: latex string
+    """
+    s = ""
+    model = config.SYSTEM
+    try:
+        s += model().to_latex() + " \\n "
+    except TypeError:
+        s += model(None).open_loop.to_latex() + " \\n "
+    domains = config.DOMAINS
+    cert = config.CERTIFICATE
+    if cert == CertificateType.LYAPUNOV:
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+    elif cert == CertificateType.ROA:
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+    elif cert in (CertificateType.BARRIER, CertificateType.BARRIERALT):
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XU: {} ".format(domains[certificate.XU].to_latex())
+    elif cert == CertificateType.RWS:
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XS: {} ".format(domains[certificate.XS].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XG: {} ".format(domains[certificate.XG].to_latex())
+    elif cert == CertificateType.RSWS:
+        s += "XD: {}  ".format(domains[certificate.XD].to_latex())
+        s += "XS: {} ".format(domains[certificate.XS].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XG: {} ".format(domains[certificate.XG].to_latex())
+    elif cert == CertificateType.STABLESAFE:
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XU: {} ".format(domains[certificate.XU].to_latex())
+    elif cert == CertificateType.RAR:
+        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XS: {} ".format(domains[certificate.XS].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XG: {} ".format(domains[certificate.XG].to_latex())
+        s += "XF: {} ".format(domains[certificate.XF].to_latex())
+
+    # Add activations, alt activations, control
+    s += "\\n Activation: {}, Neurons: {}".format(
+        get_activations(config.ACTIVATION), config.N_HIDDEN_NEURONS
+    )
+    if cert in (CertificateType.STABLESAFE, CertificateType.RAR):
+        s += "AltActivation: {}, AltNeurons: {}".format(
+            get_activations(config.ACTIVATION_ALT), config.N_HIDDEN_NEURONS_ALT
+        )
+    if config.CTRLAYER is not None:
+        s += "CTRLActivation: {}, Neurons: {}".format(
+            get_activations(config.CTRLACTIVATION), config.CTRLAYER
+        )
+    return s
+
+
+def domains_to_string(domains: dict):
+    """Convert a list of domains to a string.
+
+    Args:
+        domains (list): list of domains
+
+    Returns:
+        str: string representation of domains
+    """
+    s = ""
+    for lab, dom in domains.items():
+        if lab not in certificate.BORDERS:
+            s += "{}: {} ".format(lab, dom.__repr__())
+    return s
+
+
+def df_to_latex(results_frame: pd.DataFrame, output_file: str):
+    """Gets all latex representations of benchmarks in dataframe and export to latex file.
+
+    Args:
+        results_file (str): results file
+    """
+    df = results_frame
+    s = ""
+    # add standard latex header
+    # s += "\\documentclass{standalone}\n"
+    # s += "\\usepackage{amsmath}\n"
+    # s += "\\usepackage{amssymb}\n"
+    # s += "\\begin{document}\n"
+
+    for index, row in df.iterrows():
+        benchmark = row["latex"].iloc[0]
+        cert = row["Certificate"].iloc[0]
+        model = row["Model"].iloc[0]
+
+        benchmark = benchmark.replace("\\n", "\n")
+        s += "\\textbf{{ [{}] {} {} }}\n".format(index, model, cert)
+        string = "$$" + benchmark
+        i = string.find("Activation") - 3
+        string = string[:i] + "$$" + string[i:] + "\n\n"
+        s += string
+
+    # s += "\\end{document}\n"
+    with open("latex.tex", "w") as f:
+        f.write(s)
+
+
 if __name__ == "__main__":
     a = Analyser()
+    a.table_main()
     # benchmarks = a.get_benchmarks()
     # b = a.analyse_benchmark(benchmarks[0])
     # print(b)
-    a.table_main()
+    # csv_to_latex("experiments/results.csv")

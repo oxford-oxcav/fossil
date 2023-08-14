@@ -84,6 +84,7 @@ class LearnerNN(nn.Module, Learner):
         if config.LLO and not self.is_positive_definite():
             raise RuntimeError("LLO set but function is not positive definite")
         self.learn_method = learn_method
+        self._type = config.CERTIFICATE.name
 
     # backprop algo
     @timer(T)
@@ -134,6 +135,14 @@ class LearnerNN(nn.Module, Learner):
 
         y = self.layers[-1](y)[:, 0]
         return y
+
+    def freeze(self):
+        """Freezes the parameters of the neural network by setting requires_grad to False."""
+
+        for param in self.parameters():
+            if not param.requires_grad:
+                break
+            param.requires_grad = False
 
     def compute_net_gradnet(self, S: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Computes the value of the neural network and its gradient.

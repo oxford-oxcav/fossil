@@ -308,7 +308,7 @@ class Set:
     sp_functions = SP_FNCS
 
     def __init__(self) -> None:
-        self.dimension = None
+        pass
 
     def generate_domain(self, x) -> verifier.SYMBOL:
         raise NotImplementedError
@@ -456,6 +456,9 @@ class SetMinus(Set):
     def plot(self, *args, **kwargs):
         self.S1.plot(*args, **kwargs)
         self.S2.plot(*args, **kwargs)
+
+    def check_containment(self, x):
+        return self.S1.check_containment(x) & ~self.S2.check_containment(x)
 
 
 class Rectangle(Set):

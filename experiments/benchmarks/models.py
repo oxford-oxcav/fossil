@@ -1,4 +1,5 @@
 import sys
+import inspect
 from typing import Any
 from functools import partial
 
@@ -160,6 +161,11 @@ class ControllableCTModel:
     def clean(self):
         """Prepare object for pickling"""
         self.fncs = None
+
+    def to_latex(self):
+        x = sp.symbols(",".join(("x" + str(i) for i in range(self.n_vars))))
+        u = sp.symbols(",".join(("u" + str(i) for i in range(self.n_u))) + ",")
+        return sp.latex(self.f(x, u))
 
 
 class _PreTrainedModel(CTModel):
@@ -327,12 +333,6 @@ class NonPoly3(CTModel):
         return [-3 * x - 0.1 * x * y**3, -y + z, -z]
 
 
-# POLY benchmarks
-# this series comes from
-# https://www.cs.colorado.edu/~srirams/papers/nolcos13.pdf
-# srirams paper from 2013 (old-ish) but plenty of lyap fcns
-
-
 class Benchmark0(CTModel):
     n_vars = 2
 
@@ -387,6 +387,12 @@ class BenchmarkDT1(ControllableCTModel):
         return [2.0 * x + u1, 2.0 * y + u2]
 
 
+# POLY benchmarks
+# this series comes from
+# https://www.cs.colorado.edu/~srirams/papers/nolcos13.pdf
+# srirams paper from 2013 (old-ish) but plenty of lyap fcns
+
+
 class Poly1(CTModel):
     n_vars = 3
 
@@ -439,27 +445,28 @@ class Poly4(CTModel):
         return [-x - 1.5 * x**2 * y**3, -(y**3) + 0.5 * x**3 * y**2]
 
 
-class TwoDHybrid(CTModel):
-    n_vars = 2
+class Sriram4D(CTModel):
+    n_vars = 4
 
     def f_torch(self, v):
-        x0, x1 = v[:, 0], v[:, 1]
-        _condition = x1 >= 0
-        _negated_cond = x1 < 0
-        _then = -x1 - 0.5 * x0**3
-        _else = -x1 - x0**2 - 0.25 * x1**3
-        # _condition and _negated _condition are tensors of bool, act like 0 and 1
-        x1dot = _condition * _then + _negated_cond * _else
-
-        return torch.stack([-x0, x1dot]).T
+        x1, x2, x3, x4 = v[:, 0], v[:, 1], v[:, 2], v[:, 3]
+        return torch.stack(
+            [
+                -x1 + x2**3 - 3 * x3 * x4,
+                -x1 - x2**3,
+                x1 * x4 - x3,
+                x1 * x3 - x4**3,
+            ]
+        ).T
 
     def f_smt(self, v):
-        _If = self.fncs["If"]
-        x0, x1 = v
-        _then = -x1 - 0.5 * x0**3
-        _else = -x1 - x0**2 - 0.25 * x1**3
-        _cond = x1 >= 0
-        return [-x0, _If(_cond, _then, _else)]
+        x1, x2, x3, x4 = v
+        return [
+            -x1 + x2**3 - 3 * x3 * x4,
+            -x1 - x2**3,
+            x1 * x4 - x3,
+            x1 * x3 - x4**3,
+        ]
 
 
 class LinearDiscrete(CTModel):
@@ -512,25 +519,45 @@ class NonLinearDiscrete(CTModel):
         return [0.5 * x - 0.000001 * y**2, 0.5 * x * y]
 
 
-class Hybrid2d(CTModel):
-    n_vars = 2
+# class TwoDHybrid(CTModel):
+#     n_vars = 2
 
-    def f_torch(self, v):
-        x0, x1 = v[:, 0], v[:, 1]
+#     def f_torch(self, v):
+#         x0, x1 = v[:, 0], v[:, 1]
+#         _condition = x1 >= 0
+#         _negated_cond = x1 < 0
+#         _then = -x1 - 0.5 * x0**3
+#         _else = -x1 - x0**2 - 0.25 * x1**3
+#         # _condition and _negated _condition are tensors of bool, act like 0 and 1
+#         x1dot = _condition * _then + _negated_cond * _else
 
-        _then = -x1 - 0.5 * x0**3
-        _else = -x1 - x0**2 - 0.25 * x1**3
-        _cond = x1 >= 0
+#         return torch.stack([-x0, x1dot]).T
 
-        return torch.stack([-x0, torch.where(_cond, _then, _else)]).T
+#     def f_smt(self, v):
+#         _If = self.fncs["If"]
+#         x0, x1 = v
+#         _then = -x1 - 0.5 * x0**3
+#         _else = -x1 - x0**2 - 0.25 * x1**3
+#         _cond = x1 >= 0
+#         return [-x0, _If(_cond, _then, _else)]
 
-    def f_smt(self, v):
-        If = self.fncs["If"]
-        x0, x1 = v
-        _then = -x1 - 0.5 * x0**3
-        _else = -x1 - x0**2 - 0.25 * x1**3
-        _cond = x1 >= 0
-        return [-x0, If(_cond, _then, _else)]
+# class TwoD_Hybrid(CTModel):
+#     n_vars = 2
+
+#     def f_torch(self, v):
+#         x0, x1 = v[:, 0], v[:, 1]
+#         _then = -x0 - 0.5 * x0**3
+#         _else = x0 - 0.25 * x1**2
+#         _cond = x0 >= 0
+#         return torch.stack([x1, torch.where(_cond, _then, _else)]).T
+
+#     def f_smt(self, v):
+#         x0, x1 = v
+#         If = self.fncs["If"]
+#         _then = -x0 - 0.5 * x0**3
+#         _else = x0 - 0.25 * x1**2
+#         _cond = x0 >= 0
+#         return [x1, If(_cond, _then, _else)]
 
 
 ############################################
@@ -574,25 +601,6 @@ class Barr3(CTModel):
     def f_smt(self, v):
         x, y = v
         return [y, -x - y + 1 / 3 * x**3]
-
-
-class TwoD_Hybrid(CTModel):
-    n_vars = 2
-
-    def f_torch(self, v):
-        x0, x1 = v[:, 0], v[:, 1]
-        _then = -x0 - 0.5 * x0**3
-        _else = x0 - 0.25 * x1**2
-        _cond = x0 >= 0
-        return torch.stack([x1, torch.where(_cond, _then, _else)]).T
-
-    def f_smt(self, v):
-        x0, x1 = v
-        If = self.fncs["If"]
-        _then = -x0 - 0.5 * x0**3
-        _else = x0 - 0.25 * x1**2
-        _cond = x0 >= 0
-        return [x1, If(_cond, _then, _else)]
 
 
 class ObstacleAvoidance(CTModel):
@@ -897,16 +905,14 @@ class Quadrotor2d(ControllableCTModel):
         # w1 = u1+u2
         # w2 = u1-u2
         q = v[:3]
-        qdot = np.array(v[3:])
-        qddot = np.array(
-            [
-                -sin(q[2]) / self.mass * u1,
-                cos(q[2]) / self.mass * u1 - self.gravity,
-                self.length / self.inertia * u2,
-            ]
-        )
+        qdot = v[3:]
+        qddot = [
+            -sin(q[2]) / self.mass * u1,
+            cos(q[2]) / self.mass * u1 - self.gravity,
+            self.length / self.inertia * u2,
+        ]
 
-        return np.hstack([qdot, qddot[:, 0]])
+        return [*qdot, *qddot]
 
 
 # from Tedrake's lecture notes
@@ -950,16 +956,14 @@ class LinearSatellite(ControllableCTModel):
         # w1 = u1+u2
         # w2 = u1-u2
         q = v[:3]
-        qdot = np.array(v[3:])
-        qddot = np.array(
-            [
-                3.0 * self.n**2 * q[0] - 2.0 * self.n * qdot[1] + u1 / self.mass,
-                -2.0 * self.n * qdot[0] + u2 / self.mass,
-                -self.n**2 * q[2] + u3 / self.mass,
-            ]
-        )
+        qdot = v[3:]
+        qddot = [
+            3.0 * self.n**2 * q[0] - 2.0 * self.n * qdot[1] + u1 / self.mass,
+            -2.0 * self.n * qdot[0] + u2 / self.mass,
+            -self.n**2 * q[2] + u3 / self.mass,
+        ]
 
-        return np.hstack([qdot, qddot[:, 0]])
+        return [*qdot, *qddot]
 
 
 class CtrlObstacleAvoidance(ControllableCTModel):
@@ -1153,9 +1157,69 @@ class VanDerPol(CTModel):
         return [y, -0.5 * (1 - x**2) * y - x]
 
 
+class SheModel(CTModel):
+    n_vars = 6
+
+    def f_torch(self, v):
+        x1, x2, x3, x4, x5, x6 = v[:, 0], v[:, 1], v[:, 2], v[:, 3], v[:, 4], v[:, 5]
+        return torch.stack(
+            [
+                x2 * x4 - x1**3,
+                -3 * x1 * x4 - x2**3,
+                -x3 - 3 * x1 * x4**3,
+                -x4 + x1 * x3,
+                -x5 + x6**3,
+                -x5 - x6 + x3**4,
+            ]
+        ).T
+
+    def f_smt(self, v):
+        x1, x2, x3, x4, x5, x6 = v
+        return [
+            x2 * x4 - x1**3,
+            -3 * x1 * x4 - x2**3,
+            -x3 - 3 * x1 * x4**3,
+            -x4 + x1 * x3,
+            -x5 + x6**3,
+            -x5 - x6 + x3**4,
+        ]
+
+
+class PapaPrajna6(CTModel):
+    n_vars = 6
+
+    def f_torch(self, v):
+        x1, x2, x3, x4, x5, x6 = v[:, 0], v[:, 1], v[:, 2], v[:, 3], v[:, 4], v[:, 5]
+        return torch.stack(
+            [
+                -(x1**3) + 4 * x2**3 - 6 * x3 * x4,
+                -x1 - x2 + x5**3,
+                x1 * x4 - x3 + x4 * x6,
+                x1 * x3 + x3 * x6 - x4**3,
+                -2 * x2**3 - x5 + x6,
+                -3 * x3 * x4 - x5**3 - x6,
+            ]
+        ).T
+
+    def f_smt(self, v):
+        x1, x2, x3, x4, x5, x6 = v
+        return [
+            -(x1**3) + 4 * x2**3 - 6 * x3 * x4,
+            -x1 - x2 + x5**3,
+            x1 * x4 - x3 + x4 * x6,
+            x1 * x3 + x3 * x6 - x4**3,
+            -2 * x2**3 - x5 + x6,
+            -3 * x3 * x4 - x5**3 - x6,
+        ]
+
+
 def read_model(model_string: str) -> CTModel:
     """Read model from string and return model object"""
-    for M in dir(sys.modules[__name__]):
+    clsmembers = inspect.getmembers(
+        sys.modules[__name__],
+        lambda x: inspect.isclass(x) and (x.__module__ == __name__),
+    )
+    for M, _ in clsmembers:
         if M == model_string:
             try:
                 model = getattr(sys.modules[__name__], M)()
@@ -1167,13 +1231,31 @@ def read_model(model_string: str) -> CTModel:
     raise ValueError(f"{model_string} is not a CTModel")
 
 
+def _all_models_to_latex() -> str:
+    """Return a string containing latex for all models"""
+    latex = ""
+    clsmembers = inspect.getmembers(
+        sys.modules[__name__],
+        lambda x: inspect.isclass(x) and (x.__module__ == __name__),
+    )
+    for name, model in clsmembers:
+        try:
+            m = model()
+            if isinstance(m, CTModel):
+                latex += name + "\n"
+                latex += m.to_latex() + "\n\n"
+        except (AttributeError, TypeError):
+            pass
+    return latex
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model", type=str, default="InvertedPendulumLQR")
+    parser.add_argument("-m", "--model", type=str, default="Barr3")
     args = parser.parse_args()
     model = read_model(args.model)
     ax = model.plot()
     plt.show()
-    print(model.to_latex())
+    # print(_all_models_to_latex())

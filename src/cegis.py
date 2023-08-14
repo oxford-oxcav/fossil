@@ -107,7 +107,7 @@ class SingleCegis:
             for label, domain in self.config.DOMAINS.items()
         }
         if self.config.CERTIFICATE == CertificateType.RAR:
-            domains[certificate.XF] = self.config.DOMAINS[
+            domains[certificate.XNF] = self.config.DOMAINS[
                 certificate.XF
             ].generate_complement(x)
         return x, x_map, domains
@@ -407,6 +407,14 @@ class DoubleCegis(SingleCegis):
             activation=self.config.ACTIVATION_ALT,
             config=replace(self.config, LLO=False),
         )
+
+        if self.config.CERTIFICATE == CertificateType.RAR:
+            lyap_learner._type = CertificateType.RWS.name
+            barr_learner._type = CertificateType.BARRIER.name
+        elif self.config.CERTIFICATE == CertificateType.STABLESAFE:
+            lyap_learner._type = CertificateType.ROA.name
+            barr_learner._type = CertificateType.BARRIER.name
+
         return lyap_learner, barr_learner
 
     def _initialise_optimizer(self):
@@ -453,6 +461,9 @@ class DoubleCegis(SingleCegis):
             outputs = self.lyap_learner.get(**state)
             state = {**state, **outputs}
 
+            # Update xdot with new controller if necessary
+            state.update({CegisStateKeys.xdot: self.f(self.x)})
+
             # Translator component
             if self.config.VERBOSE:
                 print_section("translator", iters)
@@ -464,6 +475,17 @@ class DoubleCegis(SingleCegis):
                 print_section("verifier", iters)
             outputs = self.verifier.get(**state)
             state = {**state, **outputs}
+
+            if isinstance(self.certificate, certificate.SafeROA):
+                if certificate.XI in state["cex"].keys():
+                    # This means we've got the this check in the verifier, so the Lyapunov in SafeROA is correct.
+                    if not self.config.CTRLAYER:
+                        self.lyap_learner.freeze()
+            elif isinstance(self.certificate, certificate.ReachAvoidRemain):
+                if certificate.XG in state["cex"].keys():
+                    # This means we've got the this check in the verifier, so the RWS function in RAR is correct.
+                    if not self.config.CTRLAYER:
+                        self.lyap_learner.freeze()
 
             # Consolidator component does not exist for DoubleCegis
             # if self.config.VERBOSE:

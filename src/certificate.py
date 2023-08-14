@@ -22,8 +22,10 @@ XG = "goal"
 XG_BORDER = "goal_border"
 XS_BORDER = "safe_border"
 XF = "final"
+XNF = "not_final"
+XR = "region"  # This is an override data set for ROA in StableSafe
 BORDERS = (XG_BORDER, XS_BORDER)
-ORDER = (XD, XI, XU, XS, XG, XG_BORDER, XS_BORDER, XF)
+ORDER = (XD, XI, XU, XS, XG, XG_BORDER, XS_BORDER, XF, XNF)
 
 
 def print_loss_acc(t, loss, accuracy, verbose):
@@ -162,9 +164,10 @@ class Lyapunov(Certificate):
 
             V, Vdot, circle = learner.get_all(samples, samples_dot)
 
-            # circle = x0*x0 + ... + xN*xN
-
             loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
+
+            if self.control:
+                loss = loss + control.cosine_reg(samples, samples_dot)
 
             if t % 100 == 0 or t == learn_loops - 1:
                 print_loss_acc(t, loss, learn_accuracy, learner.verbose)
@@ -208,7 +211,8 @@ class Lyapunov(Certificate):
             beta = self.D[XD].generate_data(300)
         return beta
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD])
@@ -269,19 +273,18 @@ class ROA(Certificate):
         """
         margin = 0 * 0.01
 
-        slope = 10 ** (learner.LearnerNN.order_of_magnitude(max(abs(Vdot)).detach()))
-        leaky_relu = torch.nn.LeakyReLU(1 / slope.item())
+        relu = torch.nn.Softplus()
         # compute loss function. if last layer of ones (llo), can drop parts with V
         if self.llo:
             learn_accuracy = (Vdot <= -margin).count_nonzero().item()
-            loss = (leaky_relu(Vdot + margin * circle)).mean()
+            loss = (relu(Vdot + margin * circle)).mean()
         else:
             learn_accuracy = 0.5 * (
                 (Vdot <= -margin).count_nonzero().item()
                 + (V >= margin).count_nonzero().item()
             )
-            loss = (leaky_relu(Vdot + margin * circle)).mean() + (
-                leaky_relu(-V + margin * circle)
+            loss = (relu(Vdot + margin * circle)).mean() + (
+                relu(-V + margin * circle)
             ).mean()
 
         accuracy = {"acc": learn_accuracy * 100 / Vdot.shape[0]}
@@ -336,7 +339,6 @@ class ROA(Certificate):
             if learner._take_abs:
                 learner.make_final_layer_positive()
 
-
         SI = S[XI]
         self.beta = learner.compute_maximum(SI)[0]
         learner.beta = self.beta
@@ -360,7 +362,6 @@ class ROA(Certificate):
 
         if self.llo:
             lyap_negated = Vdot >= 0
-            lyap_negated = Vdot > 0
         else:
             lyap_negated = _Or(V <= 0, Vdot > 0)
 
@@ -380,10 +381,11 @@ class ROA(Certificate):
         for cs in ({XD: roa_condition},):
             yield cs
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
+        data_labels = set(data.keys())
         assert domain_labels == set([XI])
-        assert domain_labels == set([XD, XI])
         assert data_labels == set([XD, XI])
 
 
@@ -405,6 +407,7 @@ class Barrier(Certificate):
         self.unsafe_s = domains[XU]
         self.SYMMETRIC_BELT = config.SYMMETRIC_BELT
         self.bias = True
+        self.relu = torch.relu
 
     def compute_loss(
         self,
@@ -427,18 +430,20 @@ class Barrier(Certificate):
             tuple[torch.Tensor, float]: loss and accuracy
         """
         margin = 0
-        slope = 1 / 10**4
 
         ### We spend A LOT of time computing the accuracies and belt percent.
         ### Changing from builtins sum to torch.sum() makes the whole code 4x faster.
         learn_accuracy = (B_i <= -margin).count_nonzero().item() + (
             B_u >= margin
         ).count_nonzero().item()
-        percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
+        percent_accuracy_init_unsafe = (
+            learn_accuracy * 100 / (B_u.shape[0] + B_i.shape[0])
+        )
 
-        relu6 = torch.nn.Softplus()
-        init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
-        unsafe_loss = (torch.relu(-B_u + margin) - slope * relu6(B_u + margin)).mean()
+        # relu = torch.nn.Softplus()
+        relu = self.relu
+        init_loss = (relu(B_i + margin)).mean()
+        unsafe_loss = (relu(-B_u + margin)).mean()
         loss = init_loss + unsafe_loss
 
         # set two belts
@@ -457,9 +462,7 @@ class Barrier(Certificate):
                 100 * ((dB_belt <= -margin).count_nonzero()).item() / dB_belt.shape[0]
             )
 
-            lie_loss = (relu6(dB_belt + 0 * margin)).mean() - slope * relu6(
-                -dB_belt
-            ).mean()
+            lie_loss = (relu(dB_belt + 0 * margin)).mean()
             loss = loss + lie_loss
 
         accuracy = {
@@ -571,15 +574,24 @@ class Barrier(Certificate):
             yield cs
 
     @classmethod
-    def _for_goal_final(cls, domains, config: CegisConfig) -> Certificate:
+    def _for_goal_final(cls, domains, config: CegisConfig) -> "Barrier":
         """Initialises a Barrier certificate for a goal and final set."""
         new_domains = {**domains}  # Don't modify the original
         new_domains[XI] = domains[XG]
-        new_domains[XU] = domains[XF]  # This should be the negation of XF
+        new_domains[XU] = domains[XNF]  # This should be the negation of XF
         cert = cls(new_domains, config)
+        cert.relu = torch.nn.Softplus()
         return cert
 
-    def _assert_state(self, domains, data):
+    @classmethod
+    def _for_safe_roa(cls, domains, config: CegisConfig) -> "Barrier":
+        """Initialises a Barrier certificate for a safe set and roa."""
+        cert = cls(domains, config)
+        cert.relu = torch.nn.Softplus()
+        return cert
+
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD, XI, XU])
@@ -755,7 +767,8 @@ class BarrierAlt(Certificate):
         ):
             yield cs
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD, XI, XU])
@@ -768,7 +781,7 @@ class RWS(Certificate):
     Reach While stay must satisfy:
     \forall x in XI, V <= 0,
     \forall x in boundary of XS, V > 0,
-    \forall x in A \ XG, dV/dt <= 0
+    \forall x in A \ XG, dV/dt < 0
     A = {x \in XS| V <=0 }
 
     """
@@ -937,7 +950,7 @@ class RWS(Certificate):
 
         # Define A as the set of points where C <= 0, within the domain, not in the goal set, and not in the unsafe set
         A = _And(C <= 0, self.safe, _Not(self.goal))
-        lie_constr = _And(A, Cdot > gamma)
+        lie_constr = _And(A, Cdot >= gamma)
 
         # add domain constraints
         inital_constr = _And(initial_constr, self.domain)
@@ -949,7 +962,8 @@ class RWS(Certificate):
         ):
             yield cs
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD, XI, XS, XS_BORDER, XG])
@@ -962,7 +976,7 @@ class RSWS(RWS):
     Firstly satisfies reach while stay conditions, given by:
         forall x in XI, V <= 0,
         forall x in boundary of XS, V > 0,
-        forall x in A \ XG, dV/dt <= 0
+        forall x in A \ XG, dV/dt < 0
         A = {x \in XS| V <=0 }
 
     http://arxiv.org/abs/1812.02711
@@ -1016,7 +1030,6 @@ class RSWS(RWS):
             accuracy = (beta_lie <= 0).count_nonzero().item() * 100 / beta_lie.shape[0]
         else:
             # Do we penalise V > beta in safe set, or  V < beta in goal set?
-            # print("No lie points: {}", beta)
             beta_lie_loss = 0
 
         return beta_lie_loss
@@ -1115,7 +1128,7 @@ class RSWS(RWS):
         This check involves finding a beta such that:
 
         \forall x in border XG: V > \beta
-        \forall x in XG \ int(B): dV/dt <= 0
+        \forall x in XG \ int(B): dV/dt < 0
         B = {x in XS | V <= \beta}
 
         Args:
@@ -1137,7 +1150,7 @@ class RSWS(RWS):
 
         B = _And(self.safe, C < beta)
         XG_less_B = _And(self.goal, _Not(B))
-        lie_condition = _And(XG_less_B, Cdot > 0)
+        lie_condition = _And(XG_less_B, Cdot >= 0)
         s_lie = verifier.new_solver()
         res2, _ = verifier.solve_with_timeout(s_lie, lie_condition)
 
@@ -1192,7 +1205,8 @@ class RSWS(RWS):
                     # After testing, we never reach this point and still succeed, se let's return False and instead try synthesis again
                     return False
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD, XI, XS, XS_BORDER, XG, XG_BORDER])
@@ -1204,7 +1218,7 @@ class SafeROA(Certificate):
 
     def __init__(self, domains, config: CegisConfig) -> None:
         self.ROA = ROA(domains, config)
-        self.barrier = Barrier(domains, config)
+        self.barrier = Barrier._for_safe_roa(domains, config)
         self.bias = self.ROA.bias, self.barrier.bias
         self.beta = None
 
@@ -1228,11 +1242,17 @@ class SafeROA(Certificate):
         barrier_learner = learner[1]
 
         learn_loops = 1000
-        condition_old = False
-        i1 = S[XD].shape[0]
-        i2 = S[XI].shape[0]
-        label_order = [XD, XI, XU]
-        samples = torch.cat([S[label] for label in label_order])
+        lie_indices = 0, S[XD].shape[0]
+        if XR in S.keys():
+            # The idea here is that the data set for barrier learning is not conducive to learning the region of attraction (which should ideally only contain stable points that converge.
+            # So we allow for a backup data set used only for the ROA learning. If not passed, we use the same data set as for the barrier learning.
+            r_indices = lie_indices[1], lie_indices[1] + S[XR].shape[0]
+        else:
+            r_indices = lie_indices[0], lie_indices[1]
+        init_indices = r_indices[1], r_indices[1] + S[XI].shape[0]
+        unsafe_indices = init_indices[1], init_indices[1] + S[XU].shape[0]
+        label_order = [XD, XR, XI, XU]
+        samples = torch.cat([S[label] for label in label_order if label in S])
         samples = torch.cat([s for s in S.values()])
 
         if f_torch:
@@ -1247,17 +1267,20 @@ class SafeROA(Certificate):
                 samples_dot = f_torch(samples)
 
             # This seems slightly faster
-            V, Vdot, circle = lyap_learner.get_all(samples, samples_dot)
+            V, Vdot, circle = lyap_learner.get_all(
+                samples[r_indices[0] : r_indices[1]],
+                samples_dot[r_indices[0] : r_indices[1]],
+            )
             B, Bdot, _ = barrier_learner.get_all(samples, samples_dot)
             (
                 B_d,
                 Bdot_d,
             ) = (
-                B[:i1],
-                Bdot[:i1],
+                B[lie_indices[0] : lie_indices[1]],
+                Bdot[lie_indices[0] : lie_indices[1]],
             )
-            B_i = B[i1 : i1 + i2]
-            B_u = B[i1 + i2 :]
+            B_i = B[init_indices[0] : init_indices[1]]
+            B_u = B[unsafe_indices[0] : unsafe_indices[1]]
 
             lyap_loss, lyap_acc = self.ROA.compute_loss(V, Vdot, circle)
             b_loss, barr_acc = self.barrier.compute_loss(B_i, B_u, B_d, Bdot_d)
@@ -1269,14 +1292,13 @@ class SafeROA(Certificate):
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 print_loss_acc(t, loss, accuracy, lyap_learner.verbose)
 
-            if accuracy["acc init unsafe"] == 100 and accuracy["acc belt"] >= 99.9:
-                condition = True
-            else:
-                condition = False
-
-            if condition and condition_old:
+            if (
+                t > 1
+                and accuracy["acc"] == 100
+                and accuracy["acc init unsafe"] == 100
+                and accuracy["acc belt"] >= 99.9
+            ):
                 break
-            condition_old = condition
 
             loss.backward()
             optimizer.step()
@@ -1302,19 +1324,20 @@ class SafeROA(Certificate):
         for cs in (*lyap_cs, *barrier_cs):
             yield cs
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
         assert domain_labels == set([XD, XI, XU])
-        assert data_labels == set([XD, XI, XU])
+        assert data_labels == set([XD, XI, XU]) or data_labels == set([XD, XI, XU, XR])
 
 
 class ReachAvoidRemain(Certificate):
     def __init__(self, domains, config: CegisConfig) -> None:
         self.domains = domains
-        self.bias = True, True
         self.RWS = RWS(domains, config)
         self.barrier = Barrier._for_goal_final(domains, config)
+        self.bias = self.RWS.bias, self.barrier.bias
 
     def learn(
         self,
@@ -1332,8 +1355,8 @@ class ReachAvoidRemain(Certificate):
         :return: --
         """
         assert len(S) == len(Sdot)
-        rws_learner = learner[0]
-        barrier_learner = learner[1]
+        rws_learner = learner[0]  # lyap_learner
+        barrier_learner = learner[1]  # barrier_learner
 
         learn_loops = 1000
         condition_old = False
@@ -1346,10 +1369,10 @@ class ReachAvoidRemain(Certificate):
         )
 
         final_indices = goal_indices[1], goal_indices[1] + S[XF].shape[0]
+        nonfinal_indices = final_indices[1], final_indices[1] + S[XNF].shape[0]
 
-        label_order = [XD, XI, XU, XG, XF]
+        label_order = [XD, XI, XU, XG, XF, XNF]
         samples = torch.cat([S[label] for label in label_order])
-        samples = torch.cat([s for s in S.values()])
 
         if f_torch:
             samples_dot = f_torch(samples)
@@ -1378,12 +1401,19 @@ class ReachAvoidRemain(Certificate):
 
             B, Bdot, _ = barrier_learner.get_all(samples, samples_dot)
             B_i = B[goal_indices[0] : goal_indices[1]]
-            B_u = B[final_indices[0] : final_indices[1]]
-            B_d = B[lie_indices[0] : lie_indices[1]]
-            Bdot_d = Bdot[lie_indices[0] : lie_indices[1]]
+            B_u = B[nonfinal_indices[0] : nonfinal_indices[1]]
+
+            # Ideally the final set is very similar to the goal set, so sometimes the belt set is empty
+            # as B is negative over it. So lets use data from the goal and nonfinal sets too (this seems to work well)
+            B_d = B[goal_indices[0] : nonfinal_indices[1]]
+            Bdot_d = Bdot[goal_indices[0] : nonfinal_indices[1]]
             b_loss, barr_acc = self.barrier.compute_loss(B_i, B_u, B_d, Bdot_d)
 
             loss = rws_loss + b_loss
+
+            if f_torch:
+                S_d = samples[: lie_indices[1]]
+                loss = loss + control.cosine_reg(S_d, samples_dot_d)
 
             barr_acc["acc goal final"] = barr_acc.pop("acc init unsafe")
 
@@ -1392,7 +1422,12 @@ class ReachAvoidRemain(Certificate):
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
                 print_loss_acc(t, loss, accuracy, rws_learner.verbose)
 
-            if accuracy["acc init unsafe"] == 100 and accuracy["acc belt"] >= 99.9:
+            if (
+                accuracy["acc init unsafe"] == 100
+                and accuracy["acc lie"] >= 100
+                and accuracy["acc goal final"] >= 100
+                and accuracy["acc belt"] >= 99.9
+            ):
                 condition = True
             else:
                 condition = False
@@ -1421,16 +1456,22 @@ class ReachAvoidRemain(Certificate):
         # XI -> XG, XU -> ~XF
         for cs in barrier_cs[:1]:
             cs[XG] = cs.pop(XI)
-            cs[XF] = cs.pop(XU)
+            cs[XNF] = cs.pop(XU)
+        for cs in barrier_cs[1:]:
+            cs[XF] = cs.pop(XD)
 
-        for cs in (*rwa_cs, *barrier_cs):
+        for cs in (
+            *rwa_cs,
+            *barrier_cs,
+        ):
             yield cs
 
-    def _assert_state(self, domains, data):
+    @staticmethod
+    def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XS, XS_BORDER, XG, XF])
-        assert data_labels == set([XD, XI, XU, XG, XF])
+        assert domain_labels == set([XD, XI, XS, XS_BORDER, XG, XF, XNF])
+        assert data_labels == set([XD, XI, XU, XG, XF, XNF])
 
 
 class DoubleCertificate(Certificate):
@@ -1463,6 +1504,37 @@ class DoubleCertificate(Certificate):
         cert2_cs = self.certificate2.get_constraints(verifier, C2, Cdot2)
         for cs in (*cert1_cs, *cert2_cs):
             yield cs
+
+
+class AutoSets:
+    """Class for automatically handing sets for certificates"""
+
+    def __init__(self, XD, certificate: CertificateType) -> None:
+        self.XD = XD
+        self.certificate = certificate
+
+    def auto(self) -> (dict, dict):
+        if self.certificate == CertificateType.LYAPUNOV:
+            return self.auto_lyap()
+        elif self.certificate == CertificateType.ROA:
+            self.auto_roa(self.sets)
+        elif self.certificate == CertificateType.BARRIER:
+            self.auto_barrier(self.sets)
+        elif self.certificate == CertificateType.BARRIERALT:
+            self.auto_barrier_alt(self.sets)
+        elif self.certificate == CertificateType.RWS:
+            self.auto_rws(self.sets)
+        elif self.certificate == CertificateType.RSWS:
+            self.auto_rsws(self.sets)
+        elif self.certificate == CertificateType.STABLESAFE:
+            self.auto_stablesafe(self.sets)
+        elif self.certificate == CertificateType.RAR:
+            self.auto_rar(self.sets)
+
+    def auto_lyap(self) -> None:
+        domains = {XD: self.XD}
+        data = {XD: self.XD._generate_data(1000)}
+        return domains, data
 
 
 def get_certificate(certificate: CertificateType) -> Type[Certificate]:
