@@ -57,6 +57,7 @@ class LearnerNN(nn.Module, Learner):
         ZaZ = config.FACTORS  # kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
         self.factor = QuadraticFactor() if ZaZ == LearningFactors.QUADRATIC else None
         self.layers = []
+        self._take_abs = config.LLO and not self.is_final_polynomial()
         self.beta = None
         k = 1
 
@@ -72,7 +73,7 @@ class LearnerNN(nn.Module, Learner):
             # last layer
         layer = nn.Linear(n_prev, 1, bias=bias)
         # last layer of ones
-        if config.LLO:
+        if config.LLO and not self._take_abs:
             layer.weight = torch.nn.Parameter(torch.ones(layer.weight.shape))
             self.layers.append(layer)
         else:  # free output layer
@@ -83,6 +84,7 @@ class LearnerNN(nn.Module, Learner):
         if config.LLO and not self.is_positive_definite():
             raise RuntimeError("LLO set but function is not positive definite")
         self.learn_method = learn_method
+        self._type = config.CERTIFICATE.name
 
     # backprop algo
     @timer(T)
@@ -106,6 +108,11 @@ class LearnerNN(nn.Module, Learner):
             # I think this could actually still pass xdot_func, since there's no pytorch parameters to learn
         )
 
+    def make_final_layer_positive(self):
+        """Makes the last layer of the neural network positive definite."""
+        with torch.no_grad():
+            self.layers[-1].weight.data = torch.abs(self.layers[-1].weight.data)
+
     def get_all(
         self, S: torch.Tensor, Sdot: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -126,8 +133,16 @@ class LearnerNN(nn.Module, Learner):
             z = layer(y)
             y = activation(self.acts[idx], z)
 
-        nn = self.layers[-1](y)
-        return nn
+        y = self.layers[-1](y)[:, 0]
+        return y
+
+    def freeze(self):
+        """Freezes the parameters of the neural network by setting requires_grad to False."""
+
+        for param in self.parameters():
+            if not param.requires_grad:
+                break
+            param.requires_grad = False
 
     def compute_net_gradnet(self, S: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Computes the value of the neural network and its gradient.
@@ -264,6 +279,7 @@ class LearnerNN(nn.Module, Learner):
         layers = self.layers
         pd_acts = [
             ActivationType.RELU,
+            ActivationType.SOFTPLUS,
             ActivationType.SQUARE,
             ActivationType.COSH,
             ActivationType.SIGMOID,
@@ -273,6 +289,13 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.EVEN_POLY_10,
         ]
         return (activations[-1] in pd_acts) and (layers[-1].bias is None)
+
+    def is_final_polynomial(self):
+        """Checks if the final layer is a polynomial"""
+        act = self.acts[-1].name
+        # Shortcut rather than listing all polynomial activations
+        poly_names = "POLY", "SQUARE"
+        return any([poly_name in act for poly_name in poly_names])
 
     def clean(self):
         """Prepares object for pickling by removing unpicklable attributes."""

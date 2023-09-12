@@ -22,7 +22,11 @@ def worker_Q(cegis_config, id, queue, base_seed=0):
     result = c.solve()
     print(result)
     # Remove the functions & symbolic vars from the result to avoid pickling errors
-    result.cert.clean()
+    if isinstance(result.cert, tuple):
+        result.cert[0].clean()
+        result.cert[1].clean()
+    else:
+        result.cert.clean()
     result.f.clean()
     success = result.res
     if success:

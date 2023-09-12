@@ -30,6 +30,8 @@ b3_succ = 5
 
 
 class Barr3Init(domains.Set):
+    dimension = 2
+
     def generate_domain(self, v):
         x, y = v
         f = self.set_functions(v)
@@ -57,6 +59,8 @@ class Barr3Init(domains.Set):
 
 
 class Barr3Unsafe(domains.Set):
+    dimension = 2
+
     def generate_domain(self, v):
         x, y = v
         f = self.set_functions(v)
@@ -84,6 +88,8 @@ class Barr3Unsafe(domains.Set):
 
 
 class Barr1Unsafe(domains.Set):
+    dimension = 2
+
     def generate_domain(self, v):
         x, y = v
         return x + y**2 <= 0

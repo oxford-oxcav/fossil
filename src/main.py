@@ -1,5 +1,6 @@
 import timeit
 import argparse
+import warnings
 
 import torch
 
@@ -72,12 +73,12 @@ def run_benchmark(
 
         if plot:
             if cegis_options.N_VARS != 2:
-                raise NotImplementedError(
-                    "Plotting is only supported for 2-dimensional problems"
+                warnings.warn("Plotting is only supported for 2-dimensional problems")
+            else:
+                plotting.benchmark(
+                    result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
                 )
-            plotting.benchmark(
-                result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
-            )
+
         if record:
             rec = analysis.Recorder()
             rec.record(cegis_options, result, T)

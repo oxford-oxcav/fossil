@@ -15,23 +15,17 @@ from src.consts import *
 def test_lnn(args):
     n_vars = 2
 
-    system = models.Linear1LQR
-    batch_size = 500
+    system = models.SecondOrderLQR
 
-    XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
-    XS = domains.Rectangle([-1, -1], [1, 1])
-    XI = domains.Rectangle([-0.5, -0.5], [0.5, 0.5])
+    XD = domains.Rectangle([-3.5, -3.5], [3.5, 3.5])
+    XS = domains.Rectangle([-3, -3], [3, 3])
+    XI = domains.Rectangle([-2, -2], [2, 2])
     XG = domains.Rectangle([-0.1, -0.1], [0.1, 0.1])
-    XF = domains.Rectangle([-0.4, -0.4], [0.4, 0.4])
+    XF = domains.Rectangle([-0.15, -0.15], [0.15, 0.15])
 
     SU = domains.SetMinus(XD, XS)  # Data for unsafe set
     SD = domains.SetMinus(XS, XG)  # Data for lie set
-    SU2 = domains.SetMinus(XD, XF)
-    from matplotlib import pyplot as plt
-
-    # S = SU2.generate_data(1000)
-    # plt.plot(S[:, 0], S[:, 1], "x")
-    # plt.show()
+    SNF = domains.SetMinus(XD, XF)
 
     sets = {
         "lie": XD,
@@ -42,19 +36,20 @@ def test_lnn(args):
         "final": XF,
     }
     data = {
-        "lie": SD._generate_data(batch_size),
+        "lie": XD._generate_data(500),
         "init": XI._generate_data(500),
-        "unsafe": SU._generate_data(1000),
-        "goal": XG._generate_data(300),
-        "final": SU2._generate_data(100),
+        "unsafe": SU._generate_data(500),
+        "goal": XG._generate_data(500),
+        "final": XF._generate_data(500),
+        "not_final": SNF._generate_data(500),
     }
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [4] * len(activations)
+    n_hidden_neurons = [6] * len(activations)
 
-    activations_alt = [ActivationType.POLY_4]
-    n_hidden_neurons_alt = [4] * len(activations_alt)
+    activations_alt = [ActivationType.SQUARE]
+    n_hidden_neurons_alt = [6] * len(activations_alt)
 
     opts = CegisConfig(
         DOMAINS=sets,
@@ -70,14 +65,17 @@ def test_lnn(args):
         N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         CEGIS_MAX_ITERS=100,
         SYMMETRIC_BELT=False,
+        # VERBOSE=False,
     )
 
     main.run_benchmark(
         opts,
         record=args.record,
-        plot=True,
+        plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,
+        # xrange=[-0.2, 0.2],
+        # yrange=[-0.2, 0.2],
     )
 
 
