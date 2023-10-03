@@ -18,43 +18,54 @@ def test_lnn(args):
     ol_system = models.InvertedPendulum
     system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
-    batch_size = 500
-
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.01, -0.01], [0.01, 0.01])
+    XD = domains.Rectangle([-3.5, -3.5], [3.5, 3.5])
+    XS = domains.Rectangle([-3, -3], [3, 3])
+    XI = domains.Rectangle([-2, -2], [2, 2])
+    XG = domains.Rectangle([-0.1, -0.1], [0.1, 0.1])
+    XF = domains.Rectangle([-0.2, -0.2], [0.2, 0.2])
 
     SU = domains.SetMinus(XD, XS)  # Data for unsafe set
     SD = domains.SetMinus(XS, XG)  # Data for lie set
+    SNF = domains.SetMinus(XD, XF)
+
     sets = {
         "lie": XD,
         "init": XI,
         "safe_border": XS,
         "safe": XS,
         "goal": XG,
+        "final": XF,
     }
     data = {
-        "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
-        "unsafe": SU._generate_data(1000),
+        "lie": XD._generate_data(500),
+        "init": XI._generate_data(500),
+        "unsafe": SU._generate_data(500),
+        "goal": XG._generate_data(500),
+        "final": XF._generate_data(500),
+        "not_final": SNF._generate_data(500),
     }
 
     # define NN parameters
-    activations = [ActivationType.SIGMOID]
-    n_hidden_neurons = [5] * len(activations)
+    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    n_hidden_neurons = [6] * len(activations)
+
+    activations_alt = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    n_hidden_neurons_alt = [6] * len(activations_alt)
 
     opts = CegisConfig(
         DOMAINS=sets,
         DATA=data,
         SYSTEM=system,
         N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWS,
+        CERTIFICATE=CertificateType.RAR,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
-        CEGIS_MAX_ITERS=25,
+        ACTIVATION_ALT=activations_alt,
+        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
+        CEGIS_MAX_ITERS=100,
+        SYMMETRIC_BELT=False,
         CTRLAYER=[8, 2],
         CTRLACTIVATION=[ActivationType.LINEAR],
     )
@@ -65,6 +76,8 @@ def test_lnn(args):
         plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,
+        xrange=[-3.1, 3.1],
+        yrange=[-3.1, 3.1],
     )
 
 

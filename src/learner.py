@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Callable, Literal
+import warnings
 
 import numpy as np
 import torch
@@ -82,7 +83,7 @@ class LearnerNN(nn.Module, Learner):
                 self.register_parameter("b" + str(k), layer.bias)
             self.layers.append(layer)
         if config.LLO and not self.is_positive_definite():
-            raise RuntimeError("LLO set but function is not positive definite")
+            warnings.warn("LLO set but function is not positive definite")
         self.learn_method = learn_method
         self._type = config.CERTIFICATE.name
 

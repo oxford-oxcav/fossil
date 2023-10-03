@@ -9,6 +9,8 @@
 
 from experiments.benchmarks import models
 from src import main
+from src import plotting
+from src import cegis
 import src.domains as domains
 import src.certificate as certificate
 from src.consts import *
@@ -56,15 +58,48 @@ def test_lnn(args):
         LLO=True,
     )
 
-    main.run_benchmark(
-        opts,
-        record=args.record,
-        plot=True,
-        concurrent=args.concurrent,
-        repeat=args.repeat,
+    c = cegis.Cegis(opts)
+    result = c.solve()
+    # plotting.benchmark(result.f, result.cert, domains=sets)
+    plotting.benchmark_plane(
+        result.f,
+        [result.cert],
+        domains=sets,
+        levels=[[result.cert.beta]],
+        xrange=[-2, 2],
+        yrange=[-2, 2],
     )
+
+    XD = domains.Torus([0, 0], 1, 0.01)
+
+    sets = {
+        certificate.XD: XD,
+    }
+    data = {
+        certificate.XD: XD._generate_data(batch_size),
+    }
+    torch.manual_seed(167)
+
+    opts = CegisConfig(
+        N_VARS=n_vars,
+        SYSTEM=system,
+        DOMAINS=sets,
+        DATA=data,
+        CERTIFICATE=CertificateType.LYAPUNOV,
+        TIME_DOMAIN=TimeDomain.CONTINUOUS,
+        VERIFIER=VerifierType.DREAL,
+        ACTIVATION=[ActivationType.SQUARE],
+        N_HIDDEN_NEURONS=n_hidden_neurons,
+        CEGIS_MAX_ITERS=25,
+        LLO=True,
+    )
+    c = cegis.Cegis(opts)
+    result = c.solve()
+    plotting.certificate_countour(result.cert, levels=[result.cert.beta])
+    plotting.show()
 
 
 if __name__ == "__main__":
     args = main.parse_benchmark_args()
+    torch.manual_seed(167)
     test_lnn(args)

@@ -111,7 +111,6 @@ class Verifier(Component):
         # translator default returns V and Vdot
         return self.verify(kw[CegisStateKeys.V], kw[CegisStateKeys.V_dot])
 
-    @timer(T)
     def verify(self, C, dC):
         """
         :param C: z3 expr
@@ -193,6 +192,7 @@ class Verifier(Component):
                 square_constr += [x <= domain[idx][1]]
         return square_constr
 
+    @timer(T)
     def solve_with_timeout(self, solver, fml):
         """
         :param fml:

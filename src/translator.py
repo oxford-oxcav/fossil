@@ -11,6 +11,7 @@ from typing import Literal, Tuple, Union
 import numpy as np
 import sympy as sp
 import torch
+import z3
 
 
 import src.learner as learner
@@ -52,7 +53,7 @@ class TranslatorNN(Component):
     def get(self, **kw):
         # to disable rounded numbers, set rounding=-1
         net = kw.get(CegisStateKeys.net)
-        fcts = kw.get(CegisStateKeys.factors)
+        fcts = self.config.FACTORS
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(net, self.x, self.xdot, lf=fcts)
 
@@ -155,7 +156,7 @@ class TranslatorCT(TranslatorNN):
                     b = layer.bias.data.numpy()[:, None]
                 else:
                     b = np.zeros((layer.out_features, 1))
-            elif self.round > 0:
+            elif self.round >= 0:
                 w = np.round(layer.weight.data.numpy(), self.round)
                 if layer.bias is not None:
                     b = np.round(layer.bias.data.numpy(), self.round)[:, None]

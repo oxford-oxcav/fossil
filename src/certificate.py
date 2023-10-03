@@ -196,9 +196,9 @@ class Lyapunov(Certificate):
 
         if self.llo:
             # V is positive definite by construction
-            lyap_negated = Vdot > 0
+            lyap_negated = Vdot >= 0
         else:
-            lyap_negated = _Or(V <= 0, Vdot > 0)
+            lyap_negated = _Or(V <= 0, Vdot >= 0)
         lyap_condition = _And(self.domain, lyap_negated)
         for cs in ({XD: lyap_condition},):
             yield cs

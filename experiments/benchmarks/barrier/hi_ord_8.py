@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import numpy as np
 
 from experiments.benchmarks import models
 from src import domains
@@ -15,21 +14,22 @@ from src.consts import *
 
 
 def test_lnn(args):
-    batch_size = 1000
-    open_loop = models.CtrlObstacleAvoidance
+    batch_size = 3000
+    f = models.HighOrd8
+    n_vars = f.n_vars
 
-    XD = domains.Rectangle(lb=[-10.0, -10.0, -np.pi], ub=[10.0, 10.0, np.pi])
-    XI = domains.Rectangle(lb=[4.0, 4.0, -np.pi / 2], ub=[6.0, 6.0, np.pi / 2])
-    XU = domains.Rectangle(lb=[-9, -9, -np.pi / 2], ub=[-7.0, -6.0, np.pi / 2])
-    lowers = [-0.05, -0.05, -0.05]
-    uppers = [0.05, 0.05, 0.05]
-
-    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
-
+    XD = domains.Rectangle([-2.2] * n_vars, [2.2] * n_vars)
+    # XD = domains.Sphere([0] * n_vars, 2)
+    XI = domains.Rectangle([0.9] * n_vars, [1.1] * n_vars)
+    # XI = domains.Sphere([1] * n_vars, 0.1)
+    XU = domains.Rectangle([-2.2] * n_vars, [-1.8] * n_vars)
+    # XU = domains.Sphere([-2] * n_vars, 0.2)
     sets = {
         certificate.XD: XD,
         certificate.XI: XI,
+        # certificate.XS_BORDER: XS,
         certificate.XU: XU,
+        # certificate.XG: XG,
     }
     data = {
         certificate.XD: XD._generate_data(batch_size),
@@ -37,35 +37,25 @@ def test_lnn(args):
         certificate.XU: XU._generate_data(batch_size),
     }
 
-    ###############################
-    #
-    ###############################
-
-    # using trajectory control
-    n_vars = 3
-
     # define NN parameters
-    barr_activations = [ActivationType.TANH]
-    barr_hidden_neurons = [15] * len(barr_activations)
-
-    # ctrl params
-    n_ctrl_inputs = 1
+    activations = [ActivationType.LINEAR]
+    n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(
-        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
+        SYSTEM=f,
         N_VARS=n_vars,
         CERTIFICATE=CertificateType.BARRIER,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.DREAL,
-        ACTIVATION=barr_activations,
-        N_HIDDEN_NEURONS=barr_hidden_neurons,
-        CTRLAYER=[5, n_ctrl_inputs],
-        CTRLACTIVATION=[ActivationType.TANH],
-        SYMMETRIC_BELT=True,
+        VERIFIER=VerifierType.Z3,
+        ACTIVATION=activations,
+        N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        SYMMETRIC_BELT=True,
+        VERBOSE=True,
     )
+
     main.run_benchmark(
         opts,
         record=args.record,

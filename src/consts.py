@@ -110,7 +110,7 @@ class CegisConfig:
     N_VARS: int = 0
     N_HIDDEN_NEURONS: tuple[int] = (10,)
     ACTIVATION: tuple[ActivationType, ...] = (ActivationType.SQUARE,)
-    VERBOSE: bool = True
+    VERBOSE: bool = False
     ENET: Any = None
     CTRLAYER: tuple[int] = None  # not None means control certificate
     CTRLACTIVATION: tuple[ActivationType, ...] = None
@@ -172,8 +172,21 @@ ACTIVATION_NAMES = {
     ActivationType.EVEN_POLY_8: "$\\varphi_{8}$",
     ActivationType.EVEN_POLY_10: "$\\varphi_{10}$",
     ActivationType.RATIONAL: "$\\varphi_{rat}$",
-    ActivationType.TANH: "$tanh$",
-    ActivationType.SIGMOID: "$sigmoid$",
-    ActivationType.SOFTPLUS: "$softplus$",
+    ActivationType.TANH: "$\\sigma_{\\mathrm{t}}$",
+    ActivationType.SIGMOID: "$\\sigma_{\\mathrm{sig}}$",
+    ActivationType.SOFTPLUS: "$\\sigma_{\\mathrm{soft}}$",
     ActivationType.COSH: "$cosh$",
+}
+
+PROPERTIES = {
+    CertificateType.LYAPUNOV: "Stability",
+    CertificateType.ROA: "ROA",
+    CertificateType.BARRIER: "Safety",
+    CertificateType.BARRIERALT: "Safety",
+    CertificateType.RAR: "RAR",
+    CertificateType.RWA: "RWA",
+    CertificateType.RSWA: "RSWA",
+    CertificateType.RWS: "RWA",
+    CertificateType.RSWS: "RSWA",
+    CertificateType.STABLESAFE: "SWA",
 }

@@ -95,6 +95,8 @@ def test_lnn(args):
         plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,
+        xrange=[-2, 2],
+        yrange=[-2, 2],
     )
 
 

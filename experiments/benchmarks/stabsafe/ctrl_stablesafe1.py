@@ -47,6 +47,8 @@ def test_lnn(args):
     # define NN parameters
     activations = [ActivationType.SQUARE]
     n_hidden_neurons = [8] * len(activations)
+    activations_alt = [ActivationType.SQUARE]
+    n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(
         DOMAINS=sets,
@@ -58,6 +60,8 @@ def test_lnn(args):
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        ACTIVATION_ALT=activations_alt,
+        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         CEGIS_MAX_ITERS=25,
         CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],

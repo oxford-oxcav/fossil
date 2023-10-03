@@ -13,7 +13,7 @@ from collections import namedtuple
 import pandas as pd
 
 
-from src.consts import CegisConfig, CertificateType, ACTIVATION_NAMES
+from src.consts import CegisConfig, CertificateType, ACTIVATION_NAMES, PROPERTIES
 from src import certificate
 
 
@@ -67,7 +67,7 @@ HEADER = [
 
 def ratio(x):
     """Returns ratio of True to False values in x."""
-    return x.sum() / x.count()
+    return int(100 * x.sum() / x.count())
 
 
 def _get_model_name(model):
@@ -81,6 +81,10 @@ def _get_model_name(model):
 
 def get_activations(acts):
     return "[" + ",".join([ACTIVATION_NAMES[act] for act in acts]) + "]"
+
+
+def get_property_from_certificate(certificate):
+    return PROPERTIES[certificate]
 
 
 class CSVWriter:
@@ -177,10 +181,10 @@ class Recorder:
             alt_act = None
 
         latex = benchmark_to_latex(config)
-        domains = domains_to_string(config.DOMAINS)
+        domains = domains_to_string(config)
 
         result = [
-            config.CERTIFICATE.name,
+            get_property_from_certificate(config.CERTIFICATE),
             config.N_VARS,
             N_u,
             result.res,
@@ -238,12 +242,14 @@ class Analyser:
         df["Alt_Activations"].replace({"_": "\_"}, inplace=True, regex=True)
 
         df["Activations"] = df["Activations"] + ", " + df["Alt_Activations"].fillna("")
+        df["Neurons"] = df["Neurons"] + ", " + df["Alt_Neurons"].fillna("")
         df["Certificate"] = df["Certificate"].str.replace("RWS", "RWA")
         df["Certificate"] = df["Certificate"].str.replace("RSWS", "RSWA")
 
         # grouped = df.groupby(["Benchmark_file"])
         vals = [
             "Total_Time",
+            "Learner_Time",
             "Result",
         ]
         ind = [
@@ -260,18 +266,25 @@ class Analyser:
             df,
             values=vals,
             index=ind,
-            aggfunc={"Total_Time": ["min", "mean", "max"], "Result": ratio},
+            aggfunc={
+                "Total_Time": ["min", "mean", "max"],
+                "Learner_Time": ["min", "mean", "max"],
+                "Result": ratio,
+            },
             sort=False,
         )
 
         table.rename(
             {
-                "Total_Time": "$T$",
-                "Width": "$N$",
+                "Total_Time": "$T$ (s)",
+                "Learner_Time": "$T_L$ (s)",
+                "Neurons": "$W$",
                 "mean": "$\mu$",
                 "min": "$\min$",
                 "max": "$\max$",
                 "ratio": "$R$",
+                "Certificate": "Property",
+                "Result": "Successful (\%)",
             },
             axis=1,
             inplace=True,
@@ -280,6 +293,13 @@ class Analyser:
         table.index = table.index + 1
         df_to_latex(table, None)
         table.drop(["latex", "Model", "domains"], axis=1, inplace=True)
+        table["$T$ (s)"] = (
+            table["$T$ (s)"].round(2).astype(str)
+            + " ("
+            + table["$T_L$ (s)"].round(2).astype(str)
+            + ")"
+        )
+        table.drop(["$T_L$ (s)"], axis=1, inplace=True)
         print(table)
 
         if self.output_type == "tex":
@@ -300,8 +320,7 @@ def benchmark_to_latex(config: CegisConfig):
     """Convert a benchmark to latex format.
 
     Args:
-        model (str): name of model
-        domains (list): list of domains
+        config (CegisConfig): cegis config
 
     Returns:
         str: latex string
@@ -315,63 +334,93 @@ def benchmark_to_latex(config: CegisConfig):
     domains = config.DOMAINS
     cert = config.CERTIFICATE
     if cert == CertificateType.LYAPUNOV:
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
     elif cert == CertificateType.ROA:
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
     elif cert in (CertificateType.BARRIER, CertificateType.BARRIERALT):
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
-        s += "XU: {} ".format(domains[certificate.XU].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
+        s += "XU: {} ".format(domains[certificate.XU].to_latex()) + "\\n"
     elif cert == CertificateType.RWS:
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
-        s += "XS: {} ".format(domains[certificate.XS].to_latex())
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
-        s += "XG: {} ".format(domains[certificate.XG].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XS: {} ".format(domains[certificate.XS].to_latex()) + "\\n"
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
+        s += "XG: {} ".format(domains[certificate.XG].to_latex()) + "\\n"
     elif cert == CertificateType.RSWS:
-        s += "XD: {}  ".format(domains[certificate.XD].to_latex())
-        s += "XS: {} ".format(domains[certificate.XS].to_latex())
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
-        s += "XG: {} ".format(domains[certificate.XG].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XS: {} ".format(domains[certificate.XS].to_latex()) + "\\n"
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
+        s += "XG: {} ".format(domains[certificate.XG].to_latex()) + "\\n"
     elif cert == CertificateType.STABLESAFE:
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
-        s += "XU: {} ".format(domains[certificate.XU].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
+        s += "XU: {} ".format(domains[certificate.XU].to_latex()) + "\\n"
     elif cert == CertificateType.RAR:
-        s += "XD: {} ".format(domains[certificate.XD].to_latex())
-        s += "XS: {} ".format(domains[certificate.XS].to_latex())
-        s += "XI: {} ".format(domains[certificate.XI].to_latex())
-        s += "XG: {} ".format(domains[certificate.XG].to_latex())
-        s += "XF: {} ".format(domains[certificate.XF].to_latex())
+        s += "XD: {} ".format(domains[certificate.XD].to_latex()) + "\\n"
+        s += "XS: {} ".format(domains[certificate.XS].to_latex()) + "\\n"
+        s += "XI: {} ".format(domains[certificate.XI].to_latex()) + "\\n"
+        s += "XG: {} ".format(domains[certificate.XG].to_latex()) + "\\n"
+        s += "XF: {} ".format(domains[certificate.XF].to_latex()) + "\\n"
 
     # Add activations, alt activations, control
-    s += "\\n Activation: {}, Neurons: {}".format(
+    s += "\\nActivation: {}, Neurons: {}".format(
         get_activations(config.ACTIVATION), config.N_HIDDEN_NEURONS
     )
     if cert in (CertificateType.STABLESAFE, CertificateType.RAR):
+        s += "\\n"
         s += "AltActivation: {}, AltNeurons: {}".format(
             get_activations(config.ACTIVATION_ALT), config.N_HIDDEN_NEURONS_ALT
         )
     if config.CTRLAYER is not None:
+        s += "\\n"
         s += "CTRLActivation: {}, Neurons: {}".format(
             get_activations(config.CTRLACTIVATION), config.CTRLAYER
         )
     return s
 
 
-def domains_to_string(domains: dict):
+def domains_to_string(config: CegisConfig):
     """Convert a list of domains to a string.
 
     Args:
-        domains (list): list of domains
+        domains (dict[str, Any]): domains
 
     Returns:
         str: string representation of domains
     """
     s = ""
+    model = config.SYSTEM
+    try:
+        s += "$" + model().to_latex() + "$" + " \\n \\n "
+    except TypeError:
+        s += model(None).open_loop.to_latex() + " \\n \\n "
+    domains = config.DOMAINS
+    cert = config.CERTIFICATE
     for lab, dom in domains.items():
         if lab not in certificate.BORDERS:
-            s += "{}: {} ".format(lab, dom.__repr__())
+            s += "${}: {} $\\n".format(lab, dom.__repr__()) + "\\n"
+            s = s.replace("lie", "XD")
+            s = s.replace("init", "XI")
+            s = s.replace("unsafe", "XU")
+            s = s.replace("safe", "XS")
+            s = s.replace("goal", "XG")
+            s = s.replace("final", "XF")
+
+        # Add activations, alt activations, control
+    s += "\\nActivation: {}, Neurons: {}".format(
+        get_activations(config.ACTIVATION), config.N_HIDDEN_NEURONS
+    )
+    if cert in (CertificateType.STABLESAFE, CertificateType.RAR):
+        s += "\\n"
+        s += "AltActivation: {}, AltNeurons: {}".format(
+            get_activations(config.ACTIVATION_ALT), config.N_HIDDEN_NEURONS_ALT
+        )
+    if config.CTRLAYER is not None:
+        s += "\\n"
+        s += "CTRLActivation: {}, Neurons: {}".format(
+            get_activations(config.CTRLACTIVATION), config.CTRLAYER
+        )
     return s
 
 
@@ -390,16 +439,13 @@ def df_to_latex(results_frame: pd.DataFrame, output_file: str):
     # s += "\\begin{document}\n"
 
     for index, row in df.iterrows():
-        benchmark = row["latex"].iloc[0]
+        benchmark = row["domains"].iloc[0]
         cert = row["Certificate"].iloc[0]
         model = row["Model"].iloc[0]
 
         benchmark = benchmark.replace("\\n", "\n")
-        s += "\\textbf{{ [{}] {} {} }}\n".format(index, model, cert)
-        string = "$$" + benchmark
-        i = string.find("Activation") - 3
-        string = string[:i] + "$$" + string[i:] + "\n\n"
-        s += string
+        s += "\\textbf{{ [{}] {} {} }}\n\n".format(index, model, cert)
+        s += benchmark + "\n\n"
 
     # s += "\\end{document}\n"
     with open("latex.tex", "w") as f:

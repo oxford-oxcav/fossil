@@ -275,10 +275,13 @@ def make_table():
     ]
 
     table.columns = table.columns.to_flat_index().str.join("_")
-    table["F1_Success"] = f1_df.iloc[:, 1].values / 10  # 10 runs for fossil 1
+    table = table.reindex(
+        columns=["Total_Time_min", "Total_Time_mean", "Total_Time_max", "Result_ratio"]
+    )
     table["F1_min"] = f1_df.iloc[:, 3].values
     table["F1_mean"] = f1_df.iloc[:, 2].values
     table["F1_max"] = f1_df.iloc[:, 4].values
+    table["F1_Success"] = 100 * f1_df.iloc[:, 1].values / 10  # 10 runs for fossil 1
     table.rename(
         {
             "Result_ratio": "F2_Success",

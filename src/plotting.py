@@ -48,8 +48,28 @@ def benchmark(
 
     ax3 = benchmark_lie(model, certificate, domains, levels, xrange, yrange)
     show()
+    # plotting lie does not work with concurrency. Something to do with autograd call and multiprocessing.
+    return (ax1, "plane"), (ax2, "surface")  # , (ax3, "Cdot")
 
-    return (ax1, "plane"), (ax2, "surface"), (ax3, "Cdot")
+
+def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
+    prop = config.CERTIFICATE.name
+    model = config.SYSTEM
+    seed = torch.initial_seed()
+    try:
+        name = model.__name__
+    except AttributeError:
+        name = type(model(None).open_loop).__name__
+
+    plot_name = f"model={name}_property={prop}_type={plot_type}_seed={seed}.pdf"
+    plot_name = "plots/" + plot_name
+    try:
+        fig = ax.get_figure()
+        fig.savefig(plot_name, bbox_inches="tight")
+    except AttributeError:
+        fig = ax[0].get_figure()
+        fig.savefig(plot_name, bbox_inches="tight")
+    plt.close(fig)
 
 
 def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
@@ -259,12 +279,13 @@ def certificate_countour(certificate, ax=None, levels=[0]):
     Z = ZT.detach().numpy().reshape(X.shape)
     levels.sort()
     CS = ax.contour(X, Y, Z, levels=levels, colors="black", linestyles="dashed")
-    ax.clabel(CS, inline=True, fontsize=10)
+    # ax.clabel(CS, inline=True, fontsize=10)
     return ax
 
 
 def add_legend(ax):
     """Add legend to the axis without duplicate labels."""
+    return ax
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), loc="upper right")

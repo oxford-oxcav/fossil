@@ -75,9 +75,11 @@ def run_benchmark(
             if cegis_options.N_VARS != 2:
                 warnings.warn("Plotting is only supported for 2-dimensional problems")
             else:
-                plotting.benchmark(
+                axes = plotting.benchmark(
                     result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
                 )
+                # for ax, name in axes:
+                #     plotting.save_plot_with_tags(ax, cegis_options, name)
 
         if record:
             rec = analysis.Recorder()
