@@ -8,6 +8,7 @@ import numpy as np
 import sympy as sp
 import torch
 import z3
+from cvc5 import pythonic as cvpy
 from matplotlib import pyplot as plt
 
 from src import control
@@ -18,6 +19,13 @@ Z3_FNCS = {
     "Or": z3.Or,
     "If": z3.If,
 }
+
+CVC5_FNCS = {
+    "And": cvpy.And,
+    "Or": cvpy.Or,
+    "If": cvpy.If,
+}
+
 DREAL_FNCS = {
     "sin": dreal.sin,
     "cos": dreal.cos,
@@ -52,6 +60,9 @@ class CTModel:
             return self.f_smt(v)
         elif contains_object(v, z3.ArithRef):
             self.fncs = Z3_FNCS
+            return self.f_smt(v)
+        elif contains_object(v, cvpy.ArithRef):
+            self.fncs = CVC5_FNCS
             return self.f_smt(v)
         elif contains_object(v, sp.Expr):
             self.fncs = SP_FNCS
@@ -144,6 +155,9 @@ class ControllableCTModel:
             return self.f_smt(v, u)
         elif contains_object(v, z3.ArithRef):
             self.fncs = Z3_FNCS
+            return self.f_smt(v, u)
+        elif contains_object(v, cvpy.ArithRef):
+            self.fncs = CVC5_FNCS
             return self.f_smt(v, u)
         elif contains_object(v, sp.Expr):
             self.fncs = SP_FNCS

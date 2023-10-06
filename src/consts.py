@@ -46,6 +46,7 @@ class LearnerType(Enum):
 class VerifierType(Enum):
     Z3 = auto()
     DREAL = auto()
+    CVC5 = auto()
     MARABOU = auto()
 
 

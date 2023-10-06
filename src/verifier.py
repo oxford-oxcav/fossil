@@ -421,7 +421,7 @@ class VerifierCVC5(Verifier):
         :param x: any
         :returns: True if Dreal compatible, else false
         """
-        return contains_object(x, cvpy.Arithref)
+        return contains_object(x, cvpy.ArithRef)
 
     @staticmethod
     def solver_fncts() -> Dict[str, Callable]:
@@ -461,7 +461,7 @@ class VerifierCVC5(Verifier):
         return res == cvpy.unsat
 
     def _solver_solve(self, solver, fml):
-        solver.add(fml)
+        solver.add(cvpy.simplify(fml))
         return solver.check()
 
     def _solver_model(self, solver, res):
@@ -574,6 +574,8 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         return VerifierDReal
     elif verifier == VerifierType.Z3:
         return VerifierZ3
+    elif verifier == VerifierType.CVC5:
+        return VerifierCVC5
     elif verifier == VerifierType.MARABOU:
         return VerifierMarabou
     else:
@@ -584,6 +586,7 @@ def get_verifier(verifier, n_vars, constraints_method, solver_vars, verbose):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
+        or verifier == VerifierCVC5
         or verifier == VerifierMarabou
     ):
         return verifier(n_vars, constraints_method, solver_vars, verbose)
