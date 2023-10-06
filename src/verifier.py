@@ -413,7 +413,11 @@ class VerifierCVC5(Verifier):
         return [cvpy.Real(base + str(i)) for i in range(n)]
 
     def new_solver(self):
-        return cvpy.Solver()
+        s = cvpy.Solver()
+        # set logic to QF_NRA. This step seems unnecessary but also seems to massively speed up cvc5.
+        # I think there must be better ways to interface with cvc5 but sticking with the z3 interface is most convenient for now
+        s.solver.setLogic("QF_NRA")
+        return s
 
     @staticmethod
     def check_type(x) -> bool:
