@@ -13,7 +13,7 @@ from mpl_toolkits.mplot3d import axes3d
 import mpl_toolkits.mplot3d.art3d as art3d
 from matplotlib import cm
 
-from src import consts
+from fossil import consts
 
 
 def show():
@@ -50,26 +50,6 @@ def benchmark(
     show()
     # plotting lie does not work with concurrency. Something to do with autograd call and multiprocessing.
     return (ax1, "plane"), (ax2, "surface")  # , (ax3, "Cdot")
-
-
-def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
-    prop = config.CERTIFICATE.name
-    model = config.SYSTEM
-    seed = torch.initial_seed()
-    try:
-        name = model.__name__
-    except AttributeError:
-        name = type(model(None).open_loop).__name__
-
-    plot_name = f"model={name}_property={prop}_type={plot_type}_seed={seed}.pdf"
-    plot_name = "plots/" + plot_name
-    try:
-        fig = ax.get_figure()
-        fig.savefig(plot_name, bbox_inches="tight")
-    except AttributeError:
-        fig = ax[0].get_figure()
-        fig.savefig(plot_name, bbox_inches="tight")
-    plt.close(fig)
 
 
 def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
@@ -239,7 +219,7 @@ def certificate_lie(certificate, model, ax=None, xrange=[-3, 3], yrange=[-3, 3])
     )[1]
     Z = ZT.detach().numpy()
     dx, dy = (
-        model.f_torch(torch.stack([XT.ravel(), YT.ravel()]).T.float())
+        model._f_torch(torch.stack([XT.ravel(), YT.ravel()]).T.float())
         .detach()
         .numpy()
         .T

@@ -5,9 +5,9 @@ import numpy as np
 import sympy as sp
 import torch
 
-from src import activations as activations
-from src import activations_symbolic as act_sym
-from src import consts
+from fossil import activations as activations
+from fossil import activations_symbolic as act_sym
+from fossil import consts
 
 
 class TestActivations(unittest.TestCase):

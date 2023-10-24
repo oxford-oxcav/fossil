@@ -10,10 +10,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from src.activations import activation
-from src.component import Component
-from src.consts import *
-from src.utils import Timer, timer
+from fossil.activations import activation
+from fossil.component import Component
+from fossil.consts import *
+from fossil.utils import Timer, timer
 
 T = Timer()
 

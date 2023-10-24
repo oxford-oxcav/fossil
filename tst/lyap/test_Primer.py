@@ -9,9 +9,9 @@ import numpy as np
 import sympy as sp
 import torch
 
-from src.primer import Primer
-from src.system import LinearSystem, NonlinearSystem
-from src.consts import PrimerMode
+from fossil.primer import Primer
+from fossil.system import LinearSystem, NonlinearSystem
+from fossil.consts import PrimerMode
 
 
 class TestPrimer(unittest.TestCase):

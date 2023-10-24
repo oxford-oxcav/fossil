@@ -8,10 +8,11 @@
 import pickle
 
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import control
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -25,7 +26,7 @@ def test_lnn(args):
 
     XD = domains.Torus([0.0, 0.0], outer, inner)
 
-    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+    system = control.GeneralClosedLoopModel.prepare_from_open(open_loop())
 
     sets = {
         certificate.XD: XD,

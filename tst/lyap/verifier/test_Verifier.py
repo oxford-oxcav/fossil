@@ -10,9 +10,9 @@ import unittest
 
 from z3 import Reals
 
-import src.verifier as verifier
-import src.certificate as certificate
-from src.consts import CegisConfig
+import fossil.verifier as verifier
+import fossil.certificate as certificate
+from fossil.consts import CegisConfig
 
 
 class SimplifierTest(unittest.TestCase):

@@ -1,4 +1,4 @@
-from src import control
+from fossil import control
 import numpy as np
 import sympy as sp
 import unittest

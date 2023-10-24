@@ -10,6 +10,10 @@ from enum import Enum, auto
 from typing import Any, Literal
 
 import torch
+import z3
+import dreal
+import numpy as np
+import sympy as sp
 
 
 class ActivationType(Enum):
@@ -75,6 +79,26 @@ class PrimerMode(Enum):
     LYAPUNOV = auto()
 
 
+class DomainNames(Enum):
+    XD = "lie"
+    XU = "unsafe"
+    XI = "init"
+    XG = "goal"
+    XG_BORDER = "goal_border"
+    XF = "final"
+    XS = "safe"
+    XS_BORDER = "safe_border"
+    XNF = "not_final"
+    XR = "region"
+
+    @classmethod
+    def border_sets(cls):
+        return {
+            cls.XS: cls.XS_BORDER,
+            cls.XG: cls.XG_BORDER,
+        }
+
+
 class CertificateType(Enum):
     BARRIER = auto()
     BARRIERALT = auto()
@@ -86,6 +110,53 @@ class CertificateType(Enum):
     RSWS = auto()
     STABLESAFE = auto()
     RAR = auto()
+
+    @classmethod
+    def get_certificate_sets(
+        cls, certificate_type
+    ) -> tuple[list[DomainNames], list[DomainNames]]:
+        dn = DomainNames
+        if certificate_type == CertificateType.LYAPUNOV:
+            domains = [dn.XD]
+            data = [dn.XD]
+        elif certificate_type == CertificateType.BARRIER:
+            domains = [dn.XD, dn.XI, dn.XU]
+            data = [dn.XD, dn.XI, dn.XU]
+        elif certificate_type == CertificateType.BARRIERALT:
+            domains = [dn.XD, dn.XI, dn.XU]
+            data = [dn.XD, dn.XI, dn.XU]
+        elif certificate_type == CertificateType.ROA:
+            domains = [dn.XD, dn.XI]
+            data = [dn.XD, dn.XI]
+        elif certificate_type in (CertificateType.RWS, CertificateType.RWA):
+            domains = [dn.XD, dn.XI, dn.XS, dn.XS_BORDER, dn.XG]
+            data = [dn.XD, dn.XI, dn.XU]
+        elif certificate_type in (CertificateType.RSWS, CertificateType.RSWA):
+            domains = [dn.XD, dn.XI, dn.XS, dn.XS_BORDER, dn.XG, dn.XG_BORDER]
+            data = [dn.XD, dn.XI, dn.XU, dn.XS, dn.XG, dn.XG_BORDER]
+        elif certificate_type == CertificateType.STABLESAFE:
+            domains = [dn.XD, dn.XI, dn.XU]
+            data = [dn.XD, dn.XI, dn.XU]
+        elif certificate_type == CertificateType.RAR:
+            domains = [dn.XD, dn.XI, dn.XS, dn.XS_BORDER, dn.XG, dn.XF]
+            data = [dn.XD, dn.XI, dn.XU, dn.XG, dn.XF, dn.XNF]
+        return domains, data
+
+    @classmethod
+    def get_required_borders(cls, certificate_type) -> dict[DomainNames, DomainNames]:
+        if certificate_type in (CertificateType.RWS, CertificateType.RWA):
+            return {DomainNames.XS: DomainNames.XS_BORDER}
+        elif certificate_type in (CertificateType.RSWS, CertificateType.RSWA):
+            return {
+                DomainNames.XS: DomainNames.XS_BORDER,
+                DomainNames.XG: DomainNames.XG_BORDER,
+            }
+        elif certificate_type == CertificateType.RAR:
+            return {
+                DomainNames.XS: DomainNames.XS_BORDER,
+            }
+        else:
+            return {}
 
 
 @dataclass
@@ -102,7 +173,7 @@ class CegisConfig:
     VERIFIER: VerifierType = VerifierType.Z3
     CONSOLIDATOR: ConsolidatorType = ConsolidatorType.DEFAULT
     TRANSLATOR: TranslatorType = TranslatorType.CONTINUOUS
-    BATCH_SIZE: int = 500
+    N_DATA: int = 500
     LEARNING_RATE: float = 0.1
     FACTORS: Literal = LearningFactors.NONE
     LLO: bool = False  # last layer of ones
@@ -118,6 +189,7 @@ class CegisConfig:
     ACTIVATION_ALT: tuple[ActivationType, ...] = (
         ActivationType.SQUARE,
     )  # For DoubleCegis
+    SEED: int = None
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -189,4 +261,31 @@ PROPERTIES = {
     CertificateType.RWS: "RWA",
     CertificateType.RSWS: "RSWA",
     CertificateType.STABLESAFE: "SWA",
+}
+
+
+Z3_FNCS = {
+    "And": z3.And,
+    "Or": z3.Or,
+    "If": z3.If,
+}
+DREAL_FNCS = {
+    "sin": dreal.sin,
+    "cos": dreal.cos,
+    "exp": dreal.exp,
+    "And": dreal.And,
+    "Or": dreal.Or,
+    "If": dreal.if_then_else,
+    "Not": dreal.Not,
+}
+MATH_FNCS = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "exp": np.exp,
+}
+
+SP_FNCS = {
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "exp": sp.exp,
 }

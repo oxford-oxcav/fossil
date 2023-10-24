@@ -3,10 +3,10 @@ import math
 import torch
 
 import experiments.benchmarks.models as models
-import src.control as control
-from src import certificate
-from src.consts import *
-from src.domains import *
+import fossil.control as control
+from fossil import certificate
+from fossil.consts import *
+from fossil.domains import *
 
 
 def ctrllyap_identity(ctrler):

@@ -6,11 +6,11 @@
 
 # pylint: disable=not-callable
 
-from src import domains
-from src import certificate
-from src import main
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
 from experiments.benchmarks import models
-from src.consts import *
+from fossil.consts import *
 
 
 def test_lnn(args):

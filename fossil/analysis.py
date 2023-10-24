@@ -13,9 +13,10 @@ from collections import namedtuple
 import pandas as pd
 
 
-from src.consts import CegisConfig, CertificateType, ACTIVATION_NAMES, PROPERTIES
-from src import certificate
+from fossil.consts import CegisConfig, CertificateType, ACTIVATION_NAMES, PROPERTIES
+from fossil import certificate
 
+"""Post processing of results module."""
 
 DRF = DEFAULT_RESULT_FILE = os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
 

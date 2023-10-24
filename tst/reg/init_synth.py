@@ -6,9 +6,9 @@
 
 import traceback
 import timeit
-from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
-from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
-from src.consts import *
+from fossil.lyap.cegis_lyap import Cegis as Cegis_for_lyap
+from fossil.barrier.cegis_barrier import Cegis as Cegis_for_bc
+from fossil.consts import *
 from functools import partial
 
 

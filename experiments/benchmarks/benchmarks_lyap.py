@@ -10,10 +10,10 @@ import torch
 from matplotlib import pyplot as plt
 
 import experiments.benchmarks.models as models
-import src.control as control
-from src import certificate
-from src.consts import ActivationType
-from src.domains import *
+import fossil.control as control
+from fossil import certificate
+from fossil.consts import ActivationType
+from fossil.domains import *
 
 ###############################
 # NON POLY BENCHMARKS

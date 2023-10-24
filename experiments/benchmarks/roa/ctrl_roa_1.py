@@ -8,10 +8,10 @@
 # pylint: disable=not-callable
 
 from experiments.benchmarks import models
-from src import main
-import src.domains as domains
-import src.certificate as certificate
-from src.consts import *
+from fossil import main, control
+import fossil.domains as domains
+import fossil.certificate as certificate
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -21,7 +21,7 @@ def test_lnn(args):
     n_vars = 3
 
     ol_system = models.LorenzSystem
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
     batch_size = 1000
 
     XD = domains.Sphere([0, 0, 0], 2)
@@ -59,7 +59,7 @@ def test_lnn(args):
     main.run_benchmark(
         opts,
         record=args.record,
-        plot=True,
+        plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,
     )

@@ -8,10 +8,10 @@
 import numpy as np
 
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -24,7 +24,7 @@ def test_lnn(args):
     lowers = [-0.05, -0.05, -0.05]
     uppers = [0.05, 0.05, 0.05]
 
-    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+    system = control.GeneralClosedLoopModel.prepare_from_open(open_loop())
 
     sets = {
         certificate.XD: XD,

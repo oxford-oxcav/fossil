@@ -8,10 +8,10 @@
 from experiments.benchmarks.benchmarks_lyap import twod_hybrid
 
 
-from src.consts import *
+from fossil.consts import *
 
-from src.cegis import Cegis
-from src.plots.plot_lyap import plot_lyce
+from fossil.cegis import Cegis
+from fossil.plots.plot_lyap import plot_lyce
 
 from functools import partial
 import numpy as np

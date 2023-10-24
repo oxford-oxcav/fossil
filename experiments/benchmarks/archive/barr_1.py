@@ -9,12 +9,12 @@ import timeit
 import numpy as np
 import torch
 
-import src.plotting as plotting
+import fossil.plotting as plotting
 
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import barr_1
-from src.cegis import Cegis
-from src.consts import *
+from fossil.cegis import Cegis
+from fossil.consts import *
 
 
 def main():

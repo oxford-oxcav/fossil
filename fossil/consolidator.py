@@ -7,10 +7,10 @@
 # pylint: disable=not-callable
 import torch
 
-from src.consts import CegisStateKeys
-from src.component import Component
-from src.activations import activation, activation_der
-from src.utils import Timer, timer
+from fossil.consts import CegisStateKeys
+from fossil.component import Component
+from fossil.activations import activation, activation_der
+from fossil.utils import Timer, timer
 
 T = Timer()
 

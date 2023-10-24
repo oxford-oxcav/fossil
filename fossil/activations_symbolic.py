@@ -15,7 +15,7 @@ try:
     import dreal as dr
 except Exception as e:
     logging.exception("Exception while importing dReal")
-from src import consts
+from fossil import consts
 
 
 def activation_sym(select, p):

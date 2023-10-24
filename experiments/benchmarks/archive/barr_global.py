@@ -9,11 +9,11 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-import src.domains as sets
+import fossil.domains as sets
 from experiments.benchmarks.models import Linear0
-from src.cegis import Cegis
-from src.consts import *
-from src.plotting import benchmark_plane
+from fossil.cegis import Cegis
+from fossil.consts import *
+from fossil.plotting import benchmark_plane
 
 
 def test_lnn():

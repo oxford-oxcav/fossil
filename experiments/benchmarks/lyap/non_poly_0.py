@@ -6,48 +6,51 @@
 
 # pylint: disable=not-callable
 
-from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+# from experiments.benchmarks import models
+import fossil.main
 
 
-def test_lnn(args):
-    system = models.NonPoly0
-    X = domains.Torus([0, 0], 1, 0.01)
-    domain = {certificate.XD: X}
-    data = {certificate.XD: X._generate_data(1000)}
+class NonPoly0(fossil.control.CTModel):
+    n_vars = 2
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return [-x + x * y, -y]
+
+    def f_smt(self, v):
+        x, y = v
+        return [-x + x * y, -y]
+
+
+def test_lnn():
+    system = NonPoly0
+    X = fossil.domains.Torus([0, 0], 1, 0.01)
+    domain = {fossil.XD: X}
+    data = {fossil.XD: X._generate_data(1000)}
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
+    activations = [fossil.ActivationType.SQUARE]
     n_hidden_neurons = [6] * len(activations)
 
     ###
     #
     ###
-    opts = CegisConfig(
+    opts = fossil.CegisConfig(
         SYSTEM=system,
         DOMAINS=domain,
         DATA=data,
         N_VARS=system.n_vars,
-        CERTIFICATE=CertificateType.LYAPUNOV,
-        TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.DREAL,
+        CERTIFICATE=fossil.CertificateType.LYAPUNOV,
+        TIME_DOMAIN=fossil.TimeDomain.CONTINUOUS,
+        VERIFIER=fossil.VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         LLO=True,
         CEGIS_MAX_ITERS=25,
     )
-    main.run_benchmark(
-        opts,
-        record=args.record,
-        plot=args.plot,
-        concurrent=args.concurrent,
-        repeat=args.repeat,
-    )
+    fossil.main.synthesise(opts)
 
 
 if __name__ == "__main__":
-    args = main.parse_benchmark_args()
-    test_lnn(args)
+    # args = main.parse_benchmark_args()
+    test_lnn()

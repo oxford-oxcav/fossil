@@ -19,19 +19,20 @@ try:
 except ModuleNotFoundError:
     logging.exception("No dreal")
 
-from src.component import Component
-from src.consts import *
-from src.utils import (
+import fossil.logger as logger
+from fossil.component import Component
+from fossil.consts import *
+from fossil.utils import (
     Timer,
     contains_object,
     dreal_replacements,
     timer,
-    vprint,
     z3_replacements,
 )
 
 T = Timer()
 SYMBOL = Union[z3.ArithRef, dr.Variable, dr.Expression]
+ver_log = logger.Logger.setup_logger(__name__)
 
 
 def optional_Marabou_import():
@@ -39,7 +40,7 @@ def optional_Marabou_import():
     try:
         from maraboupy import Marabou
     except ImportError as e:
-        logging.exception("Exception while importing Marabou")
+        ver_log.exception("Exception while importing Marabou")
 
 
 @dataclass
@@ -132,20 +133,20 @@ class Verifier(Component):
                 solvers[label] = s
                 # if sat, found counterexample; if unsat, C is lyap
                 if timedout:
-                    vprint(label + "timed out", self.verbose)
+                    ver_log.info(label + "timed out")
             if any(self.is_sat(res) for res in results.values()):
                 break
 
         ces = {label: [] for label in results.keys()}  # [[] for res in results.keys()]
 
         if all(self.is_unsat(res) for res in results.values()):
-            vprint(["No counterexamples found!"], self.verbose)
+            ver_log.info(["No counterexamples found!"])
             found = True
         else:
             for index, o in enumerate(results.items()):
                 label, res = o
                 if self.is_sat(res):
-                    vprint([label + ": "], self.verbose)
+                    ver_log.info([label + ": "])
                     original_point = self.compute_model(solvers[label], res)
                     # This next bit is hard to handle if C, dC are tuples of formula
                     # For now, just check it's not a tuple
@@ -153,11 +154,11 @@ class Verifier(Component):
                         V_ctx, Vdot_ctx = self.replace_point(
                             C, self.xs, original_point.numpy().T
                         ), self.replace_point(dC, self.xs, original_point.numpy().T)
-                        vprint(["\nV_ctx: {} ".format(V_ctx)], self.verbose)
-                        vprint(["\nVdot_ctx: {} ".format(Vdot_ctx)], self.verbose)
+                        ver_log.info(["\nV_ctx: {} ".format(V_ctx)])
+                        ver_log.info(["\nVdot_ctx: {} ".format(Vdot_ctx)])
                     ces[label] = self.randomise_counterex(original_point)
                 else:
-                    vprint([res], self.verbose)
+                    ver_log.info([res])
 
         return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
@@ -205,6 +206,7 @@ class Verifier(Component):
             solver.set("timeout", max(1, self._solver_timeout * 1000))
         except:
             pass
+        ver_log.debug("Fml: {}".format(fml))
         timer = timeit.default_timer()
         res = self._solver_solve(solver, fml)
         timer = timeit.default_timer() - timer
@@ -217,7 +219,7 @@ class Verifier(Component):
         :return: tensor containing single ctx
         """
         model = self._solver_model(solver, res)
-        vprint(["Counterexample Found: {}".format(model)], self.verbose)
+        ver_log.info(["Counterexample Found: {}".format(model)])
         temp = []
         for i, x in enumerate(self.xs):
             n = self._model_result(solver, model, x, i)

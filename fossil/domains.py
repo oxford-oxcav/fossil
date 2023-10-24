@@ -13,7 +13,7 @@ import sympy as sp
 import torch
 from matplotlib import pyplot as plt
 
-from src import verifier
+from fossil import verifier
 
 inf = 1e300
 inf_bounds = [-inf, inf]

@@ -14,9 +14,9 @@ from z3 import *
 import dreal
 import torch
 
-from src.activations import activation, activation_der
-from src.activations_symbolic import activation_sym, activation_der_sym
-from src.consts import CegisStateKeys, LearningFactors
+from fossil.activations import activation, activation_der
+from fossil.activations_symbolic import activation_sym, activation_der_sym
+from fossil.consts import CegisStateKeys, LearningFactors
 
 
 def check_sympy_expression(state, system):

@@ -12,9 +12,9 @@ import torch
 from maraboupy import Marabou
 from maraboupy.MarabouNetworkONNX import MarabouNetworkONNX
 
-from src.domains import inf_bounds_n
-from src.consts import ActivationType
-from src.shared.components.estimation import EstimNet
+from fossil.domains import inf_bounds_n
+from fossil.consts import ActivationType
+from fossil.shared.components.estimation import EstimNet
 
 
 class DiffNetTest(unittest.TestCase):

@@ -14,14 +14,17 @@ import torch
 import z3
 
 
-import src.learner as learner
-from src.activations_symbolic import activation_der_sym, activation_sym
-from src.component import Component
-from src.consts import *
-from src.sympy_converter import sympy_converter
-from src.utils import Timer, timer, vprint
+import fossil.learner as learner
+import fossil.logger as logger
+from fossil.activations_symbolic import activation_der_sym, activation_sym
+from fossil.component import Component
+from fossil.consts import *
+from fossil.sympy_converter import sympy_converter
+from fossil.utils import Timer, timer
 
 T = Timer()
+
+trl_log = logger.Logger.setup_logger(__name__)
 
 
 def optional_Marabou_import():
@@ -57,7 +60,7 @@ class TranslatorNN(Component):
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(net, self.x, self.xdot, lf=fcts)
 
-        vprint(["Candidate: {}".format(V)], self.verbose)
+        trl_log.info(["Candidate: {}".format(V)])
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 
@@ -258,7 +261,7 @@ class TranslatorCTDouble(TranslatorCT):
         V, Vdot = self.get_symbolic_formula(lyap_net, self.x, self.xdot, lf=fcts)
         B, Bdot = self.get_symbolic_formula(barr_net, self.x, self.xdot, lf=fcts)
 
-        vprint(["Candidate: {}".format((V, B))], self.verbose)
+        trl_log.info(["Candidate: {}".format((V, B))])
 
         return {CegisStateKeys.V: (V, B), CegisStateKeys.V_dot: (Vdot, Bdot)}
 

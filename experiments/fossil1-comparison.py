@@ -9,11 +9,11 @@ import timeit
 import pandas as pd
 
 from experiments.benchmarks import models
-from experiments import analysis
-from src import domains
-from src import certificate
-from src import cegis
-from src.consts import *
+from fossil import analysis
+from fossil import domains
+from fossil import certificate
+from fossil import cegis
+from fossil.consts import *
 
 ### FOSSIL 1 Results
 

@@ -7,12 +7,12 @@
 import unittest
 import torch
 import timeit
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
-from src.consts import *
+from fossil.consts import *
 from z3 import *
-import src.translator as translator
-from src.consts import CegisStateKeys
+import fossil.translator as translator
+from fossil.consts import CegisStateKeys
 
 
 def zero_in_zero(learner):

@@ -7,10 +7,10 @@
 # pylint: disable=not-callable
 import timeit
 import numpy as np
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 
-from src.consts import *
+from fossil.consts import *
 from functools import partial
 
 
