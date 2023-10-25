@@ -9,12 +9,12 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-from src import domains
-from src import certificate
-from src import main
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
 from experiments.benchmarks import models
 from experiments.benchmarks.models import SecondOrder
-from src.consts import *
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -24,7 +24,7 @@ def test_lnn(args):
     n_vars = 2
 
     ol_system = SecondOrder
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
     XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
     XS = domains.Rectangle([-1, -1], [1, 1])
@@ -47,6 +47,8 @@ def test_lnn(args):
     # define NN parameters
     activations = [ActivationType.SQUARE]
     n_hidden_neurons = [8] * len(activations)
+    activations_alt = [ActivationType.SQUARE]
+    n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(
         DOMAINS=sets,
@@ -58,6 +60,8 @@ def test_lnn(args):
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        ACTIVATION_ALT=activations_alt,
+        N_HIDDEN_NEURONS_ALT=n_hidden_neurons_alt,
         CEGIS_MAX_ITERS=25,
         CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],

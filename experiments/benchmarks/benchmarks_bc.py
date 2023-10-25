@@ -10,9 +10,9 @@ import dreal
 import matplotlib.pyplot as plt
 
 import experiments.benchmarks.models as models
-import src.control as control
-from src.consts import *
-from src.domains import *
+import fossil.control as control
+from fossil.consts import *
+from fossil.domains import *
 
 # this series comes from
 # Synthesizing Barrier Certificates Using Neural Networks
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     f, X, S, bounds = safe_control_ct()
     from matplotlib import pyplot as plt
 
-    from src.plotting import vector_field
+    from fossil.plotting import vector_field
 
     torch.manual_seed(169)
     xx = np.linspace(-10, 10, 20)

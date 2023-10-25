@@ -9,32 +9,47 @@ from typing import Generator, Type
 import torch
 from torch.optim import Optimizer
 
-import src.control as control
-import src.learner as learner
-from src.consts import CegisConfig, CertificateType
+import fossil.control as control
+import fossil.logger as logger
+import fossil.learner as learner
+from fossil.consts import CegisConfig, CertificateType, DomainNames
 
 
-XD = "lie"
-XI = "init"
-XU = "unsafe"
-XS = "safe"
-XG = "goal"
-XG_BORDER = "goal_border"
-XS_BORDER = "safe_border"
-XF = "final"
-XNF = "not_final"
-XR = "region"  # This is an override data set for ROA in StableSafe
+XD = DomainNames.XD.value
+XI = DomainNames.XI.value
+XU = DomainNames.XU.value
+XS = DomainNames.XS.value
+XG = DomainNames.XG.value
+XG_BORDER = DomainNames.XG_BORDER.value
+XS_BORDER = DomainNames.XS_BORDER.value
+XF = DomainNames.XF.value
+XNF = DomainNames.XNF.value
+XR = DomainNames.XR.value  # This is an override data set for ROA in StableSafe
+HAS_BORDER = (XG, XS)
 BORDERS = (XG_BORDER, XS_BORDER)
 ORDER = (XD, XI, XU, XS, XG, XG_BORDER, XS_BORDER, XF, XNF)
 
+cert_log = logger.Logger.setup_logger(__name__)
 
-def print_loss_acc(t, loss, accuracy, verbose):
-    if not verbose:
-        return
-    print(t, "- loss:", loss.item(), end="")
+
+def log_loss_acc(t, loss, accuracy, verbose):
+    # cert_log.debug(t, "- loss:", loss.item())
+    # for k, v in accuracy.items():
+    #     cert_log.debug(" - {}: {}%".format(k, v))
+    loss_value = loss.item() if hasattr(loss, "item") else loss
+    cert_log.debug("{} - loss: {}".format(t, loss_value))
+
     for k, v in accuracy.items():
-        print(" - {}: {}%".format(k, v), end="")
-    print("\n")
+        cert_log.debug(" - {}: {}%".format(k, v))
+
+
+def _set_assertion(required, actual, name):
+    if required != actual:
+        raise ValueError(
+            "Required {} {} do not match actual domains {}. Missing: {}, Not required: {}".format(
+                name, required, actual, required - actual, actual - required
+            )
+        )
 
 
 class Certificate:
@@ -170,7 +185,7 @@ class Lyapunov(Certificate):
                 loss = loss + control.cosine_reg(samples, samples_dot)
 
             if t % 100 == 0 or t == learn_loops - 1:
-                print_loss_acc(t, loss, learn_accuracy, learner.verbose)
+                log_loss_acc(t, loss, learn_accuracy, learner.verbose)
 
             # t>=1 ensures we always have at least 1 optimisation step
             if learn_accuracy["acc"] == 100 and t >= 1:
@@ -193,17 +208,22 @@ class Lyapunov(Certificate):
         """
         _Or = verifier.solver_fncts()["Or"]
         _And = verifier.solver_fncts()["And"]
+        _Not = verifier.solver_fncts()["Not"]
 
         if self.llo:
             # V is positive definite by construction
-            lyap_negated = Vdot > 0
+            lyap_negated = Vdot >= 0
         else:
-            lyap_negated = _Or(V <= 0, Vdot > 0)
+            lyap_negated = _Or(V <= 0, Vdot >= 0)
+
+        not_origin = _Not(_And(*[xi == 0 for xi in verifier.xs]))
+        lyap_negated = _And(lyap_negated, not_origin)
         lyap_condition = _And(self.domain, lyap_negated)
         for cs in ({XD: lyap_condition},):
             yield cs
 
     def estimate_beta(self, net):
+        # This function is unused I think
         try:
             border_D = self.D[XD].sample_border(300)
             beta, _ = net.compute_minimum(border_D)
@@ -215,8 +235,8 @@ class Lyapunov(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD])
-        assert data_labels == set([XD])
+        _set_assertion(set([XD]), domain_labels, "Symbolic Domains")
+        _set_assertion(set([XD]), data_labels, "Data Sets")
 
 
 class ROA(Certificate):
@@ -327,7 +347,7 @@ class ROA(Certificate):
             loss, learn_accuracy = self.compute_loss(V, Vdot, circle)
 
             if t % 100 == 0 or t == learn_loops - 1:
-                print_loss_acc(t, loss, learn_accuracy, learner.verbose)
+                log_loss_acc(t, loss, learn_accuracy, learner.verbose)
 
             # t>=1 ensures we always have at least 1 optimisation step
             if learn_accuracy["acc"] == 100 and t >= 1:
@@ -385,8 +405,8 @@ class ROA(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XI])
-        assert data_labels == set([XD, XI])
+        _set_assertion(set([XI]), domain_labels, "Symbolic Domains")
+        _set_assertion(set([XD, XI]), data_labels, "Data Sets")
 
 
 class Barrier(Certificate):
@@ -525,7 +545,7 @@ class Barrier(Certificate):
             (loss, accuracy) = self.compute_loss(B_i, B_u, B_d, Bdot_d)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, learner.verbose)
+                log_loss_acc(t, loss, accuracy, learner.verbose)
 
             if accuracy["acc init unsafe"] == 100 and accuracy["acc belt"] >= 99.9:
                 condition = True
@@ -594,8 +614,8 @@ class Barrier(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XU])
-        assert data_labels == set([XD, XI, XU])
+        _set_assertion(set([XD, XI, XU]), domain_labels, "Symbolic Domains")
+        _set_assertion(set([XD, XI, XU]), data_labels, "Data Sets")
 
 
 class BarrierAlt(Certificate):
@@ -718,7 +738,7 @@ class BarrierAlt(Certificate):
             # loss = loss + (100-percent_accuracy)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, learner.verbose)
+                log_loss_acc(t, loss, accuracy, learner.verbose)
 
             # if learn_accuracy / batch_size > 0.99:
             #     for k in range(batch_size):
@@ -771,8 +791,8 @@ class BarrierAlt(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XU])
-        assert data_labels == set([XD, XI, XU])
+        _set_assertion(set([XD, XI, XU]), domain_labels, "Symbolic Domains")
+        _set_assertion(set([XD, XI, XU]), data_labels, "Data Sets")
 
 
 class RWS(Certificate):
@@ -807,6 +827,7 @@ class RWS(Certificate):
         self.safe_border = domains[XS_BORDER]
         self.goal = domains[XG]
         self.bias = True
+        self.BORDERS = (XS,)
 
     def alt_Vdot_loss(self, gradV: torch.Tensor, f: torch.Tensor) -> torch.Tensor:
         """
@@ -914,7 +935,7 @@ class RWS(Certificate):
                 loss = loss + control.cosine_reg(S_d, samples_dot_d)
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, learner.verbose)
+                log_loss_acc(t, loss, accuracy, learner.verbose)
 
             if accuracy["acc init unsafe"] == 100 and accuracy["acc lie"] >= 99.9:
                 condition = True
@@ -966,8 +987,10 @@ class RWS(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XS, XS_BORDER, XG])
-        assert data_labels == set([XD, XI, XU])
+        _set_assertion(
+            set([XD, XI, XS, XS_BORDER, XG]), domain_labels, "Symbolic Domains"
+        )
+        _set_assertion(set([XD, XI, XU]), data_labels, "Data Sets")
 
 
 class RSWS(RWS):
@@ -1015,6 +1038,7 @@ class RSWS(RWS):
         self.safe_border = domains[XS_BORDER]
         self.goal = domains[XG]
         self.goal_border = domains[XG_BORDER]
+        self.BORDERS = (XS, XG)
         self.bias = True
 
     def compute_beta_loss(self, beta, V_g, Vdot_g, V_d):
@@ -1105,7 +1129,7 @@ class RSWS(RWS):
             loss = loss + beta_loss
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, learner.verbose)
+                log_loss_acc(t, loss, accuracy, learner.verbose)
 
             if accuracy["acc init unsafe"] == 100 and accuracy["acc lie"] >= 99.9:
                 condition = True
@@ -1209,8 +1233,12 @@ class RSWS(RWS):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XS, XS_BORDER, XG, XG_BORDER])
-        assert data_labels == set([XD, XI, XU, XS, XG, XG_BORDER])
+        _set_assertion(
+            set([XD, XI, XS, XS_BORDER, XG, XG_BORDER]),
+            domain_labels,
+            "Symbolic Domains",
+        )
+        _set_assertion(set([XD, XI, XU, XS, XG, XG_BORDER]), data_labels, "Data Sets")
 
 
 class SafeROA(Certificate):
@@ -1290,7 +1318,7 @@ class SafeROA(Certificate):
             accuracy = {**lyap_acc, **barr_acc}
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, lyap_learner.verbose)
+                log_loss_acc(t, loss, accuracy, lyap_learner.verbose)
 
             if (
                 t > 1
@@ -1328,8 +1356,11 @@ class SafeROA(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XU])
-        assert data_labels == set([XD, XI, XU]) or data_labels == set([XD, XI, XU, XR])
+        _set_assertion(set([XD, XI, XU]), domain_labels, "Symbolic Domains")
+        if XR in data.keys():
+            _set_assertion(set([XD, XR, XI, XU]), data_labels, "Data Sets")
+        else:
+            _set_assertion(set([XD, XI, XU]), data_labels, "Data Sets")
 
 
 class ReachAvoidRemain(Certificate):
@@ -1337,6 +1368,7 @@ class ReachAvoidRemain(Certificate):
         self.domains = domains
         self.RWS = RWS(domains, config)
         self.barrier = Barrier._for_goal_final(domains, config)
+        self.BORDERS = (XS,)
         self.bias = self.RWS.bias, self.barrier.bias
 
     def learn(
@@ -1420,7 +1452,7 @@ class ReachAvoidRemain(Certificate):
             accuracy = {**rws_acc, **barr_acc}
 
             if t % int(learn_loops / 10) == 0 or learn_loops - t < 10:
-                print_loss_acc(t, loss, accuracy, rws_learner.verbose)
+                log_loss_acc(t, loss, accuracy, rws_learner.verbose)
 
             if (
                 accuracy["acc init unsafe"] == 100
@@ -1470,8 +1502,10 @@ class ReachAvoidRemain(Certificate):
     def _assert_state(domains, data):
         domain_labels = set(domains.keys())
         data_labels = set(data.keys())
-        assert domain_labels == set([XD, XI, XS, XS_BORDER, XG, XF, XNF])
-        assert data_labels == set([XD, XI, XU, XG, XF, XNF])
+        _set_assertion(
+            set([XD, XI, XS, XS_BORDER, XG, XF, XNF]), domain_labels, "Symbolic Domains"
+        )
+        _set_assertion(set([XD, XI, XU, XG, XF, XNF]), data_labels, "Data Sets")
 
 
 class DoubleCertificate(Certificate):
@@ -1546,9 +1580,9 @@ def get_certificate(certificate: CertificateType) -> Type[Certificate]:
         return Barrier
     elif certificate == CertificateType.BARRIERALT:
         return BarrierAlt
-    elif certificate == CertificateType.RWS:
+    elif certificate in (CertificateType.RWS, CertificateType.RWA):
         return RWS
-    elif certificate == CertificateType.RSWS:
+    elif certificate in (CertificateType.RSWS, CertificateType.RSWA):
         return RSWS
     elif certificate == CertificateType.STABLESAFE:
         return SafeROA

@@ -7,10 +7,10 @@
 import unittest
 from unittest import mock
 from functools import partial
-import src.learner as learner
-from src.consolidator import Consolidator
+import fossil.learner as learner
+from fossil.consolidator import Consolidator
 from experiments.benchmarks.benchmarks_lyap import nonpoly0_lyap
-from src.consts import CegisStateKeys, ActivationType
+from fossil.consts import CegisStateKeys, ActivationType
 import torch
 
 

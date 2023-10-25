@@ -8,25 +8,25 @@
 # pylint: disable=not-callable
 
 from experiments.benchmarks import models
-from src import main
-import src.domains as domains
-import src.certificate as certificate
-from src.consts import *
+from fossil import main, control
+import fossil.domains as domains
+import fossil.certificate as certificate
+from fossil.consts import *
 
 
 def test_lnn(args):
-    n_vars = 2
+    n_vars = 3
 
-    system = models.NonPoly0
+    system = models.NonPoly3
     batch_size = 500
 
-    XD = domains.Torus([0, 0], 3, 0.01)
+    XD = domains.Torus([0, 0, 0], 3, 0.01)
 
     # XU = domains.SetMinus(domains.Rectangle([0, 0], [1.2, 1.2]), domains.Sphere([0.6, 0.6], 0.4))
     XU = domains.Union(
-        domains.Sphere([0.4, 0.4], 0.2), domains.Sphere([-0.4, 0.4], 0.2)
+        domains.Sphere([0.4, 0.4, 0.4], 0.2), domains.Sphere([-0.4, 0.4, 0.4], 0.2)
     )
-    XI = domains.Sphere([-0.9, -0.9], 1.0)
+    XI = domains.Sphere([-0.9, -0.9, -0.9], 1.0)
 
     sets = {
         certificate.XD: XD,
@@ -42,7 +42,7 @@ def test_lnn(args):
     # define NN parameters
     activations = [ActivationType.SQUARE]
     activations_alt = [ActivationType.TANH]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [6] * len(activations)
     n_hidden_neurons_alt = [5] * len(activations_alt)
 
     opts = CegisConfig(

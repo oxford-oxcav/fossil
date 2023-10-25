@@ -6,16 +6,16 @@
 
 # pylint: disable=not-callable
 
-from src import domains
-from src import certificate
-from src import main
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
 from experiments.benchmarks import models
-from src.consts import *
+from fossil.consts import *
 
 
 def test_lnn(args):
     ol_system = models.ThirdOrder
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
     XD = domains.Rectangle([-6, -6, -6], [6, 6, 6])
     XS = domains.Rectangle([-5, -5, -5], [5, 5, 5])
     XU = domains.Complement(XS)
@@ -30,15 +30,15 @@ def test_lnn(args):
         certificate.XU: XU,
     }
     data = {
-        certificate.XD: XD._generate_data(1000),
-        # certificate.XR: XS._generate_data(1000),
-        certificate.XI: XI._generate_data(1000),
-        certificate.XU: SU._generate_data(1000),
+        certificate.XD: XD._generate_data(3000),
+        certificate.XR: XI._generate_data(3000),
+        certificate.XI: XI._generate_data(3000),
+        certificate.XU: SU._generate_data(3000),
     }
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    activations_alt = [ActivationType.SQUARE]
+    activations_alt = [ActivationType.TANH]
     n_hidden_neurons = [10] * len(activations)
     n_hidden_neurons_alt = [8] * len(activations_alt)
 
@@ -56,9 +56,10 @@ def test_lnn(args):
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CTRLAYER=[8, 1],
         CTRLACTIVATION=[ActivationType.LINEAR],
-        SYMMETRIC_BELT=True,
-        CEGIS_MAX_ITERS=25,
+        SYMMETRIC_BELT=False,
+        CEGIS_MAX_ITERS=100,
         LLO=True,
+        VERBOSE=False,
     )
 
     main.run_benchmark(

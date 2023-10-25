@@ -11,7 +11,7 @@ from queue import Empty
 
 import torch
 
-from src import cegis
+from fossil import cegis
 
 
 def worker_Q(cegis_config, id, queue, base_seed=0):

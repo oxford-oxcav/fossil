@@ -8,10 +8,10 @@
 # pylint: disable=not-callable
 
 from experiments.benchmarks import models
-from src import main
-import src.domains as domains
-import src.certificate as certificate
-from src.consts import *
+from fossil import main, control
+import fossil.domains as domains
+import fossil.certificate as certificate
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -59,7 +59,7 @@ def test_lnn(args):
     main.run_benchmark(
         opts,
         record=args.record,
-        plot=args.plot,
+        plot=True,
         concurrent=args.concurrent,
         repeat=args.repeat,
     )

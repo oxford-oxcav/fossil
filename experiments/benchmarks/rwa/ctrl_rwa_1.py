@@ -7,10 +7,10 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -21,7 +21,7 @@ def test_lnn(args):
     batch_size = 1000
 
     ol_system = models.Linear1
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
     XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
     XS = domains.Rectangle([-1, -1], [1, 1])

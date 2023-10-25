@@ -13,7 +13,7 @@ try:
 except:
     print("No dreal")
 
-from src.domains import Sphere, Rectangle
+from fossil.domains import Sphere, Rectangle
 
 
 class DomainsTest(unittest.TestCase):

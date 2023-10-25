@@ -7,11 +7,11 @@
 import sympy as sp
 from z3 import ArithRef, simplify
 
-from src.primer import Primer
-from src.activations import ActivationType
-from src.consts import *
-from src.shared.cegis_values import CegisConfig
-from src.domains import Rectangle, Sphere
+from fossil.primer import Primer
+from fossil.activations import ActivationType
+from fossil.consts import *
+from fossil.shared.cegis_values import CegisConfig
+from fossil.domains import Rectangle, Sphere
 
 exp, sin, cos = sp.exp, sp.sin, sp.cos
 

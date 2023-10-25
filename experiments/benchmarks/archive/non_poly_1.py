@@ -5,13 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-from src.consts import *
+from fossil.consts import *
 from experiments.benchmarks.benchmarks_lyap import *
 
 
-from src.plots.plot_lyap import plot_lyce
-from src.cegis import Cegis
-from src.utils import check_sympy_expression
+from fossil.plots.plot_lyap import plot_lyce
+from fossil.cegis import Cegis
+from fossil.utils import check_sympy_expression
 from functools import partial
 
 import numpy as np

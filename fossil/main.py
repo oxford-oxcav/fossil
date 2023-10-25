@@ -1,14 +1,25 @@
+# Copyright (c) 2023, Alessandro Abate, Alec Edwards, Andrea Peruffo
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+# pylint: disable=not-callable
+
+
 import timeit
 import argparse
 import warnings
 
 import torch
 
-from src.cegis import Cegis
-import src.plotting as plotting
-from experiments import analysis
-from src import consts
-from src.cegis_supervisor import CegisSupervisorQ
+from fossil.cegis import Cegis, Result
+import fossil.plotting as plotting
+from fossil import cli
+
+# from experiments import analysis
+from fossil import consts
+from fossil.cegis_supervisor import CegisSupervisorQ
 
 """Top-level module for running benchmarks, and (eventually) using a CLI"""
 
@@ -75,10 +86,68 @@ def run_benchmark(
             if cegis_options.N_VARS != 2:
                 warnings.warn("Plotting is only supported for 2-dimensional problems")
             else:
-                plotting.benchmark(
+                axes = plotting.benchmark(
                     result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
                 )
+                # for ax, name in axes:
+                #     plotting.save_plot_with_tags(ax, cegis_options, name)
 
-        if record:
-            rec = analysis.Recorder()
-            rec.record(cegis_options, result, T)
+        # if record:
+        #     rec = analysis.Recorder()
+        #     rec.record(cegis_options, result, T)
+
+
+def synthesise(opts: consts.CegisConfig) -> Result:
+    """Main entry point for synthesising a certificate and controller.
+
+    Args:
+        opts (consts.CegisConfig): Cegis configuration
+
+    Returns:
+        Result: Result of synthesis (success flag, certificate, final model and stats)
+
+    """
+
+    torch.set_num_threads(1)
+    if opts.SEED is not None:
+        torch.manual_seed(opts.SEED)
+    c = Cegis(opts)
+    result = c.solve()
+    return result
+
+
+def learn(opts: consts.CegisConfig) -> Result:
+    """Learns a certificate and controller without verification step.
+
+    Args:
+        opts (consts.CegisConfig): Cegis configuration
+    Returns:
+        Result: Result of synthesis (success flag, certificate, final model and stats)
+
+    """
+    raise NotImplementedError
+
+
+def verify(opts: consts.CegisConfig) -> Result:
+    """Verifies a given certificate and controller.
+
+    Args:
+        opts (consts.CegisConfig): Cegis configuration
+    Returns:
+        Result: Result of synthesis (success flag, certificate, final model and stats)
+
+    """
+    raise NotImplementedError
+
+
+def _cli_entry():
+    """Main entry point for running benchmarks."""
+    args = cli.parse_filename()
+    if args.certificate is not None:
+        cli.print_certificate_sets(args.certificate)
+    opts = cli.parse_yaml_to_cegis_config(args.file)
+    synthesise(opts)
+
+
+if __name__ == "__main__":
+    _cli_entry()

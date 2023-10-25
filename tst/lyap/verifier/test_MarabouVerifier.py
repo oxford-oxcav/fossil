@@ -12,8 +12,8 @@ import tempfile
 import torch
 from maraboupy import Marabou
 
-from src.domains import inf_bounds_n
-import src.verifier as verifier
+from fossil.domains import inf_bounds_n
+import fossil.verifier as verifier
 
 
 class ReluNet(torch.nn.Module):

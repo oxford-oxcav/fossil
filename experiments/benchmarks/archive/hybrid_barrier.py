@@ -6,9 +6,9 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import twod_hybrid
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 
-from src.consts import *
+from fossil.consts import *
 
 
 from functools import partial

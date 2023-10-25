@@ -6,10 +6,10 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks.benchmarks_bc import hi_ord_8
-from src.consts import *
+from fossil.consts import *
 
 
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 import timeit
 import torch
 

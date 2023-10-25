@@ -9,12 +9,12 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-from src import domains
-from src import certificate
-from src import main
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
 from experiments.benchmarks import models
 from experiments.benchmarks.models import SecondOrder
-from src.consts import *
+from fossil.consts import *
 
 
 class RWA4Unsafe(domains.Sphere):
@@ -48,7 +48,7 @@ def test_lnn(args):
     n_vars = 2
 
     ol_system = SecondOrder
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
     XD = domains.Rectangle([-1.5, -1.5], [1.5, 1.5])
     XI = domains.Rectangle([-0.5, -0.5], [-0.1, -0.1])
@@ -95,6 +95,8 @@ def test_lnn(args):
         plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,
+        xrange=[-2, 2],
+        yrange=[-2, 2],
     )
 
 

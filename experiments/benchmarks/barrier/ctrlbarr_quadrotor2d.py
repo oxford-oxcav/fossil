@@ -8,10 +8,10 @@
 import numpy as np
 
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 # taken from Tedrake's lecture notes and the code at
 # https://github.com/RussTedrake/underactuated/blob/master/underactuated/quadrotor2d.py
@@ -32,7 +32,7 @@ def test_lnn(args):
     XU = domains.Sphere([-2.5] * ins, 0.2)
     XG = domains.Sphere([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.5)
 
-    system = models.GeneralClosedLoopModel.prepare_from_open(open_loop())
+    system = control.GeneralClosedLoopModel.prepare_from_open(open_loop())
 
     sets = {
         certificate.XD: XD,

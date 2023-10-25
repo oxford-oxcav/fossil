@@ -8,7 +8,7 @@
 
 import torch
 
-from src import consts
+from fossil import consts
 
 
 # Activation function

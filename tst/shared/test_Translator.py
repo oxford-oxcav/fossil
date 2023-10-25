@@ -7,9 +7,9 @@
 import unittest
 from unittest import mock
 import z3
-import src.learner as learner
-import src.translator as translator
-from src.consts import ActivationType, CegisStateKeys, CegisConfig
+import fossil.learner as learner
+import fossil.translator as translator
+from fossil.consts import ActivationType, CegisStateKeys, CegisConfig
 from experiments.benchmarks.benchmarks_lyap import poly_2
 import torch
 

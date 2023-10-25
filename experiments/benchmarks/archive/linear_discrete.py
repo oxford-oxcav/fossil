@@ -9,13 +9,13 @@ import torch
 import timeit
 import numpy as np
 
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import linear_discrete
 
 
-from src.consts import *
+from fossil.consts import *
 from functools import partial
-from src.plots.plot_lyap import plot_lyce_discrete
+from fossil.plots.plot_lyap import plot_lyce_discrete
 
 
 def test_lnn():

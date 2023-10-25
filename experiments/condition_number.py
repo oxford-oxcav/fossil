@@ -9,11 +9,11 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-import src.domains as sets
-import src.plotting as plotting
+import fossil.domains as sets
+import fossil.plotting as plotting
 from experiments.benchmarks import models
-from src.cegis import Cegis
-from src.consts import *
+from fossil.cegis import Cegis
+from fossil.consts import *
 
 global lam
 LAM = (

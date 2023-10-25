@@ -13,7 +13,7 @@ import sympy as sp
 import torch
 from matplotlib import pyplot as plt
 
-from src import verifier
+from fossil import verifier
 
 inf = 1e300
 inf_bounds = [-inf, inf]
@@ -392,6 +392,14 @@ class Union(Set):
         X2 = self.S2.generate_data(int(batch_size / 2))
         return torch.cat([X1, X2])
 
+    def sample_border(self, batch_size):
+        warnings.warn(
+            "Assuming that border of S1 and S2 is the union of the two borders. This is not true in general, eg if the sets intersect."
+        )
+        X1 = self.S1.sample_border(int(batch_size / 2))
+        X2 = self.S2.sample_border(int(batch_size / 2))
+        return torch.cat([X1, X2])
+
     def plot(self, *args, **kwargs):
         self.S1.plot(*args, **kwargs)
         self.S2.plot(*args, **kwargs)
@@ -412,7 +420,7 @@ class Intersection(Set):
 
     def generate_domain(self, x):
         f = self.set_functions(x)
-        return f["And"](self.S1.generate_domain(), self.S2.generate_domain())
+        return f["And"](self.S1.generate_domain(x), self.S2.generate_domain(x))
 
     def generate_data(self, batch_size):
         s1 = self.S1.generate_data(batch_size)
@@ -1146,6 +1154,9 @@ class Complement(Set):
         returns: symbolic formula for domain boundary
         """
         return self.set.generate_boundary(x)
+
+    def sample_border(self, batch_size):
+        return self.set.sample_border(batch_size)
 
     def plot(self, *args, **kwargs):
         return self.set.plot(*args, **kwargs)

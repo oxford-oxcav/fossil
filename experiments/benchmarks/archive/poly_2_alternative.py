@@ -7,14 +7,14 @@
 # pylint: disable=not-callable
 import torch
 import timeit
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 from experiments.benchmarks.benchmarks_lyap import *
 
 
-from src.consts import *
+from fossil.consts import *
 from functools import partial
-from src.plots.plot_lyap import plot_lyce
-from src.utils import check_sympy_expression
+from fossil.plots.plot_lyap import plot_lyce
+from fossil.utils import check_sympy_expression
 
 
 def test_lnn():

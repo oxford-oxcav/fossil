@@ -10,10 +10,10 @@ import dreal
 import matplotlib.pyplot as plt
 
 import experiments.benchmarks.models as models
-import src.certificate as certificate
-import src.control as control
-from src.consts import *
-from src.domains import *
+import fossil.certificate as certificate
+import fossil.control as control
+from fossil.consts import *
+from fossil.domains import *
 
 
 def rsws_demo():

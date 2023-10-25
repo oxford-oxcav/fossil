@@ -6,17 +6,17 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 
 def test_lnn(args):
     n_vars = 2
 
     ol_system = models.InvertedPendulum
-    system = models.GeneralClosedLoopModel.prepare_from_open(ol_system())
+    system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
     batch_size = 500
 
@@ -45,7 +45,7 @@ def test_lnn(args):
     }
 
     # define NN parameters
-    activations = [ActivationType.SQUARE]
+    activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(

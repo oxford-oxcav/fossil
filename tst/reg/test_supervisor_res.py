@@ -9,11 +9,11 @@ import timeit
 # pylint: disable=not-callable
 import torch
 
-import src.plotting as plotting
+import fossil.plotting as plotting
 from experiments.benchmarks.benchmark_ctrl import trivial_ctrllyap
 from experiments.benchmarks.benchmarks_lyap import *
-from src.cegis_supervisor import CegisSupervisorQ
-from src.consts import *
+from fossil.cegis_supervisor import CegisSupervisorQ
+from fossil.consts import *
 
 
 def test_lnn():

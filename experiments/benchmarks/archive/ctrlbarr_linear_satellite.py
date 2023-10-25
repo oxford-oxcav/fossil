@@ -8,12 +8,12 @@
 import numpy
 import torch
 import timeit
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 from experiments.benchmarks.benchmark_ctrl import linear_satellite
 
 
-from src.consts import *
-from src.plots.plot_lyap import plot_lyce
+from fossil.consts import *
+from fossil.plots.plot_lyap import plot_lyce
 import numpy as np
 
 

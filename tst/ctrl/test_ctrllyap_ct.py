@@ -8,13 +8,13 @@ import unittest
 import torch
 import timeit
 import dreal as dr
-from src.cegis import Cegis
-from src.consts import *
-from src.learner import CtrlLearnerCT
-from src.control import GeneralController
+from fossil.cegis import Cegis
+from fossil.consts import *
+from fossil.learner import CtrlLearnerCT
+from fossil.control import GeneralController
 from experiments.benchmarks.benchmark_ctrl import ctrllyap_identity
-from src.consts import CegisStateKeys
-import src.translator as translator
+from fossil.consts import CegisStateKeys
+import fossil.translator as translator
 
 
 class test_init(unittest.TestCase):

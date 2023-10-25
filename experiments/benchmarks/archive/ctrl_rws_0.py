@@ -10,10 +10,10 @@ import timeit
 import torch
 
 import experiments.benchmarks.models as models
-import src.domains as sets
-import src.plotting as plotting
-from src.cegis import Cegis
-from src.consts import *
+import fossil.domains as sets
+import fossil.plotting as plotting
+from fossil.cegis import Cegis
+from fossil.consts import *
 
 
 def test_lnn():

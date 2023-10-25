@@ -8,12 +8,12 @@ import unittest
 
 from z3 import *
 
-import src.verifier as verifier
-import src.learner as learner
+import fossil.verifier as verifier
+import fossil.learner as learner
 from experiments.benchmarks.benchmarks_lyap import *
-import src.translator as translator
-import src.certificate as certificate
-from src.consts import (
+import fossil.translator as translator
+import fossil.certificate as certificate
+from fossil.consts import (
     CegisStateKeys,
     CegisConfig,
 )

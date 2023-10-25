@@ -6,7 +6,7 @@
 
 import numpy as np
 import sympy as sp
-from src.domains import *
+from fossil.domains import *
 from experiments.reactive_modules.ReactiveModule import Atom
 
 

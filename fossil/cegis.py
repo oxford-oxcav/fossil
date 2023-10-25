@@ -9,16 +9,17 @@ from typing import Union, NamedTuple
 
 import torch
 
-from experiments.benchmarks.models import GeneralClosedLoopModel
-import src.certificate as certificate
-import src.consolidator as consolidator
-from src.consts import Any, torch
-import src.control as control
-import src.learner as learner
-import src.translator as translator
-import src.verifier as verifier
-from src.consts import *
-from src.utils import print_section, vprint
+import fossil.logger as logger
+import fossil.certificate as certificate
+import fossil.consolidator as consolidator
+from fossil.consts import Any, torch
+import fossil.control as control
+import fossil.learner as learner
+import fossil.translator as translator
+import fossil.verifier as verifier
+from fossil.consts import *
+
+cegis_log = logger.Logger.setup_logger(__name__)
 
 
 class CegisStats(NamedTuple):
@@ -110,6 +111,8 @@ class SingleCegis:
             domains[certificate.XNF] = self.config.DOMAINS[
                 certificate.XF
             ].generate_complement(x)
+
+        cegis_log.debug("Domains: {}".format(domains))
         return x, x_map, domains
 
     def _initialise_data(self):
@@ -163,29 +166,25 @@ class SingleCegis:
 
         while not stop:
             # Learner component
-            if self.config.VERBOSE:
-                print_section("learner", iters)
+            cegis_log.debug("\033[1m Learner \033[0m")
             outputs = self.learner.get(**state)
             state = {**state, **outputs}
 
             # Update xdot with new controller if necessary
-            state.update({CegisStateKeys.xdot: self.f(self.x)})
+            state = self.update_controller(state)
 
             # Translator component
-            if self.config.VERBOSE:
-                print_section("translator", iters)
+            cegis_log.debug("\033[1m Translator \033[0m")
             outputs = self.translator.get(**state)
             state = {**state, **outputs}
 
             # Verifier component
-            if self.config.VERBOSE:
-                print_section("verifier", iters)
+            cegis_log.debug("\033[1m Verifier \033[0m")
             outputs = self.verifier.get(**state)
             state = {**state, **outputs}
 
             # Consolidator component
-            if self.config.VERBOSE:
-                print_section("consolidator", iters)
+            cegis_log.debug("\033[1m Consolidator \033[0m")
             outputs = self.consolidator.get(**state)
             state = {**state, **outputs}
 
@@ -193,13 +192,13 @@ class SingleCegis:
                 stop = self.process_certificate(S, state, iters)
 
             elif state[CegisStateKeys.verification_timed_out]:
-                print("Verification timed out")
+                cegis_log.warning("Verification timed out")
                 stop = True
 
             elif (
                 self.config.CEGIS_MAX_ITERS == iters and not state[CegisStateKeys.found]
             ):
-                print("Out of iterations")
+                cegis_log.warning("Out of iterations")
                 stop = True
 
             elif not (
@@ -209,6 +208,7 @@ class SingleCegis:
                 state = self.process_cex(S, state)
 
             iters += 1
+            cegis_log.info(["Iteration: {}".format(iters)])
 
         state = self.process_timers(state)
 
@@ -218,6 +218,11 @@ class SingleCegis:
         )
         self._result = Result(state[CegisStateKeys.found], state["net"], self.f, stats)
         return self._result
+
+    def update_controller(self, state):
+        cegis_log.debug("Updating state xdot with controller")
+        state.update({CegisStateKeys.xdot: self.f(self.x)})
+        return state
 
     def init_state(self, Sdot, S):
         state = {
@@ -229,7 +234,7 @@ class SingleCegis:
             CegisStateKeys.V_dot: None,
             CegisStateKeys.x_v_map: self.x_map,
             CegisStateKeys.xdot: self.xdot,
-            CegisStateKeys.xdot_func: self.f.f_torch,
+            CegisStateKeys.xdot_func: self.f._f_torch,
             CegisStateKeys.found: False,
             CegisStateKeys.verification_timed_out: False,
             CegisStateKeys.cex: None,
@@ -269,21 +274,10 @@ class SingleCegis:
             self.verifier.get_timer().sum,
             self.consolidator.get_timer().sum,
         ]
-        vprint(
-            ["Learner times: {}".format(self.learner.get_timer())], self.config.VERBOSE
-        )
-        vprint(
-            ["Translator times: {}".format(self.translator.get_timer())],
-            self.config.VERBOSE,
-        )
-        vprint(
-            ["Verifier times: {}".format(self.verifier.get_timer())],
-            self.config.VERBOSE,
-        )
-        vprint(
-            ["Consolidator times: {}".format(self.consolidator.get_timer())],
-            self.config.VERBOSE,
-        )
+        cegis_log.info(["Learner times: {}".format(self.learner.get_timer())])
+        cegis_log.info(["Translator times: {}".format(self.translator.get_timer())])
+        cegis_log.info(["Verifier times: {}".format(self.verifier.get_timer())])
+        cegis_log.info(["Consolidator times: {}".format(self.consolidator.get_timer())])
         return state
 
     def process_certificate(
@@ -316,7 +310,7 @@ class SingleCegis:
                 if self.config.CEGIS_MAX_ITERS == iters:
                     stop = True
         else:
-            if isinstance(self.f, GeneralClosedLoopModel):
+            if isinstance(self.f, control.GeneralClosedLoopModel):
                 ctrl = " and controller"
             else:
                 ctrl = ""
@@ -344,7 +338,6 @@ class SingleCegis:
         return S, Sdot
 
     def _assert_state(self):
-        assert self.config.BATCH_SIZE > 0
         assert self.config.LEARNING_RATE > 0
         assert self.config.CEGIS_MAX_TIME_S > 0
         if self.config.TIME_DOMAIN == TimeDomain.DISCRETE:
@@ -456,23 +449,20 @@ class DoubleCegis(SingleCegis):
 
         while not stop:
             # Learner component
-            if self.config.VERBOSE:
-                print_section("learner", iters)
+            cegis_log.debug("\033[1m Learner \033[0m")
             outputs = self.lyap_learner.get(**state)
             state = {**state, **outputs}
 
             # Update xdot with new controller if necessary
-            state.update({CegisStateKeys.xdot: self.f(self.x)})
+            state = self.update_controller(state)
 
             # Translator component
-            if self.config.VERBOSE:
-                print_section("translator", iters)
+            cegis_log.debug("\033[1m Translator \033[0m")
             outputs = self.translator.get(**state)
             state = {**state, **outputs}
 
             # Verifier component
-            if self.config.VERBOSE:
-                print_section("verifier", iters)
+            cegis_log.debug("\033[1m Verifier \033[0m")
             outputs = self.verifier.get(**state)
             state = {**state, **outputs}
 
@@ -497,13 +487,13 @@ class DoubleCegis(SingleCegis):
                 stop = self.process_certificate(S, state, iters)
 
             elif state[CegisStateKeys.verification_timed_out]:
-                print("Verification timed out")
+                cegis_log.warning("Verification timed out")
                 stop = True
 
             elif (
                 self.config.CEGIS_MAX_ITERS == iters and not state[CegisStateKeys.found]
             ):
-                print("Out of iterations")
+                cegis_log.warning("Out of iterations")
                 stop = True
 
             elif not (
@@ -513,6 +503,7 @@ class DoubleCegis(SingleCegis):
                 state = self.process_cex(S, state)
 
             iters += 1
+            cegis_log.info(["Iteration: {}".format(iters)])
 
         state = self.process_timers(state)
 
@@ -543,22 +534,10 @@ class DoubleCegis(SingleCegis):
             self.verifier.get_timer().sum,
             self.consolidator.get_timer().sum,
         ]
-        vprint(
-            ["Learner times: {}".format(self.lyap_learner.get_timer())],
-            self.config.VERBOSE,
-        )
-        vprint(
-            ["Translator times: {}".format(self.translator.get_timer())],
-            self.config.VERBOSE,
-        )
-        vprint(
-            ["Verifier times: {}".format(self.verifier.get_timer())],
-            self.config.VERBOSE,
-        )
-        vprint(
-            ["Consolidator times: {}".format(self.consolidator.get_timer())],
-            self.config.VERBOSE,
-        )
+        cegis_log.info(["Learner times: {}".format(self.lyap_learner.get_timer())])
+        cegis_log.info(["Translator times: {}".format(self.translator.get_timer())])
+        cegis_log.info(["Verifier times: {}".format(self.verifier.get_timer())])
+        # cegis_log.info(["Consolidator times: {}".format(self.consolidator.get_timer())])
         return state
 
 

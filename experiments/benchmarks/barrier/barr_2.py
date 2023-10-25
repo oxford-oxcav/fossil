@@ -9,10 +9,10 @@
 
 import torch
 from experiments.benchmarks import models
-from src import domains
-from src import certificate
-from src import main
-from src.consts import *
+from fossil import domains
+from fossil import certificate
+from fossil import main, control
+from fossil.consts import *
 
 
 def test_lnn(args):
@@ -71,7 +71,7 @@ def test_lnn(args):
 
     main.run_benchmark(
         opts,
-        record=args.record,
+        record=True,
         plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,

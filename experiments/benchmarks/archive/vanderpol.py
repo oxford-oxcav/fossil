@@ -7,12 +7,12 @@
 
 # pylint: disable=not-callable
 
-import src.domains as domains
-from src import plotting
+import fossil.domains as domains
+from fossil import plotting
 from experiments.benchmarks.models import VanDerPol
-from src import main
-from src.consts import *
-from src import certificate
+from fossil import main, control
+from fossil.consts import *
+from fossil import certificate
 
 
 def test_lnn(args):

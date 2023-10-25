@@ -13,9 +13,9 @@ from tqdm import tqdm
 
 from experiments.benchmarks.benchmarks_lyap import *
 from experiments.robustness.tqdm_redirect import std_out_err_redirect_tqdm
-from src.cegis import Cegis
+from fossil.cegis import Cegis
 
-from src.consts import *
+from fossil.consts import *
 
 
 def test_robustness(benchmark, n_vars, domain, hidden):

@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import unittest
 from unittest.mock import MagicMock
-from src.learner import LearnerNN, QuadraticFactor, LearnerCT, LearnerDT
-from src.consts import *
+from fossil.learner import LearnerNN, QuadraticFactor, LearnerCT, LearnerDT
+from fossil.consts import *
 
 
 class TestLearnerNN(unittest.TestCase):

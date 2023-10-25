@@ -11,7 +11,7 @@ import sympy as sp
 
 import logging
 
-from src.sympy_converter import sympy_converter
+from fossil.sympy_converter import sympy_converter
 
 try:
     import dreal as dr
