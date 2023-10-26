@@ -14,6 +14,7 @@ import numpy as np
 import sympy as sp
 import z3
 import dreal
+from cvc5 import pythonic as cvpy
 from scipy import linalg
 from matplotlib import pyplot as plt
 
@@ -21,7 +22,7 @@ from fossil import parser
 from fossil import logger
 from fossil.activations import activation
 from fossil.activations_symbolic import activation_sym
-from fossil.consts import Z3_FNCS, DREAL_FNCS, SP_FNCS, VerifierType
+from fossil.consts import Z3_FNCS, DREAL_FNCS, SP_FNCS, VerifierType, CVC5_FNCS
 from fossil.utils import vprint, contains_object
 
 ctrl_log = logger.Logger.setup_logger(__name__)
@@ -39,6 +40,9 @@ class CTModel:
             return self.f_smt(v)
         elif contains_object(v, z3.ArithRef):
             self.fncs = Z3_FNCS
+            return self.f_smt(v)
+        elif contains_object(v, cvpy.ArithRef):
+            self.fncs = CVC5_FNCS
             return self.f_smt(v)
         elif contains_object(v, sp.Expr):
             self.fncs = SP_FNCS
@@ -144,6 +148,9 @@ class ControllableCTModel:
         elif contains_object(v, z3.ArithRef):
             self.fncs = Z3_FNCS
             return self.f_smt(v, u)
+        elif contains_object(v, cvpy.ArithRef):
+            self.fncs = CVC5_FNCS
+            return self.f_smt(v, u)
         elif contains_object(v, sp.Expr):
             self.fncs = SP_FNCS
             return self.f_smt(v, u)
@@ -197,6 +204,8 @@ class _ParsedCTModel(CTModel):
             p = parser.DrealParser()
         elif self.verifier == VerifierType.Z3:
             p = parser.Z3Parser()
+        elif self.verifier == VerifierType.CVC5:
+            p = parser.CVC5Parser()
         else:
             raise ValueError(
                 "Verifier {} not supported from command line".format(self.verifier)
@@ -230,6 +239,8 @@ class _ParsedControllableCTModel(ControllableCTModel):
             p = parser.DrealParser()
         elif self.verifier == VerifierType.Z3:
             p = parser.Z3Parser()
+        elif self.verifier == VerifierType.CVC5:
+            p = parser.CVC5Parser()
         else:
             raise ValueError(
                 "Verifier {} not supported from command line".format(self.verifier)

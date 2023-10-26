@@ -190,6 +190,8 @@ class CegisConfigParser:
         elif certificate == consts.CertificateType.RAR:
             return CegisConfigParser.adjust_rar(data, domains, data_config)
 
+        return data, domains
+
 
 def parse_yaml_to_cegis_config(file_path: str) -> consts.CegisConfig:
     with open(file_path, "r") as file:
