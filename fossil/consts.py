@@ -181,7 +181,7 @@ class CegisConfig:
     N_VARS: int = 0
     N_HIDDEN_NEURONS: tuple[int] = (10,)
     ACTIVATION: tuple[ActivationType, ...] = (ActivationType.SQUARE,)
-    VERBOSE: bool = False
+    VERBOSE: int = 0
     ENET: Any = None
     CTRLAYER: tuple[int] = None  # not None means control certificate
     CTRLACTIVATION: tuple[ActivationType, ...] = None

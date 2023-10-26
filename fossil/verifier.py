@@ -140,13 +140,13 @@ class Verifier(Component):
         ces = {label: [] for label in results.keys()}  # [[] for res in results.keys()]
 
         if all(self.is_unsat(res) for res in results.values()):
-            ver_log.info(["No counterexamples found!"])
+            ver_log.info("No counterexamples found!")
             found = True
         else:
             for index, o in enumerate(results.items()):
                 label, res = o
                 if self.is_sat(res):
-                    ver_log.info([label + ": "])
+                    ver_log.info(label + ": ")
                     original_point = self.compute_model(solvers[label], res)
                     # This next bit is hard to handle if C, dC are tuples of formula
                     # For now, just check it's not a tuple
@@ -154,11 +154,11 @@ class Verifier(Component):
                         V_ctx, Vdot_ctx = self.replace_point(
                             C, self.xs, original_point.numpy().T
                         ), self.replace_point(dC, self.xs, original_point.numpy().T)
-                        ver_log.info(["\nV_ctx: {} ".format(V_ctx)])
-                        ver_log.info(["\nVdot_ctx: {} ".format(Vdot_ctx)])
+                        ver_log.info("\nV_ctx: {} ".format(V_ctx))
+                        ver_log.info("\nVdot_ctx: {} ".format(Vdot_ctx))
                     ces[label] = self.randomise_counterex(original_point)
                 else:
-                    ver_log.info([res])
+                    ver_log.info(res)
 
         return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
@@ -219,7 +219,7 @@ class Verifier(Component):
         :return: tensor containing single ctx
         """
         model = self._solver_model(solver, res)
-        ver_log.info(["Counterexample Found: {}".format(model)])
+        ver_log.info("Counterexample Found: {}".format(model))
         temp = []
         for i, x in enumerate(self.xs):
             n = self._model_result(solver, model, x, i)

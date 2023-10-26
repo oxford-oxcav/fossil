@@ -18,7 +18,11 @@ from fossil import certificate
 
 """Post processing of results module."""
 
-DRF = DEFAULT_RESULT_FILE = os.path.dirname(os.path.realpath(__file__)) + "/results.csv"
+DRF = DEFAULT_RESULT_FILE = (
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    + "/experiments/results.csv"
+)
+os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + "/results.csv"
 
 
 @dataclasses.dataclass

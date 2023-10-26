@@ -60,7 +60,7 @@ class TranslatorNN(Component):
         self.xdot = np.array(kw.get(CegisStateKeys.xdot, self.xdot)).reshape(-1, 1)
         V, Vdot = self.get_symbolic_formula(net, self.x, self.xdot, lf=fcts)
 
-        trl_log.info(["Candidate: {}".format(V)])
+        trl_log.info("Candidate: {}".format(V))
 
         return {CegisStateKeys.V: V, CegisStateKeys.V_dot: Vdot}
 
@@ -261,7 +261,7 @@ class TranslatorCTDouble(TranslatorCT):
         V, Vdot = self.get_symbolic_formula(lyap_net, self.x, self.xdot, lf=fcts)
         B, Bdot = self.get_symbolic_formula(barr_net, self.x, self.xdot, lf=fcts)
 
-        trl_log.info(["Candidate: {}".format((V, B))])
+        trl_log.info("Candidate: {}".format((V, B)))
 
         return {CegisStateKeys.V: (V, B), CegisStateKeys.V_dot: (Vdot, Bdot)}
 
