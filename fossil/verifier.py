@@ -337,7 +337,7 @@ class VerifierDReal(Verifier):
     def _solver_solve(self, solver, fml):
         res = dr.CheckSatisfiability(fml, 0.0001)
         if self.is_sat(res) and not self.within_bounds(res):
-            logging.log(logging.INFO, "Second chance bound used")
+            ver_log.info("Second chance bound used")
             new_bound = self.optional_configs.DREAL_SECOND_CHANCE_BOUND
             fml = dr.And(fml, *(dr.And(x < new_bound, x > -new_bound) for x in self.xs))
             res = dr.CheckSatisfiability(fml, 0.0001)

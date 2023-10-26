@@ -12,8 +12,12 @@ import z3
 import sympy as sp
 import dreal
 import pyparsing as pp
+import torch
 
 from fossil import domains
+from fossil import logger
+
+parser_log = logger.Logger.setup_logger(__name__)
 
 
 class SymbolicParsingError(Exception):
@@ -181,6 +185,8 @@ class SymbolicParser:
             symbolic variable: A symbolic variable
         """
         var_name = t[0]
+        if var_name in self.xs:
+            return self.xs[var_name]
         var = self.var_function(var_name)
         if var_name.startswith("x"):
             self.xs[var_name] = var
@@ -222,6 +228,7 @@ class Z3Parser(SymbolicParser):
 
     @staticmethod
     def var_function(name: str):
+        parser_log.debug(f"Creating z3 variable {name}")
         return z3.Real(name)
 
     def subsitution_function(self, expr, xs):
@@ -270,9 +277,36 @@ class DrealParser(SymbolicParser):
 
     @staticmethod
     def var_function(name: str):
-        # TODO: might be worth making this an expression instead of a variable (dreal.Expression(x))
-        # The variable would still go in self.xs, but the expression would be returned (expressions seem to be more general)
+        #  We must store the variable in a dictionary, because it is later used as a key and keys must be hashable
+        # We must also return a dreal expression so it can be substituted
+        parser_log.debug(f"Creating dreal variable {name}")
         return dreal.Variable(name)
+
+    def make_var(self, t):
+        """Create a variable from a parsed token
+
+        Args:
+            t : A parsed token
+
+        Raises:
+            ValueError: Varaibles must start with x or u
+
+        Returns:
+            symbolic variable: A symbolic variable
+        """
+
+        var_name = t[0]
+        if var_name in self.xs:
+            return self.xs[var_name]
+        var = self.var_function(var_name)
+        if var_name.startswith("x"):
+            self.xs[var_name] = var
+        elif var_name.startswith("u"):
+            self.us[var_name] = var
+        else:
+            # Hopefully this never happens
+            raise ValueError(f"Invalid variable name {var_name}")
+        return 1 * var
 
     def subsitution_function(self, expr, xs):
         # xs is a list of the form [0, x1, ...}]from cegis
@@ -319,6 +353,7 @@ class SympyParser(SymbolicParser):
 
     @staticmethod
     def var_function(name: str):
+        parser_log.debug(f"Creating sympy variable {name}")
         return sp.var(name)
 
 
@@ -395,7 +430,12 @@ def __lambdify_to_numpy(expr, state_symbols):
     Returns:
             A numpy function
     """
-    return sp.lambdify([state_symbols], expr, modules="numpy")
+    torch_func = {
+        "sin": torch.sin,
+        "cos": torch.cos,
+        "exp": torch.exp,
+    }
+    return sp.lambdify([state_symbols], expr, modules=[torch_func, "numpy"])
 
 
 def _lamdify_to_numpy_u(expr, state_symbols, control_symbols):
@@ -411,7 +451,14 @@ def _lamdify_to_numpy_u(expr, state_symbols, control_symbols):
     Returns:
             A numpy function
     """
-    return sp.lambdify([state_symbols, control_symbols], expr, modules="numpy")
+    torch_func = {
+        "sin": torch.sin,
+        "cos": torch.cos,
+        "exp": torch.exp,
+    }
+    return sp.lambdify(
+        [state_symbols, control_symbols], expr, modules=[torch_func, "numpy"]
+    )
 
 
 def parse_expression(s, output="z3"):
