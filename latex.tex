@@ -1,0 +1,360 @@
+\textbf{ [1] NonPoly0 Stability }
+
+$\left[ x_{0} x_{1} - x_{0}, \  - x_{1}\right]$ 
+ 
+ $XD: Torus([0, 0], 1, 0.01) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [6]
+
+\textbf{ [2] Poly1 Stability }
+
+$\left[ - x_{0}^{3} - x_{0} x_{2}^{2}, \  - x_{0}^{2} x_{1} - x_{1}, \  3 x_{0}^{2} x_{2} - 4 x_{2}\right]$ 
+ 
+ $XD: Torus([0.0, 0.0, 0.0], 10.0, 0.1) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [8]
+
+\textbf{ [3] Benchmark1 Stability }
+
+\left[ u_{0} + x_{0} + x_{1}, \  u_{1} - x_{0} - x_{1}\right] 
+ 
+ $XD: Torus([0.0, 0.0], 10.0, 0.1) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [4]
+CTRLActivation: [$\varphi_{1}$], Neurons: [15, 2]
+
+\textbf{ [4] InvertedPendulum Stability }
+
+\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right] 
+ 
+ $XD: Torus([0.0, 0.0], 1, 0.1) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [5]
+CTRLActivation: [$\varphi_{1}$], Neurons: [25, 2]
+
+\textbf{ [5] NonPoly1 ROA }
+
+$\left[ 2 x_{0}^{2} x_{1} - x_{0}, \  - x_{1}\right]$ 
+ 
+ $XI: (Sphere([-1, 1], 0.1) | Sphere([1, -1], 0.2)) $
+
+
+Activation: [$\sigma_{\mathrm{soft}}$], Neurons: [5]
+
+\textbf{ [6] LorenzSystem ROA }
+
+\left[ u_{0} - 10.0 x_{0} + 10.0 x_{1}, \  u_{1} - x_{0} x_{2} + 28.0 x_{0} - x_{1}, \  u_{2} + x_{0} x_{1} - 2.66666666666667 x_{2}\right] 
+ 
+ $XI: Sphere([0, 0, 0], 0.3) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [8]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 3]
+
+\textbf{ [7] Barr2 Safety }
+
+$\left[ x_{1} - 1 + e^{- x_{0}}, \  - \sin^{2}{\left(x_{0} \right)}\right]$ 
+ 
+ $XD: x_{0} \geq -2 \wedge x_{1} \leq 2 $
+
+$XI: Sphere([-0.5, 0.5], 0.4) $
+
+$XU: Sphere([0.7, -0.7], 0.3) $
+
+
+Activation: [$\sigma_{\mathrm{t}}$], Neurons: [15]
+
+\textbf{ [8] ObstacleAvoidance Safety }
+
+$\left[ \sin{\left(x_{2} \right)}, \  \cos{\left(x_{2} \right)}, \  \frac{3 x_{0} \sin{\left(x_{2} \right)} + 3 x_{1} \cos{\left(x_{2} \right)}}{x_{0}^{2} + x_{1}^{2} + 0.5} - \sin{\left(x_{2} \right)}\right]$ 
+ 
+ $XD: x_{0} \geq -2 \wedge x_{1} \geq -2 \wedge x_{2} \geq -1.57 \wedge x_{0} \leq 2 \wedge x_{1} \leq 2 \wedge x_{2} \leq 1.57 $
+
+$XI: x_{0} \geq -0.1 \wedge x_{1} \geq -2 \wedge x_{2} \geq -0.52 \wedge x_{0} \leq 0.1 \wedge x_{1} \leq -1.8 \wedge x_{2} \leq 0.52 $
+
+$XU: x_{0}^{2} + x_{1}^{2} \leq 0.04 $
+
+
+Activation: [$\varphi_{4}$], Neurons: [25]
+
+\textbf{ [9] HighOrd8 Safety }
+
+$\left[ x_{1}, \  x_{2}, \  x_{3}, \  x_{4}, \  x_{5}, \  x_{6}, \  x_{7}, \  - 576 x_{0} - 2400 x_{1} - 4180 x_{2} - 3980 x_{3} - 2273 x_{4} - 800 x_{5} - 170 x_{6} - 20 x_{7}\right]$ 
+ 
+ $XD: Rectangle([-2.2, -2.2, -2.2, -2.2, -2.2, -2.2, -2.2, -2.2], [2.2, 2.2, 2.2, 2.2, 2.2, 2.2, 2.2, 2.2]) $
+
+$XI: Rectangle([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9], [1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]) $
+
+$XU: Rectangle([-2.2, -2.2, -2.2, -2.2, -2.2, -2.2, -2.2, -2.2], [-1.8, -1.8, -1.8, -1.8, -1.8, -1.8, -1.8, -1.8]) $
+
+
+Activation: [$\varphi_{1}$], Neurons: [10]
+
+\textbf{ [10] CtrlObstacleAvoidance Safety }
+
+\left[ \sin{\left(x_{2} \right)}, \  \cos{\left(x_{2} \right)}, \  u_{0} - \sin{\left(x_{2} \right)}\right] 
+ 
+ $XD: Rectangle([-10.0, -10.0, -3.141592653589793], [10.0, 10.0, 3.141592653589793]) $
+
+$XI: Rectangle([4.0, 4.0, -1.5707963267948966], [6.0, 6.0, 1.5707963267948966]) $
+
+$XU: Rectangle([-9, -9, -1.5707963267948966], [-7.0, -6.0, 1.5707963267948966]) $
+
+
+Activation: [$\sigma_{\mathrm{t}}$], Neurons: [15]
+CTRLActivation: [$\sigma_{\mathrm{t}}$], Neurons: [5, 1]
+
+\textbf{ [11] NonPoly3 SWA }
+
+$\left[ - 0.1 x_{0} x_{1}^{3} - 3 x_{0}, \  - x_{1} + x_{2}, \  - x_{2}\right]$ 
+ 
+ $XD: Torus([0, 0, 0], 3, 0.01) $
+
+$XI: Sphere([-0.9, -0.9, -0.9], 1.0) $
+
+$XU: (Sphere([0.4, 0.4, 0.4], 0.2) | Sphere([-0.4, 0.4, 0.4], 0.2)) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [6]
+AltActivation: [$\sigma_{\mathrm{t}}$], AltNeurons: [5]
+
+\textbf{ [12] Barr3 SWA }
+
+$\left[ x_{1}, \  0.333333333333333 x_{0}^{3} - x_{0} - x_{1}\right]$ 
+ 
+ $XD: Rectangle([-3, -2], [2.5, 1]) $
+
+$XI: Rectangle([0.4, 0.1], [0.8, 0.5]) $
+
+$XU: Sphere([-1, -1], 0.4) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [5]
+AltActivation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], AltNeurons: [5, 5]
+
+\textbf{ [13] SecondOrder SWA }
+
+\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right] 
+ 
+ $XD: Rectangle([-1.5, -1.5], [1.5, 1.5]) $
+
+$XI: Rectangle([-0.5, -0.5], [0.5, 0.5]) $
+
+$XU: Complement(Rectangle([-1, -1], [1, 1])) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [8]
+AltActivation: [$\varphi_{2}$], AltNeurons: [5]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [14] ThirdOrder SWA }
+
+\left[ u_{0} - 10 x_{0} + 10 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right] 
+ 
+ $XD: Rectangle([-6, -6, -6], [6, 6, 6]) $
+
+$XI: Rectangle([-1.2, -1.2, -1.2], [1.2, 1.2, 1.2]) $
+
+$XU: Complement(Rectangle([-5, -5, -5], [5, 5, 5])) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [10]
+AltActivation: [$\sigma_{\mathrm{t}}$], AltNeurons: [8]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [15] SecondOrderLQR RWA }
+
+$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]$ 
+ 
+ $XD: Rectangle([-1.5, -1.5], [1.5, 1.5]) $
+
+$XI: Rectangle([-0.5, -0.5], [0.5, 0.5]) $
+
+$XS: Rectangle([-1, -1], [1, 1]) $
+
+$XG: Rectangle([-0.05, -0.05], [0.05, 0.05]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [16] ThirdOrderLQR RWA }
+
+$\left[ - 33.71 x_{0} - 8.49 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]$ 
+ 
+ $XD: Rectangle([-6, -6, -6], [6, 6, 6]) $
+
+$XI: Rectangle([-1.2, -1.2, -1.2], [1.2, 1.2, 1.2]) $
+
+$XS: Rectangle([-5, -5, -5], [5, 5, 5]) $
+
+$XG: Rectangle([-0.3, -0.3, -0.3], [0.3, 0.3, 0.3]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [16]
+
+\textbf{ [17] SecondOrder RWA }
+
+\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right] 
+ 
+ $XD: Rectangle([-1.5, -1.5], [1.5, 1.5]) $
+
+$XI: Rectangle([-0.5, -0.5], [-0.1, -0.1]) $
+
+$XS: (Rectangle([-1.5, -1.5], [1.5, 1.5]) \ Sphere([0.5, 0.5], 0.2)) $
+
+$XG: Rectangle([-0.05, -0.05], [0.05, 0.05]) $
+
+
+Activation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], Neurons: [4, 4]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [18] ThirdOrder RWA }
+
+\left[ u_{0} - 10 x_{0} + 10 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right] 
+ 
+ $XD: Rectangle([-6, -6, -6], [6, 6, 6]) $
+
+$XI: Rectangle([-1.2, -1.2, -1.2], [1.2, 1.2, 1.2]) $
+
+$XS: Rectangle([-5, -5, -5], [5, 5, 5]) $
+
+$XG: Rectangle([-0.3, -0.3, -0.3], [0.3, 0.3, 0.3]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [5]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [19] InvertedPendulum RWA }
+
+\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right] 
+ 
+ $XD: Rectangle([-3, -3], [3, 3]) $
+
+$XI: Rectangle([-0.6, -0.6], [0.6, 0.6]) $
+
+$XS: Rectangle([-2.5, -2.5], [2.5, 2.5]) $
+
+$XG: Rectangle([-0.01, -0.01], [0.01, 0.01]) $
+
+
+Activation: [$\sigma_{\mathrm{sig}}$], Neurons: [5]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 2]
+
+\textbf{ [20] SecondOrderLQR RSWA }
+
+$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]$ 
+ 
+ $XD: Rectangle([-1.5, -1.5], [1.5, 1.5]) $
+
+$XI: Rectangle([-0.5, -0.5], [0.5, 0.5]) $
+
+$XS: Rectangle([-1, -1], [1, 1]) $
+
+$XG: Rectangle([-0.05, -0.05], [0.05, 0.05]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [4]
+
+\textbf{ [21] ThirdOrderLQR RSWA }
+
+$\left[ - 33.71 x_{0} - 8.49 x_{1}, \  - x_{0} x_{2} + 28 x_{0} - x_{1}, \  x_{0} x_{1} - 2.66666666666667 x_{2}\right]$ 
+ 
+ $XD: Rectangle([-6, -6, -6], [6, 6, 6]) $
+
+$XI: Rectangle([-1.2, -1.2, -1.2], [1.2, 1.2, 1.2]) $
+
+$XS: Rectangle([-5, -5, -5], [5, 5, 5]) $
+
+$XG: Rectangle([-0.3, -0.3, -0.3], [0.3, 0.3, 0.3]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [16]
+
+\textbf{ [22] InvertedPendulumLQR RSWA }
+
+$\left[ - 7.21 x_{0} - 0.34 x_{1}, \  - 1.34 x_{0} - 2.99666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right]$ 
+ 
+ $XD: Rectangle([-3, -3], [3, 3]) $
+
+$XI: Rectangle([-0.6, -0.6], [0.6, 0.6]) $
+
+$XS: Rectangle([-2.5, -2.5], [2.5, 2.5]) $
+
+$XG: Rectangle([-0.3, -0.3], [0.3, 0.3]) $
+
+
+Activation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], Neurons: [5, 5]
+
+\textbf{ [23] SecondOrder RSWA }
+
+\left[ - x_{0}^{3} + x_{1}, \  u_{0}\right] 
+ 
+ $XD: Rectangle([-1.5, -1.5], [1.5, 1.5]) $
+
+$XI: Rectangle([-0.5, -0.5], [0.5, 0.5]) $
+
+$XS: Rectangle([-1, -1], [1, 1]) $
+
+$XG: Rectangle([-0.05, -0.05], [0.05, 0.05]) $
+
+
+Activation: [$\varphi_{2}$], Neurons: [8]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 1]
+
+\textbf{ [24] InvertedPendulum RSWA }
+
+\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right] 
+ 
+ $XD: Rectangle([-3, -3], [3, 3]) $
+
+$XI: Rectangle([-0.6, -0.6], [0.6, 0.6]) $
+
+$XS: Rectangle([-2.5, -2.5], [2.5, 2.5]) $
+
+$XG: Rectangle([-0.3, -0.3], [0.3, 0.3]) $
+
+
+Activation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], Neurons: [5, 5]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 2]
+
+\textbf{ [25] SecondOrderLQR RAR }
+
+$\left[ - x_{0}^{3} + x_{1}, \  - 1.0 x_{0} - 1.73 x_{1}\right]$ 
+ 
+ $XD: Rectangle([-3.5, -3.5], [3.5, 3.5]) $
+
+$XI: Rectangle([-2, -2], [2, 2]) $
+
+$XS: Rectangle([-3, -3], [3, 3]) $
+
+$XG: Rectangle([-0.1, -0.1], [0.1, 0.1]) $
+
+$XF: Rectangle([-0.15, -0.15], [0.15, 0.15]) $
+
+
+Activation: [$\sigma_{\mathrm{soft}}$], Neurons: [6]
+AltActivation: [$\varphi_{2}$], AltNeurons: [6]
+
+\textbf{ [26] InvertedPendulum RAR }
+
+\left[ u_{0} + x_{1}, \  u_{1} - 2.66666666666667 x_{1} + 19.62 \sin{\left(x_{0} \right)}\right] 
+ 
+ $XD: Rectangle([-3.5, -3.5], [3.5, 3.5]) $
+
+$XI: Rectangle([-2, -2], [2, 2]) $
+
+$XS: Rectangle([-3, -3], [3, 3]) $
+
+$XG: Rectangle([-0.1, -0.1], [0.1, 0.1]) $
+
+$XF: Rectangle([-0.2, -0.2], [0.2, 0.2]) $
+
+
+Activation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], Neurons: [6, 6]
+AltActivation: [$\sigma_{\mathrm{sig}}$,$\varphi_{2}$], AltNeurons: [6, 6]
+CTRLActivation: [$\varphi_{1}$], Neurons: [8, 2]
+

@@ -1,15 +1,19 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
-import sympy as sp
+# LICENSE file in the root directory of this source tree.
 import re
-import z3 as z3
-from experiments.benchmarks.domain_fcns import *
-import matplotlib.pyplot as plt
 
+import sympy as sp
+import torch
+from matplotlib import pyplot as plt
+
+import experiments.benchmarks.models as models
+import src.control as control
+from src import certificate
+from src.consts import ActivationType
+from src.domains import *
 
 ###############################
 # NON POLY BENCHMARKS
@@ -20,219 +24,368 @@ import matplotlib.pyplot as plt
 # Polynomial Systems through Darboux Polynomials.
 
 # also from CDC 2011, Parrillo, poly system w non-poly lyap
-def nonpoly0(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
-
-    def f(_, v):
-        x, y = v
-        return [
-            -x + x * y,
-            -y
-        ]
-
-    def XD(_, v):
-        x, y = v
-        return _And(x > 0, y > 0,
-                    inner ** 2 <= x ** 2 + y ** 2, x ** 2 + y ** 2 <= outer**2)
-
-    def SD():
-        return slice_init_data((0, 0), outer**2, batch_size)
-
-    return f, XD, SD()
 
 
-def nonpoly1(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
+def nonpoly0_lyap():
+    p = models.NonPoly0()
+    domain = Torus([0, 0], 1, 0.01)
 
-    def f(_, v):
-        x, y = v
-        return  [
-                -x + 2*x**2 * y,
-                -y
-                ]
-
-    def XD(_, v):
-        x, y = v
-        return _And(x > 0, y > 0, x ** 2 + y ** 2 <= outer**2)
-
-    def SD():
-        return slice_init_data((0, 0), outer**2, batch_size)
-
-    return f, XD, SD()
+    return (
+        p,
+        {certificate.XD: domain.generate_domain},
+        {certificate.XD: domain.generate_data(1000)},
+        inf_bounds_n(2),
+    )
 
 
-def nonpoly2(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
+def nonpoly0_rws():
+    p = models.NonPoly0()
+    XD = Sphere([0, 0], 10)
+    goal = Sphere([0, 0], 0.1)
+    unsafe = Sphere([3, 3], 0.5)
+    init = Sphere([-3, -3], 0.5)
+    batch_size = 500
+    domains = {
+        "lie": XD.generate_domain,
+        "init": init.generate_domain,
+        "unsafe": unsafe.generate_boundary,
+        "goal": goal.generate_domain,
+    }
 
-    def f(_, v):
-        x, y, z = v
-        return  [
-                -x,
-                -2*y + 0.1*x*y**2 + z,
-                -z -1.5*y
-                ]
+    data = {
+        "lie": SetMinus(XD, goal).generate_data(batch_size),
+        "init": init.generate_data(batch_size),
+        "unsafe": unsafe.generate_data(batch_size),
+    }
 
-    def XD(_, v):
-        x, y, z = v
-        return _And(x > 0, y > 0, z > 0, x ** 2 + y ** 2 + z**2 <= outer**2)
-
-    def SD():
-        return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
-
-    return f, XD, SD()
-
-
-def nonpoly3(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
-
-    def f(_, v):
-        x, y, z = v
-        return  [
-                -3*x - 0.1*x*y**3,
-                -y + z,
-                -z
-                ]
-
-    def XD(_, v):
-        x, y, z = v
-        return _And(x > 0, y > 0, z > 0, x ** 2 + y ** 2 + z**2 <= outer**2)
-
-    def SD():
-        return slice_3d_init_data((0, 0, 0), outer**2, batch_size)
-
-    return f, XD, SD()
+    return p, domains, data, inf_bounds_n(2)
 
 
-######################
+def nonpoly1():
+    outer = 10.0
+    batch_size = 500
+
+    f = models.NonPoly1()
+
+    XD = PositiveOrthantSphere([0.0, 0.0], outer)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def nonpoly2():
+    outer = 10.0
+    batch_size = 750
+
+    f = models.NonPoly2()
+
+    XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
+
+def nonpoly3():
+    outer = 10.0
+    batch_size = 500
+
+    f = models.NonPoly3()
+
+    XD = PositiveOrthantSphere([0.0, 0.0, 0.0], outer)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(3)
+
+
 # POLY benchmarks
-######################
 
 
-def benchmark_0(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
-
+def benchmark_0():
+    outer = 10.0
+    batch_size = 1000
     # test function, not to be included
-    def f(_, v):
-        x, y = v
-        return [-x, -y]
+    f = models.Benchmark0()
 
-    def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+    XD = Torus([0.0, 0.0], outer, inner_radius=0.1)
 
-    def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
 
-    return f, XD, SD()
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
 
-
-def poly_1(batch_size, functions, inner=0.0, outer=10.0):
-    # SOSDEMO2
-    # from http://sysos.eng.ox.ac.uk/sostools/sostools.pdf
-    _And = functions['And']
-
-    # test function, not to be included
-    def f(_, v):
-        x, y, z = v
-        return [
-            -x**3 - x*z**2,
-            -y - x**2 * y,
-            -z + 3*x**2*z - (3*z)
-        ]
-
-    def XD(_, v):
-        x, y, z = v
-        return _And(x ** 2 + y ** 2 + z ** 2 > inner, x ** 2 + y ** 2 + z ** 2 <= outer ** 2)
-
-    def SD():
-        return sphere_init_data((0, 0, 0), outer ** 2, batch_size)
-
-    return f, XD, SD()
+    return f, domains, data, inf_bounds_n(2)
 
 
 # this series comes from
 # https://www.cs.colorado.edu/~srirams/papers/nolcos13.pdf
 # srirams paper from 2013 (old-ish) but plenty of lyap fcns
+def poly_2():
+    outer = 10.0
+    inner = 0.01
+    batch_size = 500
 
-def poly_2(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
+    f = models.Poly2()
 
-    def f(_, v):
-        # if v.shape[0] == 1:
-        #     return [- v[0, 0] ** 3 + v[0, 1], - v[0, 0] - v[0, 1]]
-        # else:
-        #     return [- v[:, 0] ** 3 + v[:, 1], - v[:, 0] - v[:, 1]]
-        x,y = v
-        return [- x**3 + y, - x - y]
+    XD = Torus([0.0, 0.0], outer, inner)
 
-    def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
 
-    def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
 
-    return f, XD, SD()
+    return f, domains, data, inf_bounds_n(2)
 
 
-def poly_3(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
+def poly_3():
+    outer = 10.0
+    inner = 0.1
+    batch_size = 500
 
-    def f(_, v):
-        x, y = v
-        return [-x**3 - y**2, x*y - y**3]
+    f = models.Poly3()
 
-    def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
+    XD = Torus([0.0, 0.0], outer, inner)
 
-    def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
 
-    return f, XD, SD()
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
 
-
-def poly_4(batch_size, functions, inner=0.0, outer=10.0):
-    _And = functions['And']
-
-    def f(_, v):
-        x, y = v
-        return [
-            -x - 1.5 * x**2 * y**3,
-            -y**3 + 0.5 * x**3 * y**2
-        ]
-
-    def XD(_, v):
-        x, y = v
-        return _And(x ** 2 + y ** 2 > inner, x ** 2 + y ** 2 <= outer ** 2)
-
-    def SD():
-        return circle_init_data((0, 0), outer ** 2, batch_size)
-
-    return f, XD, SD()
+    return f, domains, data, inf_bounds_n(2)
 
 
-def twod_hybrid(batch_size, functions, inner, outer):
+def poly_4():
+    outer = 10.0
+    inner = 0.1
+    batch_size = 500
+
+    f = models.Poly4()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def twod_hybrid():
+    outer = 10.0
+    inner = 0.01
+    batch_size = 1000
     # example of 2-d hybrid sys
-    _And = functions['And']
+    f = models.TwoDHybrid()
 
-    def f(functions, v):
-        _If = functions['If']
-        x0, x1 = v
-        _then = - x1 - 0.5*x0**3
-        _else = - x1 - x0**2 - 0.25*x1**3
-        _cond = x1 >= 0
-        return [-x0, _If(_cond, _then, _else)]
+    XD = Torus([0.0, 0.0], outer, inner)
 
-    def XD(_, v):
-        x0, x1 = v
-        return _And(inner**2 < x0**2 + x1**2,
-                               x0**2 + x1**2 <= outer**2)
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
 
-    def SD():
-        return circle_init_data((0., 0.), outer**2, batch_size)
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
 
-    return f, XD, SD()
+    return f, domains, data, inf_bounds_n(2)
+
+
+def linear_discrete():
+    outer = 10.0
+    inner = 0.01
+    batch_size = 500
+
+    f = models.LinearDiscrete()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def double_linear_discrete():
+    outer = 10.0
+    batch_size = 1000
+    f = models.DoubleLinearDiscrete()
+
+    XD = Sphere([0.0, 0.0, 0.0, 0.0], outer)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(4)
+
+
+def linear_discrete_n_vars(smt_verification, n_vars):
+    outer = 10.0
+    batch_size = 1000
+
+    f = models.LinearDiscreteNVars()
+
+    XD = Sphere([0.0] * n_vars, outer)
+
+    data = {certificate.XD: XD.generate_data(batch_size)}
+
+    if smt_verification:
+        domains = {certificate.XD: XD.generate_domain}
+    else:
+        lower_inputs = -outer * np.ones((1, n_vars))
+        upper_inputs = outer * np.ones((1, n_vars))
+        # initial_bound = jax_verify.IntervalBound(lower_inputs, upper_inputs)
+        # domains = {certificate.XD: initial_bound}
+
+    return f, domains, data, inf_bounds_n(n_vars)
+
+
+def non_linear_discrete():
+    outer = 10.0
+    batch_size = 1000
+
+    f = models.NonLinearDiscrete()
+
+    XD = Sphere([0.0, 0.0], outer)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def ras_demo_lyap():
+    outer = 5.0
+    inner = 0.01
+    batch_size = 1000
+    f = models.NonPoly0()
+
+    XD = Torus([0.0, 0.0], outer, inner)
+    XI = Sphere([3.0, -3.0], 1)
+    XU = Rectangle([-1, -5], [5, 1])
+    XG = Sphere([0.0, 0.0], 0.01)
+    domains_lyap = {
+        certificate.XD: XD.generate_domain,
+    }
+    data_lyap = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains_lyap, data_lyap, inf_bounds_n(2)
+
+
+def ras_demo_barr():
+    outer = 5.0
+    inner = 0.01
+    batch_size = 1000
+    f = models.NonPoly0()
+    XD = Torus([0.0, 0.0], outer, inner)
+    XI = Sphere([3.0, -3.0], 1)
+    XU = Rectangle([1, 1], [2, 2])
+    XG = Sphere([0.0, 0.0], 0.01)
+    domains_barr = {
+        certificate.XD: XD.generate_domain,
+        certificate.XI: XI.generate_domain,
+        certificate.XU: XU.generate_domain,
+    }
+    data_barr = {
+        certificate.XD: XD.generate_data(batch_size),
+        certificate.XI: XI.generate_data(batch_size),
+        certificate.XU: XU.generate_data(batch_size),
+    }
+
+    return f, domains_barr, data_barr, inf_bounds_n(2)
+
+
+def control_ct():
+    outer = 10
+    batch_size = 1000
+
+    open_loop = models.UnstableLinear()
+    XD = Torus([0.0, 0.0], outer, 0.1)
+    ctrler = control.StabilityCT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models._PreTrainedModel(open_loop, ctrler)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
+
+
+def control_dt():
+    outer = 10
+    batch_size = 1000
+
+    open_loop = models.UnstableLinear()
+    XD = Torus([0.0, 0.0], outer, 0.1)
+    ctrler = control.StabilityDT(dim=2, layers=[1], activations=[ActivationType.LINEAR])
+    optim = torch.optim.AdamW(ctrler.parameters())
+    ctrler.learn(XD.generate_data(batch_size), open_loop, optim)
+    f = models._PreTrainedModel(open_loop, ctrler)
+
+    domains = {
+        certificate.XD: XD.generate_domain,
+    }
+
+    data = {
+        certificate.XD: XD.generate_data(batch_size),
+    }
+
+    return f, domains, data, inf_bounds_n(2)
 
 
 def max_degree_fx(fx):
@@ -241,16 +394,10 @@ def max_degree_fx(fx):
 
 def max_degree_poly(p):
     s = str(p)
-    s = re.sub(r'x\d+', 'x', s)
+    s = re.sub(r"x\d+", "x", s)
     try:
         f = sp.sympify(s)
         return sp.degree(f)
     except:
         print("Exception in %s for %s" % (max_degree_poly.__name__, p))
         return 0
-
-
-if __name__ == '__main__':
-    f, XD, SD = poly_1(batch_size=500, functions={'And': z3.And, 'Or': None}, inner=0, outer=10.)
-    plt.scatter(SD[:, 0].detach(), SD[:, 1].detach(), color='b')
-    plt.show()

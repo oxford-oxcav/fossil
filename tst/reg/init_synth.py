@@ -1,22 +1,19 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import traceback
 import timeit
 from src.lyap.cegis_lyap import Cegis as Cegis_for_lyap
 from src.barrier.cegis_barrier import Cegis as Cegis_for_bc
-from src.shared.activations import ActivationType
-from src.shared.cegis_values import CegisConfig, CegisStateKeys
-from src.shared.consts import VerifierType, LearnerType
+from src.consts import *
 from functools import partial
 
 
 def lyap_synthesis(benchmark, n_vars):
-
-    batch_size=500
+    batch_size = 500
     system = partial(benchmark, batch_size=batch_size)
 
     # compute equilibria
@@ -35,7 +32,7 @@ def lyap_synthesis(benchmark, n_vars):
     activations = [ActivationType.LINEAR]
     n_hidden_neurons = [5] * len(activations)
 
-    learner_type = LearnerType.NN
+    learner_type = LearnerType.CONTINUOUS
     verifier_type = VerifierType.Z3
 
     """
@@ -47,39 +44,49 @@ def lyap_synthesis(benchmark, n_vars):
     factors = None
 
     start = timeit.default_timer()
-    c = Cegis_for_lyap(n_vars, system, learner_type, activations, n_hidden_neurons,
-              verifier_type, inner_radius, outer_radius,
-              factors=factors, eq=None, sp_handle=True)
+    c = Cegis_for_lyap(
+        n_vars,
+        system,
+        learner_type,
+        activations,
+        n_hidden_neurons,
+        verifier_type,
+        inner_radius,
+        outer_radius,
+        factors=factors,
+        eq=None,
+    )
     c.solve()
     stop = timeit.default_timer()
-    print('Elapsed Time: {}'.format(stop-start))
+    print("Elapsed Time: {}".format(stop - start))
 
 
 def barrier_synthesis(benchmark, n_vars):
-
     MIN_TO_SEC = 60
     batch_size = 500
     system = partial(benchmark, batch_size)
-    activations = [ActivationType.LINEAR, ActivationType.LIN_TO_CUBIC, ActivationType.LINEAR]
+    activations = [
+        ActivationType.LINEAR,
+        ActivationType.POLY_3,
+        ActivationType.LINEAR,
+    ]
     hidden_neurons = [2] * len(activations)
     try:
         start = timeit.default_timer()
-        opts = {
-            CegisConfig.N_VARS.k: n_vars,
-            CegisConfig.LEARNER.k: LearnerType.NN,
-            CegisConfig.VERIFIER.k: VerifierType.Z3,
-            CegisConfig.ACTIVATION.k: activations,
-            CegisConfig.SYSTEM.k: system,
-            CegisConfig.N_HIDDEN_NEURONS.k: hidden_neurons,
-            CegisConfig.SP_SIMPLIFY.k: True,
-            CegisConfig.CEGIS_MAX_TIME_S.k: 30 * MIN_TO_SEC,
-        }
+        opts = CegisConfig(
+            N_VARS=n_vars,
+            TIME_DOMAIN=TimeDomain.CONTINUOUS,
+            VERIFIER=VerifierType.Z3,
+            ACTIVATION=activations,
+            SYSTEM=system,
+            N_HIDDEN_NEURONS=hidden_neurons,
+            CEGIS_MAX_TIME_S=30 * MIN_TO_SEC,
+        )
         c = Cegis_for_bc(**opts)
         _, found, _ = c.solve()
         end = timeit.default_timer()
 
-        print('Elapsed Time: {}'.format(end - start))
+        print("Elapsed Time: {}".format(end - start))
         print("Found? {}".format(found))
     except Exception as _:
         print(traceback.format_exc())
-

@@ -1,9 +1,9 @@
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
-# 
+#
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. 
- 
+# LICENSE file in the root directory of this source tree.
+
 import logging
 import unittest
 import time
@@ -11,13 +11,13 @@ import time
 import sympy as sp
 from z3 import *
 
-from src.shared.utils import Timer, timer, z3_to_string
+from src.utils import Timer, timer, z3_to_string
 
 
 class UtilsTest(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
-        self.x_sp, self.y_sp = sp.symbols('x y')
+        self.x_sp, self.y_sp = sp.symbols("x y")
 
     def test_whenTimerStartAndStop_shouldUpdateTimeAndSetRepr(self):
         t = Timer()
@@ -25,7 +25,9 @@ class UtilsTest(unittest.TestCase):
         t.start()
         time.sleep(s)
         t.stop()
-        rep = "total={}s,min={}s,max={}s,avg={}s".format(t.sum, t.min, t.max, t.avg)
+        rep = "total={}s,min={}s,max={}s,avg={}s, N={}".format(
+            t.sum, t.min, t.max, t.avg, t.n_updates
+        )
         self.assertAlmostEqual(s, t.max, delta=1)
         self.assertEqual(t.max, t.min)
         self.assertEqual(t.max, t.avg)
@@ -72,11 +74,18 @@ class UtilsTest(unittest.TestCase):
         self.assertAlmostEqual(t.min, t.avg, delta=0.5)
 
     def test_whenZ3_to_string_shouldReturnStringRepresentation(self):
-        x, y = Reals('x y')
-        f = 2 * x ** 3 + y + 4 * x * y + x * RealVal('102013931209828137410/312943712437280123908791423') * y
-        e = '2 * x ** 3 + y + 4 * x * y + x * 102013931209828137410/312943712437280123908791423 * y'.replace(' ', '')
-        self.assertEqual(z3_to_string(f).replace(' ', ''), e)
+        x, y = Reals("x y")
+        f = (
+            2 * x**3
+            + y
+            + 4 * x * y
+            + x * RealVal("102013931209828137410/312943712437280123908791423") * y
+        )
+        e = "2 * x ** 3 + y + 4 * x * y + x * 102013931209828137410/312943712437280123908791423 * y".replace(
+            " ", ""
+        )
+        self.assertEqual(z3_to_string(f).replace(" ", ""), e)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
