@@ -10,7 +10,7 @@ VERIFIER: "DREAL"
 N_DATA:
   XD: 1000
   XI: 1000
-  XS: 1000 # Currently this is wrong, it should be XU but that doesn't work
+  XU: 1000 
 VERBOSE: True
 N_VARS: 2
 N_HIDDEN_NEURONS: [5]

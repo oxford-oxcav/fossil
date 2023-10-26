@@ -116,6 +116,7 @@ class SingleCegis:
         return x, x_map, domains
 
     def _initialise_data(self):
+        cegis_log.debug("Data: {}".format(self.config.DATA))
         return {key: S() for key, S in self.config.DATA.items()}
 
     def _initialise_certificate(self):

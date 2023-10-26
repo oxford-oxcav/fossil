@@ -107,7 +107,7 @@ class TestParserDreal(unittest.TestCase):
     def test_dreal_variable(self):
         s = "x3"
         result = parse_expression(s, output="dreal")
-        self.assertIsInstance(result, dreal.Variable)
+        self.assertIsInstance(result, dreal.Expression)
 
     def test_dreal_negative_variable(self):
         s = "-x3"
