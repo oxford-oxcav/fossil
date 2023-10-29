@@ -116,7 +116,7 @@ class CegisConfigParser:
                     data_dict[key] = domains[key]._sample_border(data)
                 else:
                     data_dict[key] = domains[key]._generate_data(data)
-            return data
+            return data_dict
         else:
             DN = consts.DomainNames
             for key, N in data.items():
@@ -129,31 +129,67 @@ class CegisConfigParser:
             return data_dict
 
     @staticmethod
-    def adjust_data_and_domains_for_certificate(
-        data, domains, certificate, data_config
-    ):
+    def adjust_roa(data, domains, data_config):
+        XD = consts.DomainNames.XD.value
+        domains.pop(XD)
+        return data, domains
+
+    @staticmethod
+    def adjust_rwa(data, domains, data_config):
         XD = consts.DomainNames.XD.value
         XS = consts.DomainNames.XS.value
         XU = consts.DomainNames.XU.name
         XU_val = consts.DomainNames.XU.value
+        unsafe = doms.SetMinus(domains[XD], domains[XS])
+        N_XU = data_config[XU] if isinstance(data_config, dict) else data_config
+        data[XU_val] = unsafe._generate_data(N_XU)
+
+        return data, domains
+
+    @staticmethod
+    def adjust_rswa(data, domains, data_config):
+        XD = consts.DomainNames.XD.value
+        XS = consts.DomainNames.XS.value
+        XU = consts.DomainNames.XU.name
+        XU_val = consts.DomainNames.XU.value
+        unsafe = doms.SetMinus(domains[XD], domains[XS])
+        N_XU = data_config[XU] if isinstance(data_config, dict) else data_config
+        data[XU_val] = unsafe._generate_data(N_XU)
+        return data, domains
+
+    @staticmethod
+    def adjust_rar(data, domains, data_config):
+        XD = consts.DomainNames.XD.value
+        XS = consts.DomainNames.XS.value
+        XU = consts.DomainNames.XU.name
+        XU_val = consts.DomainNames.XU.value
+        unsafe = doms.SetMinus(domains[XD], domains[XS])
+        XF = consts.DomainNames.XF.value
+        XNF = doms.SetMinus(domains[XD], domains[XF])
+        N_XU = data_config[XU] if isinstance(data_config, dict) else data_config
+        data[XU_val] = unsafe._generate_data(N_XU)
+        N_XNF = (
+            data_config[consts.DomainNames.XNF.name]
+            if isinstance(data_config, dict)
+            else data_config
+        )
+        data[consts.DomainNames.XNF.value] = XNF._generate_data(N_XNF)
+
+        return data, domains
+
+    @staticmethod
+    def adjust_data_and_domains_for_certificate(
+        data, domains, certificate, data_config
+    ):
         if certificate == consts.CertificateType.ROA:
-            domains.pop(XD)
+            return CegisConfigParser.adjust_roa(data, domains, data_config)
         elif certificate in (consts.CertificateType.RWS, consts.CertificateType.RWA):
-            unsafe = doms.SetMinus(domains[XD], domains[XS])
-            data[XU_val] = unsafe._generate_data(data_config[XU])
-            data.pop(XS)
+            return CegisConfigParser.adjust_rwa(data, domains, data_config)
         elif certificate in (consts.CertificateType.RSWS, consts.CertificateType.RSWA):
-            unsafe = doms.SetMinus(domains[XD], domains[XS])
-            data[XU_val] = unsafe._generate_data(data_config[XU])
+            return CegisConfigParser.adjust_rswa(data, domains, data_config)
         elif certificate == consts.CertificateType.RAR:
-            unsafe = doms.SetMinus(domains[XD], domains[XS])
-            XF = consts.DomainNames.XF.value
-            XNF = doms.SetMinus(domains[XD], domains[XF])
-            data[XU_val] = unsafe._generate_data(XU)
-            data[consts.DomainNames.XNF.value] = XNF._generate_data(
-                data_config[consts.DomainNames.XNF.name]
-            )
-            data.pop(XS)
+            return CegisConfigParser.adjust_rar(data, domains, data_config)
+
         return data, domains
 
 

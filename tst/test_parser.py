@@ -10,8 +10,8 @@ import unittest
 
 import dreal
 import z3
+from cvc5 import pythonic as cvpy
 import sympy
-import pyparsing as pp
 import numpy as np
 
 from fossil.parser import (
@@ -71,7 +71,6 @@ class TestParserZ3(unittest.TestCase):
         s_compare = "3/2*x1+2*x2+ x3*x2*x1**2 + u0"
         result = parse_expression(s, output="z3")
         self.assertIsInstance(result, z3.ArithRef)
-        print(str(result))
         self.assertTrue(compare_without_whitespace(str(result), s_compare))
 
     # def test_z3_function(self):
@@ -83,6 +82,65 @@ class TestParserZ3(unittest.TestCase):
         s = "invalid_expr"
         with self.assertRaises(SymbolicParsingError):
             parse_expression(s)
+
+    def test_invalid_output_format(self):
+        s = "x0"
+        with self.assertRaises(ValueError):
+            parse_expression(s, output="invalid_output")
+
+
+class TestParserCVC(unittest.TestCase):
+    def test_cvpy_integer(self):
+        s = "-5"
+        result = parse_expression(s, output="cvc5")
+        self.assertEqual(result, -5)
+
+    def test_cvpy_decimal(self):
+        s = "1.5"
+        result = parse_expression(s, output="cvc5")
+        self.assertEqual(result, 1.5)
+
+    def test_cvpy_variable(self):
+        s = "x3"
+        result = parse_expression(s, output="cvc5")
+        self.assertIsInstance(result, cvpy.ArithRef)
+        self.assertTrue(compare_without_whitespace(str(result), s))
+
+    def test_cvpy_negative_variable(self):
+        s = "-x3"
+        result = parse_expression(s, output="cvc5")
+        self.assertIsInstance(result, cvpy.ArithRef)
+        self.assertTrue(compare_without_whitespace(str(result), s))
+
+    def test_cvpy_arithmetic(self):
+        s = "x0 + x1 * 2 - 3 / x2"
+        result = parse_expression(s, output="cvc5")
+        self.assertIsInstance(result, cvpy.ArithRef)
+        self.assertTrue(compare_without_whitespace(str(result), s))
+
+    def test_cvpy_complex(self):
+        s = "1.5*x1+x2+ x3*x2*x1**2"
+        s_compare = "3/2*x1+x2+x3*x2*x1**2"
+        result = parse_expression(s, output="cvc5")
+        self.assertIsInstance(result, cvpy.ArithRef)
+        self.assertTrue(compare_without_whitespace(str(result), s_compare))
+
+    def test_cvpy_control(self):
+        s = "1.5*x1+2*x2+ x3*x2*x1**2 + u0"
+        s_compare = "3/2*x1+2*x2+ x3*x2*x1**2 + u0"
+        result = parse_expression(s, output="cvc5")
+        self.assertIsInstance(result, cvpy.ArithRef)
+        self.assertTrue(compare_without_whitespace(str(result), s_compare))
+
+    # def test_cvpy_function(self):
+    #     s = "If(x0, x1, x2)"
+    #     result = parse_expression(s, output="cvc5")
+    #     self.assertIsInstance(result, cvpy.BoolRef)
+
+    def test_invalid_expression(self):
+        s = "invalid_expr"
+        with self.assertRaises(SymbolicParsingError):
+            parse_expression(s, output="cvc5")
 
     def test_invalid_output_format(self):
         s = "x0"
@@ -107,7 +165,7 @@ class TestParserDreal(unittest.TestCase):
     def test_dreal_variable(self):
         s = "x3"
         result = parse_expression(s, output="dreal")
-        self.assertIsInstance(result, dreal.Variable)
+        self.assertIsInstance(result, dreal.Expression)
 
     def test_dreal_negative_variable(self):
         s = "-x3"

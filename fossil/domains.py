@@ -305,6 +305,7 @@ def inf_bounds_n(n):
 class Set:
     dreal_functions = verifier.VerifierDReal.solver_fncts()
     z3_functions = verifier.VerifierZ3.solver_fncts()
+    cvc5_functions = verifier.VerifierCVC5.solver_fncts()
     sp_functions = SP_FNCS
 
     def __init__(self) -> None:
@@ -366,6 +367,8 @@ class Set:
             return Set.dreal_functions
         elif verifier.VerifierZ3.check_type(x):
             return Set.z3_functions
+        elif verifier.VerifierCVC5.check_type(x):
+            return Set.cvc5_functions
         else:
             return Set.sp_functions
 

@@ -11,6 +11,7 @@ from functools import partial
 import z3
 import sympy as sp
 import dreal
+from cvc5 import pythonic as cvpy
 import pyparsing as pp
 import torch
 
@@ -257,6 +258,50 @@ class Z3Parser(SymbolicParser):
             return [partial(self.subsitution_function, expr) for expr in ds]
 
 
+class CVC5Parser(SymbolicParser):
+    """Parser for CVC5 expressions"""
+
+    def get_funcs(self):
+        cvpy_funcs = {
+            "Not": (cvpy.Not, 1),
+            "And": (cvpy.And, 2),
+            "Or": (cvpy.Or, 2),
+            "If": (cvpy.If, 3),
+            "sum": (cvpy.Sum, 1),
+        }
+        return cvpy_funcs
+
+    @staticmethod
+    def var_function(name: str):
+        parser_log.debug(f"Creating z3 variable {name}")
+        return cvpy.Real(name)
+
+    def subsitution_function(self, expr, xs):
+        # xs is a list of the form [0, x1, ...}]from cegis
+        # expr is a z3 expression
+        subs_dict = [(self.xs[str(variable)], variable) for variable in xs]
+        res = cvpy.substitute(expr, *subs_dict)
+        return res
+
+    def substition_function_u(self, expr, xs, ux):
+        # xs is a list of the form [0, x1, ...}]from cegis
+        # expr is a dreal expression (with control variables, u0, ...)
+        # ux is a list of stack feedback equations (e.g. 1.5*x1 + x2)
+        # we need to substitute these in for u0,... in expr
+        sorted_us = sorted(self.us.items(), key=lambda x: x[0])
+        subs_dict = [(self.xs[str(variable)], variable) for variable in xs]
+        subs_dict.extend([(u, ux[i]) for i, (_, u) in enumerate(sorted_us)])
+        res = cvpy.substitute(expr, *subs_dict)
+        return res
+
+    def parse_dynamical_system(self, s):
+        ds = super().parse_dynamical_system(s)
+        if len(self.us) > 0:
+            return [partial(self.substition_function_u, expr) for expr in ds]
+        else:
+            return [partial(self.subsitution_function, expr) for expr in ds]
+
+
 class DrealParser(SymbolicParser):
     """Parser for dReal expressions"""
 
@@ -470,6 +515,8 @@ def parse_expression(s, output="z3"):
     """
     if output == "z3":
         parser = Z3Parser()
+    elif output == "cvc5":
+        parser = CVC5Parser()
     elif output == "dreal":
         parser = DrealParser()
     elif output == "sympy":

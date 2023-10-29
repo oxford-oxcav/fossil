@@ -16,8 +16,7 @@ import torch
 from fossil.cegis import Cegis, Result
 import fossil.plotting as plotting
 from fossil import cli
-
-# from experiments import analysis
+from fossil import analysis
 from fossil import consts
 from fossil.cegis_supervisor import CegisSupervisorQ
 
@@ -92,9 +91,9 @@ def run_benchmark(
                 # for ax, name in axes:
                 #     plotting.save_plot_with_tags(ax, cegis_options, name)
 
-        # if record:
-        #     rec = analysis.Recorder()
-        #     rec.record(cegis_options, result, T)
+        if record:
+            rec = analysis.Recorder()
+            rec.record(cegis_options, result, T)
 
 
 def synthesise(opts: consts.CegisConfig) -> Result:

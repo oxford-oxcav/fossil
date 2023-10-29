@@ -12,6 +12,7 @@ from typing import Any, Literal
 import torch
 import z3
 import dreal
+from cvc5 import pythonic as cvpy
 import numpy as np
 import sympy as sp
 
@@ -50,6 +51,7 @@ class LearnerType(Enum):
 class VerifierType(Enum):
     Z3 = auto()
     DREAL = auto()
+    CVC5 = auto()
     MARABOU = auto()
 
 
@@ -181,7 +183,7 @@ class CegisConfig:
     N_VARS: int = 0
     N_HIDDEN_NEURONS: tuple[int] = (10,)
     ACTIVATION: tuple[ActivationType, ...] = (ActivationType.SQUARE,)
-    VERBOSE: bool = False
+    VERBOSE: int = 0
     ENET: Any = None
     CTRLAYER: tuple[int] = None  # not None means control certificate
     CTRLACTIVATION: tuple[ActivationType, ...] = None
@@ -288,4 +290,10 @@ SP_FNCS = {
     "sin": sp.sin,
     "cos": sp.cos,
     "exp": sp.exp,
+}
+
+CVC5_FNCS = {
+    "And": cvpy.And,
+    "Or": cvpy.Or,
+    "If": cvpy.If,
 }

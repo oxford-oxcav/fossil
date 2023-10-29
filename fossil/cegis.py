@@ -51,6 +51,8 @@ class SingleCegis:
         self._result = None
         assert self.x is self.verifier.xs
         self._assert_state()
+        if self.config.VERBOSE:
+            logger.Logger.set_logger_level(self.config.VERBOSE)
 
     def _initialise_learner(self):
         learner_type = learner.get_learner(
@@ -116,6 +118,7 @@ class SingleCegis:
         return x, x_map, domains
 
     def _initialise_data(self):
+        cegis_log.debug("Data: {}".format(self.config.DATA))
         return {key: S() for key, S in self.config.DATA.items()}
 
     def _initialise_certificate(self):
@@ -208,7 +211,7 @@ class SingleCegis:
                 state = self.process_cex(S, state)
 
             iters += 1
-            cegis_log.info(["Iteration: {}".format(iters)])
+            cegis_log.info("Iteration: {}".format(iters))
 
         state = self.process_timers(state)
 
@@ -274,10 +277,10 @@ class SingleCegis:
             self.verifier.get_timer().sum,
             self.consolidator.get_timer().sum,
         ]
-        cegis_log.info(["Learner times: {}".format(self.learner.get_timer())])
-        cegis_log.info(["Translator times: {}".format(self.translator.get_timer())])
-        cegis_log.info(["Verifier times: {}".format(self.verifier.get_timer())])
-        cegis_log.info(["Consolidator times: {}".format(self.consolidator.get_timer())])
+        cegis_log.info("Learner times: {}".format(self.learner.get_timer()))
+        cegis_log.info("Translator times: {}".format(self.translator.get_timer()))
+        cegis_log.info("Verifier times: {}".format(self.verifier.get_timer()))
+        cegis_log.info("Consolidator times: {}".format(self.consolidator.get_timer()))
         return state
 
     def process_certificate(
@@ -503,7 +506,7 @@ class DoubleCegis(SingleCegis):
                 state = self.process_cex(S, state)
 
             iters += 1
-            cegis_log.info(["Iteration: {}".format(iters)])
+            cegis_log.info("Iteration: {}".format(iters))
 
         state = self.process_timers(state)
 
@@ -534,10 +537,10 @@ class DoubleCegis(SingleCegis):
             self.verifier.get_timer().sum,
             self.consolidator.get_timer().sum,
         ]
-        cegis_log.info(["Learner times: {}".format(self.lyap_learner.get_timer())])
-        cegis_log.info(["Translator times: {}".format(self.translator.get_timer())])
-        cegis_log.info(["Verifier times: {}".format(self.verifier.get_timer())])
-        # cegis_log.info(["Consolidator times: {}".format(self.consolidator.get_timer())])
+        cegis_log.info("Learner times: {}".format(self.lyap_learner.get_timer()))
+        cegis_log.info("Translator times: {}".format(self.translator.get_timer()))
+        cegis_log.info("Verifier times: {}".format(self.verifier.get_timer()))
+        # cegis_log.info("Consolidator times: {}".format(self.consolidator.get_timer()))
         return state
 
 

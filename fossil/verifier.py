@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, Literal, Union
 import numpy as np
 import torch
 import z3
+from cvc5 import pythonic as cvpy
 
 try:
     import dreal as dr
@@ -140,13 +141,13 @@ class Verifier(Component):
         ces = {label: [] for label in results.keys()}  # [[] for res in results.keys()]
 
         if all(self.is_unsat(res) for res in results.values()):
-            ver_log.info(["No counterexamples found!"])
+            ver_log.info("No counterexamples found!")
             found = True
         else:
             for index, o in enumerate(results.items()):
                 label, res = o
                 if self.is_sat(res):
-                    ver_log.info([label + ": "])
+                    ver_log.info(label + ": ")
                     original_point = self.compute_model(solvers[label], res)
                     # This next bit is hard to handle if C, dC are tuples of formula
                     # For now, just check it's not a tuple
@@ -154,11 +155,11 @@ class Verifier(Component):
                         V_ctx, Vdot_ctx = self.replace_point(
                             C, self.xs, original_point.numpy().T
                         ), self.replace_point(dC, self.xs, original_point.numpy().T)
-                        ver_log.info(["\nV_ctx: {} ".format(V_ctx)])
-                        ver_log.info(["\nVdot_ctx: {} ".format(Vdot_ctx)])
+                        ver_log.info("\nV_ctx: {} ".format(V_ctx))
+                        ver_log.info("\nVdot_ctx: {} ".format(Vdot_ctx))
                     ces[label] = self.randomise_counterex(original_point)
                 else:
-                    ver_log.info([res])
+                    ver_log.info(res)
 
         return {CegisStateKeys.found: found, CegisStateKeys.cex: ces}
 
@@ -219,7 +220,7 @@ class Verifier(Component):
         :return: tensor containing single ctx
         """
         model = self._solver_model(solver, res)
-        ver_log.info(["Counterexample Found: {}".format(model)])
+        ver_log.info("Counterexample Found: {}".format(model))
         temp = []
         for i, x in enumerate(self.xs):
             n = self._model_result(solver, model, x, i)
@@ -363,7 +364,7 @@ class VerifierZ3(Verifier):
     def check_type(x) -> bool:
         """
         :param x: any
-        :returns: True if Dreal compatible, else false
+        :returns: True if z3 compatible, else false
         """
         return contains_object(x, z3.ArithRef)
 
@@ -391,6 +392,82 @@ class VerifierZ3(Verifier):
 
     def _solver_solve(self, solver, fml):
         solver.add(fml)
+        return solver.check()
+
+    def _solver_model(self, solver, res):
+        return solver.model()
+
+    def _model_result(self, solver, model, x, i):
+        try:
+            return float(model[x].as_fraction())
+        except AttributeError:
+            return float(model[x].approx(10).as_fraction())
+        except TypeError:
+            try:
+                return float(model[x[0, 0]].as_fraction())
+            except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
+                return float(model[x[0, 0]].approx(10).as_fraction())
+
+
+class VerifierCVC5(Verifier):
+    @staticmethod
+    def new_vars(n, base="x"):
+        return [cvpy.Real(base + str(i)) for i in range(n)]
+
+    def new_solver(self):
+        s = cvpy.Solver()
+        # set logic to QF_NRA. This step seems unnecessary but also seems to massively speed up cvc5.
+        # I think there must be better ways to interface with cvc5 but sticking with the z3 interface is most convenient for now
+        s.solver.setLogic("QF_NRA")
+        return s
+
+    @staticmethod
+    def check_type(x) -> bool:
+        """
+        :param x: any
+        :returns: True if cvc5 compatible, else false
+        """
+        return contains_object(x, cvpy.ArithRef)
+
+    @staticmethod
+    def solver_fncts() -> Dict[str, Callable]:
+        return {
+            "And": cvpy.And,
+            "Or": cvpy.Or,
+            "If": cvpy.If,
+            "Check": VerifierCVC5.check_type,
+            "Not": cvpy.Not,
+            "False": False,
+            "True": True,
+        }
+
+    @staticmethod
+    def replace_point(expr, ver_vars, point):
+        """
+        :param expr: cvc expr
+        :param cvc_vars: cvc vars, matrix
+        :param ctx: matrix of numerical values
+        :return: value of V, Vdot in ctx
+        """
+        replacements = []
+        for i in range(len(ver_vars)):
+            try:
+                replacements += [(ver_vars[i, 0], cvpy.RealVal(point[i, 0]))]
+            except TypeError:
+                replacements += [(ver_vars[i], cvpy.RealVal(point[i, 0]))]
+
+        replaced = cvpy.substitute(expr, replacements)
+
+        return cvpy.simplify(replaced)
+
+    def is_sat(self, res) -> bool:
+        return res == cvpy.sat
+
+    def is_unsat(self, res) -> bool:
+        return res == cvpy.unsat
+
+    def _solver_solve(self, solver, fml):
+        solver.add(cvpy.simplify(fml))
         return solver.check()
 
     def _solver_model(self, solver, res):
@@ -503,6 +580,8 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         return VerifierDReal
     elif verifier == VerifierType.Z3:
         return VerifierZ3
+    elif verifier == VerifierType.CVC5:
+        return VerifierCVC5
     elif verifier == VerifierType.MARABOU:
         return VerifierMarabou
     else:
@@ -513,6 +592,7 @@ def get_verifier(verifier, n_vars, constraints_method, solver_vars, verbose):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
+        or verifier == VerifierCVC5
         or verifier == VerifierMarabou
     ):
         return verifier(n_vars, constraints_method, solver_vars, verbose)

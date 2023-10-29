@@ -35,6 +35,7 @@ setup(
         "sympy",
         "matplotlib",
         "z3-solver",
+        "cvc5",
         "dreal",
         "scipy",
         "tqdm",
