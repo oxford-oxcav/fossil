@@ -639,7 +639,7 @@ class Quadrotor2d(control.ControllableCTModel):
             ]
         ).T
 
-        return torch.hstack([qdot, qddot])
+        return [qdot[:, 0], qdot[:, 1], qdot[:,2], qddot[:, 0], qddot[:, 1], qddot[:,2]]
 
     def f_smt(self, v, u):
         sin = self.fncs["sin"]
@@ -692,7 +692,7 @@ class LinearSatellite(control.ControllableCTModel):
             ]
         ).T
 
-        return torch.hstack([qdot, qddot])
+        return [qdot[:, 0], qdot[:, 1], qdot[:,2], qddot[:, 0], qddot[:, 1], qddot[:,2]]
 
     def f_smt(self, v, u):
         u1, u2, u3 = u
@@ -770,9 +770,172 @@ class DTAhmadi(control.ControllableCTModel):
         return [0.3 * x + u1, -x + 0.5 * y + 7.0 / 18.0 * x**2 + u2]
 
 
+# todo: define DT Model
+class DTAhmadi2(control.CTModel):
+    # from SOS-Convex Lyapunov Functions
+    # with Applications to Nonlinear Switched Systems
+    # Amir Ali Ahmadi and Raphael M. Jungers, CDC 2013
+    # this is just one mode of a switched system
+    n_vars = 2
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return [0.687*x + 0.558*y - 0.0001*x*y, -0.292*x + 0.773*y]
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.687*x + 0.558*y - 0.0001*x*y, -0.292*x + 0.773*y]
+
+
+class DebugDT(control.CTModel):
+    # debug model
+    n_vars = 2
+
+    def f_torch(self, v):
+        x, y = v[:, 0], v[:, 1]
+        return [0.5*y, -0.1*x]
+
+    def f_smt(self, v):
+        x, y = v
+        return [0.5*y, -0.1*x ]
+
+
+class RoomTemp(control.ControllableCTModel):
+    # from Data-Driven Safety Verification of
+    # Stochastic Systems via Barrier Certificates
+    # itself adapted from Girard et al, 2016,
+    # Safety controller synthesis for incrementally stable switched
+    # systems using multiscale symbolic models.
+    n_vars = 1
+    n_u = 1
+
+    tau = 5*60  # discretise param
+    alpha_e = 8 * 1e-3  # heat exchange room-external
+    temp_e = 15  # external temp
+    alpha_h = 3.6 * 1e-3  # heat exchange room-heater
+    temp_h = 55  # boiler temp
+
+    def f_torch(self, v, u):
+        x = v[:,0]
+        u1 = u[:, 0]
+        return [x + self.tau*( (self.temp_e - x) + self.alpha_h*(self.temp_h - x) * u1)]
+
+    def f_smt(self, v, u):
+        x = v[0]
+        u1 = u[0]
+        return [x + self.tau*( (self.temp_e - x) + self.alpha_h*(self.temp_h - x) * u1)]
+
+
+class TenRoomTemp(control.CTModel):
+    # taken from https://arxiv.org/pdf/1807.00064.pdf
+    # Temporal Logic Verification of Stochastic Systems Using Barrier Certificates
+    # by Jagtap et al.
+    n_vars = 10
+    
+    tau = 5  # discretisation param
+    alpha = 5 * 1e-2  # heat exchange
+    alpha_e1 = 5*1e-3 # heat exchange 1
+    alpha_e2 = 8*1e-3  # heat exchange 2
+    Te = 20.  # external temperature
+
+    def f_torch(self, v):
+        x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = v[:, 0], v[:, 1], v[:, 2], v[:, 3], v[:, 4], v[:, 5], v[:, 6], v[:, 7], v[:, 8], v[:, 9]
+
+        q1 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x1 \
+              + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.Te
+        q2 = (1 - self.tau * (4 * self.alpha + self.alpha_e2)) * x2 \
+             + self.tau * self.alpha * (x1 + x3 + x7 + x9) + self.tau * self.alpha_e2 * self.Te
+        q3 = (1 - self.tau * (2 * self.alpha + self.alpha_e1)) * x3 \
+              + self.tau * self.alpha * (x2 + x4) + self.tau * self.alpha_e1 * self.Te
+        q4 = (1 - self.tau * (2 * self.alpha + self.alpha_e1)) * x4 \
+              + self.tau * self.alpha * (x3 + x5) + self.tau * self.alpha_e1 * self.Te
+        q5 = (1 - self.tau * (4 * self.alpha + self.alpha_e2)) * x5 \
+              + self.tau * self.alpha * (x4 + x6 + x8 + x10) + self.tau * self.alpha_e2 * self.Te
+        q6 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x6 \
+              + self.tau * self.alpha * x5 + self.tau * self.alpha_e1 * self.Te
+        q7 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x7 \
+              + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.Te
+        q8 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x8 \
+              + self.tau * self.alpha * x5 + self.tau * self.alpha_e1 * self.Te
+        q9 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x9 \
+              + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.Te
+        q10 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x10 \
+               + self.tau * self.alpha * x5 + self.tau * self.alpha_e1 * self.Te
+        return [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10]
+
+    def f_smt(self, v):
+        x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = v
+        
+        q1 = (1 - self.tau*(self.alpha + self.alpha_e1))*x1 + self.tau*self.alpha*x2 + self.tau*self.alpha_e1*self.Te
+        q2 = (1 - self.tau*(4*self.alpha + self.alpha_e2))*x2 + self.tau*self.alpha*(x1 + x3 + x7 + x9) + self.tau*self.alpha_e2*self.Te
+        q3 = (1 - self.tau*(2*self.alpha + self.alpha_e1))*x3 + self.tau*self.alpha*(x2 + x4) + self.tau*self.alpha_e1*self.Te
+        q4 = (1 - self.tau*(2*self.alpha + self.alpha_e1))*x4 + self.tau*self.alpha*(x3 + x5) + self.tau*self.alpha_e1*self.Te
+        q5 = (1 - self.tau*(4*self.alpha + self.alpha_e2))*x5 + self.tau*self.alpha*(x4 + x6 + x8 + x10) + self.tau*self.alpha_e2*self.Te
+        q6 = (1 - self.tau*(self.alpha + self.alpha_e1))*x6 + self.tau*self.alpha*x5 + self.tau*self.alpha_e1*self.Te
+        q7 = (1 - self.tau*(self.alpha + self.alpha_e1))*x7 + self.tau*self.alpha*x2 + self.tau*self.alpha_e1*self.Te
+        q8 = (1 - self.tau*(self.alpha + self.alpha_e1))*x8 + self.tau*self.alpha*x5 + self.tau*self.alpha_e1*self.Te
+        q9 = (1 - self.tau*(self.alpha + self.alpha_e1))*x9 + self.tau*self.alpha*x2 + self.tau*self.alpha_e1*self.Te
+        q10 = (1 - self.tau*(self.alpha + self.alpha_e1))*x10 + self.tau*self.alpha*x5 + self.tau*self.alpha_e1*self.Te
+        return [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10]
+
+
+class JetEngineCompressor(control.ControllableCTModel):
+    # taken from To sample or not to sample: Self-triggered control for nonlinear systems
+    # Adolfo Anta and Paulo Tabuada
+    # originally from Lean backstepping design for a jet engine compressor model
+    # M. Krstic; P.V. Kokotovic
+    n_vars = 2
+    n_u = 1
+
+    tau = 0.01
+    beta = 1.
+
+    def f_torch(self, v: torch.Tensor, u:torch.Tensor) -> list:
+        x1, x2 = v[:,0], v[:,1]
+        u1 = u[:,0]
+        q1 = x1 + self.tau * (- x2 - 1.5 * x1 ** 2 - 0.5 * x1 ** 3)
+        q2 = x2 + (1. / self.beta) ** 2 * self.tau * (x1 - u1)
+        return [q1, q2]
+
+    def f_smt(self, v, u):
+        x1, x2 = v
+        u1 = u[0]
+        q1 = x1 + self.tau * ( - x2 - 1.5 * x1**2 - 0.5 * x1 ** 3 )
+        q2 = x2 + (1./self.beta)**2 * self.tau * (x1 - u1)
+        return [q1, q2]
+
+
+class CtrlThermalConvection(control.ControllableCTModel):
+    # taken from Time-triggered control of nonlinear discrete-time systems
+    # Romain Postoyan and Dragan Neˇsi´c, CDC 2016
+    # this is the original of thermalconvection class, has some differences.
+
+    n_vars = 3
+    n_u = 1
+
+    a = 10.
+    T = 1e-3
+    b = 28.
+    c = 8./3.
+
+    def f_torch(self, v, u):
+        x1, x2, x3 = v[:,0], v[:, 1], v[:,2]
+        u1 = u[:,0]
+        q1 = (1 - self.a*self.T) * x1 + self.a*self.T*x2
+        q2 = (1 - self.T)*x2 - self.T*x1*x3 + self.T * self.b * x1 + self.T * u1
+        q3 = (1 - self.c*self.T)*x3 + self.T*x1*x2
+        return [q1, q2, q3]
+
+    def f_smt(self, v, u):
+        x1, x2, x3 = v
+        u1 = u[0]
+        q1 = (1 - self.a * self.T) * x1 + self.a * self.T * x2
+        q2 = (1 - self.T)*x2 - self.T*x1*x3 + self.T * self.b * x1 + self.T * u1
+        q3 = (1 - self.c*self.T)*x3 + self.T*x1*x2
+        return [q1, q2, q3]
+
+
 ### Benchmarks taken from RSWS work of Verdier, Mazo
-
-
 class Linear1(control.ControllableCTModel):
     n_vars = 2
     n_u = 1

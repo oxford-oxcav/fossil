@@ -198,9 +198,10 @@ class TranslatorDT(TranslatorNN):
             last_layer = np.round(net.layers[-1].weight.data.numpy(), self.round)
 
         z = last_layer @ z
+        z_xdot = last_layer @ z_xdot
         if net.layers[-1].bias is not None:
             z += net.layers[-1].bias.data.numpy()[:, None]
-        z_xdot = last_layer @ z_xdot
+            z_xdot += net.layers[-1].bias.data.numpy()[:, None]
 
         assert z.shape == (1, 1)
         # V = NN(x) * E(x)

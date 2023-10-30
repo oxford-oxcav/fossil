@@ -656,19 +656,19 @@ class BarrierAlt(Certificate):
         Returns:
             tuple[torch.Tensor, float]: loss and accuracy
         """
-        margin = 0.1
+        margin = 0.05
 
-        learn_accuracy = (B_i <= -margin).count_nonzero().item() + (
-            B_u >= margin
-        ).count_nonzero().item()
+        learn_accuracy = (B_i <= -margin).count_nonzero().item() + (B_u >= margin).count_nonzero().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
-        slope = 1 / 10**4  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
+        slope = 1e-2  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu6 = torch.nn.ReLU6()
-        p = 1
-        init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
-        unsafe_loss = (torch.relu(-B_u + margin) - slope * relu6(B_u + margin)).mean()
+        splu = torch.nn.Softplus(beta=0.5)
+        # init_loss = (torch.relu(B_i + margin) - slope * relu6(-B_i + margin)).mean()
+        init_loss = splu(B_i + margin).mean()
+        # unsafe_loss = (torch.relu(-B_u + margin) - slope * relu6(B_u + margin)).mean()
+        unsafe_loss = splu(-B_u + margin).mean()
 
-        lie_loss = (relu6(Bdot_d + margin)).mean()
+        lie_loss = (splu(Bdot_d + margin)).mean()
 
         lie_accuracy = (
             100 * ((Bdot_d <= -margin).count_nonzero()).item() / Bdot_d.shape[0]

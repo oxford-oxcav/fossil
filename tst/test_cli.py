@@ -1,11 +1,12 @@
 import unittest
 from unittest.mock import patch, mock_open
 import argparse
-
+import os
 import yaml
 
 from fossil import consts
 from fossil import cli
+from fossil.main import synthesise
 
 
 class TestCLIHelpers(unittest.TestCase):
@@ -105,8 +106,17 @@ class TestValidYamlFile(unittest.TestCase):
         self.assertEqual(result, "path/to/file.yaml")
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestRunCegisFromYaml(unittest.TestCase):
+
+    def test_all_yaml_files(self):
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        file_path = '/experiments/benchmarks/cli/'
+        onlyfiles = [f for f in os.listdir(parent_dir+file_path)
+                     if os.path.isfile(os.path.join(parent_dir+file_path, f))]
+
+        for f in onlyfiles:
+            cc = cli.parse_yaml_to_cegis_config(parent_dir + file_path + f)
+            c = synthesise(cc)
 
 
 if __name__ == "__main__":

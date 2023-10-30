@@ -28,8 +28,11 @@ The virtual environment can then be selected using the kernel menu in the toolba
 
 ## Docker
 
-We provide a Docker configuration for your convenience. Begin by installing Docker on your system: on Ubuntu you can use the snap installation with `sudo snap install docker`
+We provide a Docker configuration for your convenience. Begin by installing Docker on your system: 
+on Ubuntu you can use the snap installation with `sudo snap install docker`. 
+On MacOS you can install Docker Desktop following the instructions at this [link](https://docs.docker.com/desktop/install/mac-install/).
 
+Open a terminal window, and make sure you are in the Fossil directory, where the dockerfile is located. 
 You can run the tool as:
 
 ```console
@@ -37,7 +40,12 @@ You can run the tool as:
 # docker run -it fossil bash
 ```
 
-You are now inside the container. `/project` contains all these files and Ubuntu has all the requirements pre-installed.
+You are now inside the container. `/fossil` contains all these files and Ubuntu has all the requirements pre-installed.
+To run an experiment file, for example `ctrllyap0_ct`, just type 
+```console
+# python3 -m experiments.benchmarks.lyap.ctrllyap0_ct
+```
+
 
 In order to run the Jupyter Notebooks from the docker container, first on the host machine run:
 
