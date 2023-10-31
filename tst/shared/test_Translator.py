@@ -205,7 +205,7 @@ class TranslatorDiscreteTest(unittest.TestCase):
             torch.tensor([[7.]])[:, 0]
         )
 
-        # create a' translator and compute V, Vdot
+        # create a translator and compute V, Vdot
         self.x = [dr.Variable("x"), dr.Variable("y")]
         self.xdot = system.f_smt(self.x)
 
@@ -230,6 +230,40 @@ class TranslatorDiscreteTest(unittest.TestCase):
             x_sample, y_sample = float(torch.randn((1,))), float(torch.randn((1,)))
             diff_c = ((V - desired_V).Substitute({self.x[0]:x_sample, self.x[1]: y_sample})).Evaluate()
             diff_cdot = ((Vdot - desired_Vdot).Substitute({self.x[0]:x_sample, self.x[1]: y_sample})).Evaluate()
+            # print(f'{diff_c}, {diff_cdot}')
+            self.assertTrue(abs(diff_c) < 1e-5)
+            self.assertTrue(abs(diff_cdot) < 1e-5)
+
+    def test_Translator_with_bias_learner_vs_verifier(self):
+
+        system = DebugDT()
+        n_vars = DebugDT().n_vars
+
+        # random weights
+        learner = LearnerDT(n_vars, self.learn_method, *[3],
+                            activation=[ActivationType.SQUARE],
+                            bias=True, config=CegisConfig())
+
+        # create a translator and compute V, Vdot
+        self.x = [dr.Variable("x"), dr.Variable("y")]
+        self.xdot = system.f_smt(self.x)
+
+        regolo = translator.TranslatorDT(self.x, self.xdot, -1, CegisConfig())
+        res = regolo.get(**{"net": learner})
+        V, Vdot = res[CegisStateKeys.V], res[CegisStateKeys.V_dot]
+
+        # dreal will return slightly different expression, due to numerical manipulation of float numbers.
+        # so pick random values for x and y, and evaluate the difference between the two expression
+        # if the difference is < 1e-5, then we say that's the same expression
+        for idx in range(1000):
+            x_sample, y_sample = float(torch.randn((1,))), float(torch.randn((1,)))
+            sample = torch.tensor([[x_sample, y_sample]])
+            f_sample = torch.stack(system.f_torch(torch.tensor([[x_sample, y_sample]]))).T
+
+            c_lrn, cdot_lrn, _ = learner.get_all(sample, f_sample)
+
+            diff_c = ((V - c_lrn).Substitute({self.x[0]:x_sample, self.x[1]: y_sample})).Evaluate()
+            diff_cdot = ((Vdot - cdot_lrn).Substitute({self.x[0]:x_sample, self.x[1]: y_sample})).Evaluate()
             # print(f'{diff_c}, {diff_cdot}')
             self.assertTrue(abs(diff_c) < 1e-5)
             self.assertTrue(abs(diff_cdot) < 1e-5)

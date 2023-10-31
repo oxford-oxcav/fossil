@@ -357,7 +357,8 @@ class Set:
         return partial(self.sample_border, batch_size)
 
     def to_latex(self):
-        x = sp.symbols(",".join(("x" + str(i) for i in range(self.dimension))))
+        # pass symbols to latex
+        x = sp.symbols(["x" + str(i) for i in range(self.dimension)])
         domain = self.generate_domain(x)
         return sp.latex(domain)
 

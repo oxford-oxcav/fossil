@@ -181,8 +181,9 @@ class ControllableCTModel:
         self.fncs = None
 
     def to_latex(self):
-        x = sp.symbols(",".join(("x" + str(i) for i in range(self.n_vars))))
-        u = sp.symbols(",".join(("u" + str(i) for i in range(self.n_u))) + ",")
+        # pass symbols to latex
+        x = sp.symbols(["x" + str(i) for i in range(self.n_vars)])
+        u = sp.symbols(["u" + str(i) for i in range(self.n_u)])
         return sp.latex(self.f(x, u))
 
 
