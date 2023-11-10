@@ -112,6 +112,7 @@ class CertificateType(Enum):
     RSWS = auto()
     STABLESAFE = auto()
     RAR = auto()
+    CUSTOM = auto()
 
     @classmethod
     def get_certificate_sets(
@@ -192,6 +193,7 @@ class CegisConfig:
         ActivationType.SQUARE,
     )  # For DoubleCegis
     SEED: int = None
+    CUSTOM_CERTIFICATE: Any = None
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -296,4 +298,7 @@ CVC5_FNCS = {
     "And": cvpy.And,
     "Or": cvpy.Or,
     "If": cvpy.If,
+    "sin": cvpy.Sine,
+    "cos": cvpy.Cosine,
+    "exp": cvpy.Exponential,
 }

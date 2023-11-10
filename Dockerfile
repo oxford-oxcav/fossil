@@ -10,7 +10,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Update and install required packages in a single step
 RUN apt-get update \
-    && apt-get install -y python3 python3-pip curl \
+    && apt-get install -y python3 python3-pip curl nano \
     && curl -fsSL 'https://raw.githubusercontent.com/dreal/dreal4/master/setup/ubuntu/22.04/install_prereqs.sh' | bash \
     && apt-get remove -y bazel bison flex g++ wget \
     && apt-get autoclean -y \

@@ -15,7 +15,7 @@ from fossil.consts import *
 def test_lnn(args):
     n_vars = 2
 
-    system = models.InvertedPendulumLQR
+    system = models.SineModelLQR
     batch_size = 500
 
     XD = domains.Rectangle([-3, -3], [3, 3])

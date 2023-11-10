@@ -16,7 +16,7 @@ def test_lnn(args):
     outer = 1
     inner = 0.1
     batch_size = 1500
-    open_loop = models.InvertedPendulum
+    open_loop = models.SineModel
 
     XD = domains.Torus([0.0, 0.0], outer, inner)
 

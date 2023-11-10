@@ -7,10 +7,10 @@
 # pylint: disable=not-callable
 
 # from experiments.benchmarks import models
-import fossil.main
+import fossil
 
 
-class NonPoly0(fossil.control.CTModel):
+class NonPoly0(fossil.control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -48,7 +48,7 @@ def test_lnn():
         LLO=True,
         CEGIS_MAX_ITERS=25,
     )
-    fossil.main.synthesise(opts)
+    fossil.synthesise(opts)
 
 
 if __name__ == "__main__":

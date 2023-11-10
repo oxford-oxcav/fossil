@@ -6,52 +6,41 @@
 
 # pylint: disable=not-callable
 from experiments.benchmarks import models
-from fossil import domains
 from fossil import certificate
-from fossil import main, control
+from fossil import domains
+from fossil import main
 from fossil.consts import *
 
 
 def test_lnn(args):
     n_vars = 2
-
-    system = models.SineModelLQR
-    batch_size = 500
-
-    XD = domains.Rectangle([-3, -3], [3, 3])
-    XS = domains.Rectangle([-2.5, -2.5], [2.5, 2.5])
-    XI = domains.Rectangle([-0.6, -0.6], [0.6, 0.6])
-    XG = domains.Rectangle([-0.3, -0.3], [0.3, 0.3])
-
-    SU = domains.SetMinus(XD, XS)  # Data for unsafe set
-    SD = domains.SetMinus(XS, XG)  # Data for lie set
-    sets = {
-        "lie": XD,
-        "init": XI,
-        "safe_border": XS,
-        "safe": XS,
-        "goal": XG,
-    }
-    data = {
-        "lie": SD._generate_data(batch_size),
-        "init": XI._generate_data(1000),
-        "unsafe": SU._generate_data(1000),
-    }
+    system = models.Poly2
 
     # define NN parameters
     activations = [ActivationType.SQUARE]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [8] * len(activations)
+
+    XD = domains.Torus([0.0, 0.0], 3, 0.01)
+
+    sets = {
+        certificate.XD: XD,
+    }
+
+    data = {
+        certificate.XD: XD._generate_data(1000),
+    }
 
     opts = CegisConfig(
+        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        SYSTEM=system,
-        N_VARS=n_vars,
-        CERTIFICATE=CertificateType.RWS,
+        N_VARS=system.n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        LLO=True,
         CEGIS_MAX_ITERS=25,
     )
 

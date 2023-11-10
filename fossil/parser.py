@@ -562,7 +562,9 @@ def parse_dynamical_system_to_numpy(dynamical_system: list[str]):
     Returns:
         A numpy function
     """
-    exprs = [parse_expression(s, output="sympy") for s in dynamical_system]
+    p = SympyParser()
+    exprs = p.parse_dynamical_system(dynamical_system)
+    # exprs = [parse_expression(s, output="sympy") for s in dynamical_system]
     free_symbols = set()
     # TODO: check here that u0 is present if u1 or more is present?
     # Are similar checks needed?

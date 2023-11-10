@@ -145,7 +145,14 @@ def _cli_entry():
     if args.certificate is not None:
         cli.print_certificate_sets(args.certificate)
     opts = cli.parse_yaml_to_cegis_config(args.file)
-    synthesise(opts)
+    result = synthesise(opts)
+    if args.plot:
+        if opts.N_VARS != 2:
+            warnings.warn("Plotting is only supported for 2-dimensional problems")
+        else:
+            axes = plotting.benchmark(result.f, result.cert, domains=opts.DOMAINS)
+            for ax, type in axes:
+                plotting.save_plot_with_tags(ax, opts, type)
 
 
 if __name__ == "__main__":

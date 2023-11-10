@@ -6,53 +6,60 @@
 
 # pylint: disable=not-callable
 
-from experiments.benchmarks import models
 from fossil import domains
 from fossil import certificate
-from fossil import main, control
+from fossil import main
+from experiments.benchmarks import models
 from fossil.consts import *
 
 
 def test_lnn(args):
-    batch_size = 3000
-    f = models.HighOrd8
-    n_vars = f.n_vars
+    system = models.Barr3
+    XD = domains.Rectangle([-3, -2], [2.5, 1])
+    XI = domains.Union(
+        domains.Sphere([1.5, 0], 0.5),
+        domains.Union(
+            domains.Rectangle([-1.8, -0.1], [-1.2, 0.1]),
+            domains.Rectangle([-1.4, -0.5], [-1.2, 0.1]),
+        ),
+    )
 
-    XD = domains.Rectangle([-2.2] * n_vars, [2.2] * n_vars)
-    # XD = domains.Sphere([0] * n_vars, 2)
-    XI = domains.Rectangle([0.9] * n_vars, [1.1] * n_vars)
-    # XI = domains.Sphere([1] * n_vars, 0.1)
-    XU = domains.Rectangle([-2.2] * n_vars, [-1.8] * n_vars)
-    # XU = domains.Sphere([-2] * n_vars, 0.2)
+    XU = domains.Union(
+        domains.Sphere([-1, -1], 0.4),
+        domains.Union(
+            domains.Rectangle([0.4, 0.1], [0.6, 0.5]),
+            domains.Rectangle([0.4, 0.1], [0.8, 0.3]),
+        ),
+    )
+
     sets = {
         certificate.XD: XD,
         certificate.XI: XI,
-        # certificate.XS_BORDER: XS,
         certificate.XU: XU,
-        # certificate.XG: XG,
     }
     data = {
-        certificate.XD: XD._generate_data(batch_size),
-        certificate.XI: XI._generate_data(batch_size),
-        certificate.XU: XU._generate_data(batch_size),
+        certificate.XD: XD._generate_data(1000),
+        certificate.XI: XI._generate_data(400),
+        certificate.XU: XU._generate_data(400),
     }
 
     # define NN parameters
-    activations = [ActivationType.LINEAR]
+    activations = [ActivationType.SIGMOID, ActivationType.SIGMOID]
     n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(
+        N_VARS=2,
+        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        SYSTEM=f,
-        N_VARS=n_vars,
         CERTIFICATE=CertificateType.BARRIER,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.Z3,
+        VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        SYMMETRIC_BELT=False,
         CEGIS_MAX_ITERS=25,
-        SYMMETRIC_BELT=True,
+        VERBOSE=0,
     )
 
     main.run_benchmark(

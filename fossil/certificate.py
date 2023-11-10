@@ -1,10 +1,17 @@
+"""
+This module defines the Certificate class and its subclasses, which are used to guide
+the learner and verifier components in the fossil library. Certificates are used to 
+certify properties of a system, such as stability or safety. The module also defines 
+functions for logging loss and accuracy during the learning process, and for checking 
+that the domains and data are as expected for a given certificate.
+"""
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Generator, Type
+from typing import Generator, Type, Any
 
 import torch
 from torch.optim import Optimizer
@@ -53,23 +60,94 @@ def _set_assertion(required, actual, name):
 
 
 class Certificate:
-    def __init__(self) -> None:
+    """
+    Base class for certificates, used to define new Certificates.
+    Certificates are used to guide the learner and verifier components.
+    Methods learn and get_constraints must be implemented by subclasses.
+
+    Attributes:
+        domains: (symbolic) domains of the system. This is a dictionary of domain names and symbolic domains as SMT
+            formulae.
+            These may be stored as separate attributes for each domain, or
+            as a dictionary of domain names and domains. They should be accessed accordingly.
+        bias: Should the network have bias terms for this certificate? (default: True)
+    """
+
+    bias = True
+
+    def __init__(self, domains: dict[str:Any]) -> None:
         pass
 
-    def learn(self, optimizer: Optimizer, S: list, Sdot: list, f_torch=None) -> dict:
+    def learn(
+        self,
+        learner: learner.LearnerNN,
+        optimizer: Optimizer,
+        S: list,
+        Sdot: list,
+        f_torch=None,
+    ) -> dict:
         """
-        param optimizer: torch optimizar
-        param S:
+        Learns a certificate.
+
+        Args:
+            learner: fossil learner object (inherits from torch.nn.Module )
+            optimizer: torch optimiser object
+            S: dict of tensors of data (keys are domain names the data corresponds to, e.g. XD, XI)
+            Sdot: dict of tensors containing f(data) (keys are domain names the data corresponds to, e.g. XD, XI)
+            f_torch: torch function that computes f(data) (optional, for control synthesis)
+
+        Returns:
+            dict: empty dictionary
+
+
+
+        This function is called by the learner object. It uses the sample Pytorch data points S and Sdot to
+        calculate a loss function that should be minimised so the certificate properties are satisfied. The
+        learn function does not return anything, but updates the optimiser object through the optimiser.step()
+        function (which in turn updates the learners weights.)
+
+        For control synthesis, the f_torch function is passed to the certificate, which is used to recompute the
+        dynamics Sdot from the data S at each loop, since the control synthesis changes with each iteration.
         """
         raise NotImplemented("Not implemented in " + self.__class__.__name__)
 
-    def get_constraints(self, C, Cdot) -> tuple:
+    def get_constraints(self, verifier, C, Cdot) -> tuple:
         """
-        param C: SMT Formula of Certificate
-        param Cdot: SMT Formula of Certificate time derivative or one-step difference
-        return: tuple of dictionaries of certificate conditons
+        Returns (negation of) contraints for the certificate.
+        The constraints are returned as a tuple of dictionaries, where each dictionary contains the constraints
+        that should be verified together. For simplicity, as single dictionary may be returned, but it may be useful
+        to verify the most difficult constraints last. If an earlier constraint is not satisfied, the later ones
+        will not be checked.
+        The dictionary keys are the domain names the constraints correspond to, e.g. XD, XI, XU.
+
+        Logical operators are provided by the verifier object, e.g. _And, _Or, _Not, using the solver_fncts method,
+        which returns a dictionary of functions. Eg. _And = verifier.solver_fncts()["And"].
+
+        Example certificates assume that domains are in the form of SMT formulae, and that the certificate stores them
+        as instance attributes from the __init__. User defined certificates may follow a different format, but should
+        be consistent in how they are stored and accessed. They are passed to the certificate as a dictionary of
+        domain names and symbolic domains as SMT formulae, this cannot be changed.
+
+        Args:
+            verifier: fossil verifier object
+            C: SMT formula of Certificate
+            Cdot: SMT formula of Certificate time derivative or one-step difference (for discrete systems)
+
+        Returns:
+            tuple: tuple of dictionaries of certificate conditons
+
+
         """
         raise NotImplemented("Not implemented in " + self.__class__.__name__)
+
+    @staticmethod
+    def _assert_state(domains, data):
+        """Checks that the domains and data are as expected for this certificate.
+
+        This function is an optional debugging tool, but is called within CEGIS so should not be removed or
+        renamed, and should only raise an exception if the domains or data are not as expected.
+        """
+        pass
 
 
 class Lyapunov(Certificate):
@@ -80,9 +158,10 @@ class Lyapunov(Certificate):
 
     """
 
+    bias = False
+
     def __init__(self, domains, config: CegisConfig) -> None:
         self.domain = domains[XD]
-        self.bias = False
         self.llo = config.LLO
         self.control = config.CTRLAYER is not None
         self.D = config.DOMAINS
@@ -92,10 +171,12 @@ class Lyapunov(Certificate):
         self, V: torch.Tensor, gradV: torch.Tensor, f: torch.Tensor
     ) -> torch.Tensor:
         """
-        param V: Lyapunov function
-        param gradV: gradient of Lyapunov function
-        param f: system dynamics
-        return: loss function
+        Args:
+             V: Lyapunov function
+             gradV: gradient of Lyapunov function
+             f: system dynamics
+
+        Return: loss function
         """
         relu = torch.nn.Softplus()
         cosine = torch.nn.CosineSimilarity(dim=1)
@@ -156,8 +237,8 @@ class Lyapunov(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
 
@@ -247,12 +328,13 @@ class ROA(Certificate):
     that contains XI. XD is expected to be much larger than XI, and provides training data
     over a larger region than XI."""
 
+    bias = False
+
     def __init__(self, domains, config: CegisConfig) -> None:
         self.XI = domains[XI]
         self.llo = config.LLO
         self.control = config.CTRLAYER is not None
         self.D = config.DOMAINS
-        self.bias = False
 
     def alt_loss(
         self, V: torch.Tensor, gradV: torch.Tensor, f: torch.Tensor
@@ -322,8 +404,8 @@ class ROA(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
 
@@ -504,8 +586,8 @@ class Barrier(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -658,7 +740,9 @@ class BarrierAlt(Certificate):
         """
         margin = 0.05
 
-        learn_accuracy = (B_i <= -margin).count_nonzero().item() + (B_u >= margin).count_nonzero().item()
+        learn_accuracy = (B_i <= -margin).count_nonzero().item() + (
+            B_u >= margin
+        ).count_nonzero().item()
         percent_accuracy_init_unsafe = learn_accuracy * 100 / (len(B_u) + len(B_i))
         slope = 1e-2  # (learner.orderOfMagnitude(max(abs(Vdot)).detach()))
         relu6 = torch.nn.ReLU6()
@@ -694,8 +778,8 @@ class BarrierAlt(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -889,8 +973,8 @@ class RWS(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -1069,8 +1153,8 @@ class RSWS(RWS):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -1261,8 +1345,8 @@ class SafeROA(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -1382,8 +1466,8 @@ class ReachAvoidRemain(Certificate):
         """
         :param learner: learner object
         :param optimizer: torch optimiser
-        :param S: list of tensors of data
-        :param Sdot: list of tensors containing f(data)
+        :param S: dict of tensors of data
+        :param Sdot: dict of tensors containing f(data)
         :return: --
         """
         assert len(S) == len(Sdot)
@@ -1571,7 +1655,9 @@ class AutoSets:
         return domains, data
 
 
-def get_certificate(certificate: CertificateType) -> Type[Certificate]:
+def get_certificate(
+    certificate: CertificateType, custom_cert=None
+) -> Type[Certificate]:
     if certificate == CertificateType.LYAPUNOV:
         return Lyapunov
     elif certificate == CertificateType.ROA:
@@ -1588,5 +1674,11 @@ def get_certificate(certificate: CertificateType) -> Type[Certificate]:
         return SafeROA
     elif certificate == CertificateType.RAR:
         return ReachAvoidRemain
+    elif certificate == CertificateType.CUSTOM:
+        if custom_cert is None:
+            raise ValueError(
+                "Custom certificate not provided (use CegisConfig CUSTOM_CERTIFICATE)))"
+            )
+        return custom_cert
     else:
         raise ValueError("Unknown certificate type {}".format(certificate))

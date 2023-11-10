@@ -51,9 +51,9 @@ class CegisConfigParser:
     ) -> Callable:
         """Read model based on presence of a controller layer."""
         model_cls = (
-            control._ParsedCTModel
+            control._ParsedDynamicalModel
             if controller_layer is None
-            else control._ParsedControllableCTModel
+            else control._ParsedControllableDynamicalModel
         )
         model = model_cls(dynamics, verifier)
 
@@ -76,9 +76,9 @@ class CegisConfigParser:
     ) -> Callable:
         """Read model based on presence of a controller layer."""
         model_cls = (
-            control._ParsedCTModel
+            control._ParsedDynamicalModel
             if controller_layer is None
-            else control._ParsedControllableCTModel
+            else control._ParsedControllableDynamicalModel
         )
         model = model_cls(dynamics, verifier)
 
@@ -243,6 +243,7 @@ ENUM_ATTR_MAP = {
     "FACTORS": CegisConfigParser.string_to_enum_value,
     "ACTIVATION": CegisConfigParser.read_activations,
     "CTRLACTIVATION": CegisConfigParser.read_activations,
+    "ACTIVATION_ALT": CegisConfigParser.read_activations,
 }
 
 enum_type_map = {
@@ -252,6 +253,7 @@ enum_type_map = {
     "FACTORS": consts.LearningFactors,
     "ACTIVATION": consts.ActivationType,
     "CTRLACTIVATION": consts.ActivationType,
+    "ACTIVATION_ALT": consts.ActivationType,
 }
 
 
@@ -327,6 +329,12 @@ def parse_filename():
         help="Set verbosity level. 0 is silent (default), 1 is verbose, 2 is debug.",
         choices=[0, 1, 2],
         default=0,
+    )
+
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Plot the resulting certificate (2D-only).",
     )
 
     args = parser.parse_args()

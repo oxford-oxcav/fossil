@@ -15,7 +15,7 @@ from fossil.consts import *
 def test_lnn(args):
     n_vars = 2
 
-    ol_system = models.InvertedPendulum
+    ol_system = models.SineModel
     system = control.GeneralClosedLoopModel.prepare_from_open(ol_system())
 
     batch_size = 500

@@ -1,0 +1,10 @@
+plots
+private
+.vscode
+*.json
+.ipynb_checkpoints
+__pycache__
+.git
+.gitignore
+Dockerfile
+.dockerignore

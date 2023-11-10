@@ -637,7 +637,7 @@ class Sphere(Set):
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
-        return f["And"](
+        return (
             sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
             <= self.radius**2
         )
@@ -650,7 +650,7 @@ class Sphere(Set):
         f = self.set_functions(x)
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
-        return f["And"](
+        return (
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
             == self.radius**2
         )
@@ -667,7 +667,7 @@ class Sphere(Set):
         f = self.set_functions(x)
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
-        return f["And"](
+        return (
             sum([(x[i] - self.centre[i]) ** 2 for i in range(self.dimension)])
             < self.radius**2
         )
@@ -743,7 +743,7 @@ class OpenSphere(Sphere):
         if self.dim_select:
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
-        return f["And"](
+        return (
             sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
             < self.radius**2
         )
@@ -781,7 +781,7 @@ class Ellipse(Set):
             assert len(self.coeffs) == len(self.dim_select)
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
-        return f["And"](
+        return (
             sum([(self.coeffs[i] * x[i] - self.centre[i]) ** 2 for i in range(len(x))])
             <= self.radius**2
         )
@@ -820,7 +820,7 @@ class Ellipse(Set):
             # check that the coeffs are only for the selected dimensions
             assert len(self.coeffs) == len(self.dim_select)
             x = [x[i] for i in self.dim_select]
-        return f["And"](
+        return (
             sum(
                 [
                     (self.coeffs[i] * x[i] - self.centre[i]) ** 2

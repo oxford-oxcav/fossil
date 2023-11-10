@@ -5,54 +5,46 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-
 from experiments.benchmarks import models
-from fossil import domains
 from fossil import certificate
-from fossil import main, control
+from fossil import domains
+from fossil import main
 from fossil.consts import *
 
 
 def test_lnn(args):
-    batch_size = 3000
-    f = models.HighOrd8
-    n_vars = f.n_vars
+    n_vars = 3
+    system = models.NonPoly2
 
-    XD = domains.Rectangle([-2.2] * n_vars, [2.2] * n_vars)
-    # XD = domains.Sphere([0] * n_vars, 2)
-    XI = domains.Rectangle([0.9] * n_vars, [1.1] * n_vars)
-    # XI = domains.Sphere([1] * n_vars, 0.1)
-    XU = domains.Rectangle([-2.2] * n_vars, [-1.8] * n_vars)
-    # XU = domains.Sphere([-2] * n_vars, 0.2)
+    # define domain constraints
+    inner_radius = 0.01
+
+    XD = domains.Torus([0.0, 0.0, 0.0], 3, 0.01)
+
     sets = {
         certificate.XD: XD,
-        certificate.XI: XI,
-        # certificate.XS_BORDER: XS,
-        certificate.XU: XU,
-        # certificate.XG: XG,
     }
+
     data = {
-        certificate.XD: XD._generate_data(batch_size),
-        certificate.XI: XI._generate_data(batch_size),
-        certificate.XU: XU._generate_data(batch_size),
+        certificate.XD: XD._generate_data(1000),
     }
 
     # define NN parameters
-    activations = [ActivationType.LINEAR]
+    activations = [ActivationType.SQUARE]
     n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(
+        SYSTEM=system,
         DOMAINS=sets,
         DATA=data,
-        SYSTEM=f,
-        N_VARS=n_vars,
-        CERTIFICATE=CertificateType.BARRIER,
+        N_VARS=system.n_vars,
+        CERTIFICATE=CertificateType.LYAPUNOV,
         TIME_DOMAIN=TimeDomain.CONTINUOUS,
-        VERIFIER=VerifierType.Z3,
+        VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
+        LLO=True,
         CEGIS_MAX_ITERS=25,
-        SYMMETRIC_BELT=True,
     )
 
     main.run_benchmark(

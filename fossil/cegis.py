@@ -122,7 +122,8 @@ class SingleCegis:
         return {key: S() for key, S in self.config.DATA.items()}
 
     def _initialise_certificate(self):
-        certificate_type = certificate.get_certificate(self.config.CERTIFICATE)
+        custom_certificate = self.config.CUSTOM_CERTIFICATE
+        certificate_type = certificate.get_certificate(self.config.CERTIFICATE, custom_certificate)
         if self.config.CERTIFICATE == certificate.CertificateType.STABLESAFE:
             raise ValueError("StableSafe not compatible with default CEGIS")
         return certificate_type(self.domains, self.config)

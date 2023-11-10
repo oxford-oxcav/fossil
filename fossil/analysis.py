@@ -18,11 +18,11 @@ from fossil import certificate
 
 """Post processing of results module."""
 
-DRF = DEFAULT_RESULT_FILE = (
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    + "/experiments/results.csv"
-)
-os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + "/results.csv"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Change this line for different works
+JOURNAL_RESULTS_FILE = "/results/results.csv"
+TOOL_RESULTS_FILE = "/results/raw_tool_results.csv"
+DRF = DEFAULT_RESULT_FILE = BASE_DIR + TOOL_RESULTS_FILE
 
 
 @dataclasses.dataclass
@@ -31,8 +31,8 @@ class AnalysisConfig:
 
     results_file: str = DRF
     benchmarks: tuple[str] = ()
-    output_type = "tex"  # "csv" or "tex" or "md"
-    output_file: str = "experiments/main_tab"
+    output_type = ["tex", "csv"]  # "csv" or "tex" or "md"
+    output_file: str = "results/main_tab"
 
 
 Stats = namedtuple("Stats", ["mean", "std", "min", "max"])
@@ -228,7 +228,7 @@ class Analyser:
         print(config.results_file)
         self.results = pd.read_csv(config.results_file)
         self.output_type = config.output_type
-        self.output_file = config.output_file + "." + self.output_type
+        self.output_file = config.output_file  # + "." + self.output_type
 
     def get_benchmarks(self):
         """Get list of benchmarks in results file."""
@@ -287,7 +287,7 @@ class Analyser:
                 "mean": "$\mu$",
                 "min": "$\min$",
                 "max": "$\max$",
-                "ratio": "$R$",
+                "ratio": "$S$",
                 "Certificate": "Property",
                 "Result": "Successful (\%)",
             },
@@ -296,7 +296,9 @@ class Analyser:
         )
         table.reset_index(inplace=True)
         table.index = table.index + 1
-        df_to_latex(table, None)
+        # df_to_latex(
+        #     table, self.output_file
+        # )  # Creates a latex file with all the benchmarks
         table.drop(["latex", "Model", "domains"], axis=1, inplace=True)
         table["$T$ (s)"] = (
             table["$T$ (s)"].round(2).astype(str)
@@ -305,20 +307,22 @@ class Analyser:
             + ")"
         )
         table.drop(["$T_L$ (s)"], axis=1, inplace=True)
+        pd.options.display.float_format = "{:,.2f}".format
         print(table)
 
-        if self.output_type == "tex":
+        if "tex" in self.output_type:
             table.to_latex(
-                self.output_file,
+                self.output_file + ".tex",
                 float_format="%.2f",
                 bold_rows=False,
                 escape=False,
                 multicolumn_format="c",
             )
-        elif self.output_type == "csv":
-            table.to_csv(self.output_file)
-        elif self.output_type == "md":
-            table.to_markdown(self.output_file)
+        if "csv" in self.output_type:
+            table.columns = table.columns.map(" ".join)
+            table.to_csv(self.output_file + ".csv")
+        if "md" in self.output_type:
+            table.to_markdown(self.output_file + ".md")
 
 
 def benchmark_to_latex(config: CegisConfig):
@@ -453,14 +457,12 @@ def df_to_latex(results_frame: pd.DataFrame, output_file: str):
         s += benchmark + "\n\n"
 
     # s += "\\end{document}\n"
-    with open("latex.tex", "w") as f:
+    latex_file = output_file + "_benchmarks.tex"
+    with open(latex_file, "w") as f:
         f.write(s)
 
 
 if __name__ == "__main__":
-    a = Analyser()
+    c = AnalysisConfig(output_file="results/tool_paper_tab")
+    a = Analyser(config=c)
     a.table_main()
-    # benchmarks = a.get_benchmarks()
-    # b = a.analyse_benchmark(benchmarks[0])
-    # print(b)
-    # csv_to_latex("experiments/results.csv")

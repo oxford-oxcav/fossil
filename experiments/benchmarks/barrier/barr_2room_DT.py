@@ -5,12 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import numpy as np
-import matplotlib.pyplot as plt
 from experiments.benchmarks import models
 from fossil import domains
 from fossil import certificate
-from fossil import main, logger
+from fossil import main
 from fossil.consts import *
 
 
@@ -19,9 +17,9 @@ def test_lnn(args):
     open_loop = models.TwoRoomTemp
     n_vars = open_loop.n_vars
 
-    XD = domains.Rectangle(lb=[18.]*n_vars, ub=[23.]*n_vars)
-    XI = domains.Rectangle(lb=[18.]*n_vars, ub=[19.75]*n_vars)
-    XU = domains.Rectangle(lb=[22.]*n_vars, ub=[23.]*n_vars)
+    XD = domains.Rectangle(lb=[18.0] * n_vars, ub=[23.0] * n_vars)
+    XI = domains.Rectangle(lb=[18.0] * n_vars, ub=[19.75] * n_vars)
+    XU = domains.Rectangle(lb=[22.0] * n_vars, ub=[23.0] * n_vars)
 
     sets = {
         certificate.XD: XD,
@@ -52,8 +50,6 @@ def test_lnn(args):
         CEGIS_MAX_ITERS=25,
     )
 
-    logger.Logger.set_logger_level(0)
-
     main.run_benchmark(
         opts,
         record=args.record,
@@ -65,5 +61,4 @@ def test_lnn(args):
 
 if __name__ == "__main__":
     args = main.parse_benchmark_args()
-    args.repeat=10
     test_lnn(args)

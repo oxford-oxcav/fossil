@@ -37,7 +37,7 @@ class Eulerised:
 ############################################
 
 
-class Linear0(control.CTModel):
+class Linear0(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -49,7 +49,7 @@ class Linear0(control.CTModel):
         return [-x - y, x]
 
 
-class NonPoly0(control.CTModel):
+class NonPoly0(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -61,7 +61,7 @@ class NonPoly0(control.CTModel):
         return [-x + x * y, -y]
 
 
-class NonPoly1(control.CTModel):
+class NonPoly1(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -73,7 +73,7 @@ class NonPoly1(control.CTModel):
         return [-x + 2 * x**2 * y, -y]
 
 
-class NonPoly2(control.CTModel):
+class NonPoly2(control.DynamicalModel):
     n_vars = 3
 
     def f_torch(self, v):
@@ -85,7 +85,7 @@ class NonPoly2(control.CTModel):
         return [-x, -2 * y + 0.1 * x * y**2 + z, -z - 1.5 * y]
 
 
-class NonPoly3(control.CTModel):
+class NonPoly3(control.DynamicalModel):
     n_vars = 3
 
     def f_torch(self, v):
@@ -97,7 +97,7 @@ class NonPoly3(control.CTModel):
         return [-3 * x - 0.1 * x * y**3, -y + z, -z]
 
 
-class Benchmark0(control.CTModel):
+class Benchmark0(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -109,7 +109,7 @@ class Benchmark0(control.CTModel):
         return [-x, -y]
 
 
-class Benchmark1(control.ControllableCTModel):
+class Benchmark1(control.ControllableDynamicalModel):
     n_u = 2
     n_vars = 2
 
@@ -124,7 +124,7 @@ class Benchmark1(control.ControllableCTModel):
         return [x + y + u1, -y - x + u2]
 
 
-class Benchmark2(control.ControllableCTModel):
+class Benchmark2(control.ControllableDynamicalModel):
     n_vars = 2
     n_u = 3
 
@@ -139,7 +139,7 @@ class Benchmark2(control.ControllableCTModel):
         return [x + y + u1 - u2, y + 2.0 * x + u3]
 
 
-class BenchmarkDT1(control.ControllableCTModel):
+class BenchmarkDT1(control.ControllableDynamicalModel):
     def f_torch(self, v, u):
         x, y = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
@@ -157,7 +157,7 @@ class BenchmarkDT1(control.ControllableCTModel):
 # srirams paper from 2013 (old-ish) but plenty of lyap fcns
 
 
-class Poly1(control.CTModel):
+class Poly1(control.DynamicalModel):
     n_vars = 3
 
     def f_torch(self, v):
@@ -169,7 +169,7 @@ class Poly1(control.CTModel):
         return [-(x**3) - x * z**2, -y - x**2 * y, -z + 3 * x**2 * z - (3 * z)]
 
 
-class Poly2(control.CTModel):
+class Poly2(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -181,7 +181,7 @@ class Poly2(control.CTModel):
         return [-(x**3) + y, -x - y]
 
 
-class Poly3(control.CTModel):
+class Poly3(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -193,7 +193,7 @@ class Poly3(control.CTModel):
         return [-(x**3) - y**2, x * y - y**3]
 
 
-class Poly4(control.CTModel):
+class Poly4(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -205,7 +205,7 @@ class Poly4(control.CTModel):
         return [-x - 1.5 * x**2 * y**3, -(y**3) + 0.5 * x**3 * y**2]
 
 
-class Sriram4D(control.CTModel):
+class Sriram4D(control.DynamicalModel):
     n_vars = 4
 
     def f_torch(self, v):
@@ -227,7 +227,7 @@ class Sriram4D(control.CTModel):
         ]
 
 
-class LinearDiscrete(control.CTModel):
+class LinearDiscrete(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -239,7 +239,7 @@ class LinearDiscrete(control.CTModel):
         return [0.5 * x - 0.5 * y, 0.5 * x]
 
 
-class DoubleLinearDiscrete(control.CTModel):
+class DoubleLinearDiscrete(control.DynamicalModel):
     n_vars = 4
 
     def f_torch(self, v):
@@ -251,7 +251,7 @@ class DoubleLinearDiscrete(control.CTModel):
         return [0.5 * x1 - 0.5 * x2, 0.5 * x1, 0.5 * x3 - 0.5 * x4, 0.5 * x3]
 
 
-class LinearDiscreteNVars(control.CTModel):
+class LinearDiscreteNVars(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -263,7 +263,7 @@ class LinearDiscreteNVars(control.CTModel):
         return [0.5 * v[i] for i in range(len(v))]
 
 
-class NonLinearDiscrete(control.CTModel):
+class NonLinearDiscrete(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -321,7 +321,7 @@ class NonLinearDiscrete(control.CTModel):
 ############################################
 
 
-class Barr1(control.CTModel):
+class Barr1(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -333,7 +333,7 @@ class Barr1(control.CTModel):
         return [y + 2 * x * y, -x - y**2 + 2 * x**2]
 
 
-class Barr2(control.CTModel):
+class Barr2(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -347,7 +347,7 @@ class Barr2(control.CTModel):
         return [exp(-x) + y - 1, -((sin(x)) ** 2)]
 
 
-class Barr3(control.CTModel):
+class Barr3(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -359,7 +359,7 @@ class Barr3(control.CTModel):
         return [y, -x - y + 1 / 3 * x**3]
 
 
-class ObstacleAvoidance(control.CTModel):
+class ObstacleAvoidance(control.DynamicalModel):
     n_vars = 3
 
     def f_torch(self, v):
@@ -384,7 +384,7 @@ class ObstacleAvoidance(control.CTModel):
         ]
 
 
-class HighOrd4(control.CTModel):
+class HighOrd4(control.DynamicalModel):
     n_vars = 4
 
     def f_torch(self, v):
@@ -396,7 +396,7 @@ class HighOrd4(control.CTModel):
         return [x1, x2, x3, -3980 * x3 - 4180 * x2 - 2400 * x1 - 576 * x0]
 
 
-class HighOrd6(control.CTModel):
+class HighOrd6(control.DynamicalModel):
     n_vars = 6
 
     def f_torch(self, v):
@@ -422,7 +422,7 @@ class HighOrd6(control.CTModel):
         ]
 
 
-class HighOrd8(control.CTModel):
+class HighOrd8(control.DynamicalModel):
     n_vars = 8
 
     def f_torch(self, v):
@@ -475,7 +475,7 @@ class HighOrd8(control.CTModel):
         ]
 
 
-class UnstableLinear(control.CTModel):
+class UnstableLinear(control.DynamicalModel):
     n_vars = 2
 
     def f_torch(self, v):
@@ -487,7 +487,7 @@ class UnstableLinear(control.CTModel):
         return [-2 * x - y, 0.6 * y]
 
 
-class Car(control.CTModel):
+class Car(control.DynamicalModel):
     n_vars = 3
 
     def f_torch(self, v):
@@ -501,7 +501,7 @@ class Car(control.CTModel):
         return [cos(omega), sin(omega), omega]
 
 
-class InvertedPendulum(control.ControllableCTModel):
+class SineModel(control.ControllableDynamicalModel):
     n_vars = 2
     n_u = 2
 
@@ -530,7 +530,7 @@ class InvertedPendulum(control.ControllableCTModel):
         return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
 
 
-class InvertedPendulumLQR(control.CTModel):
+class SineModelLQR(control.DynamicalModel):
     n_vars = 2
     K = np.array([[7.21, 1.34], [1.34, 0.33]])
 
@@ -561,7 +561,7 @@ class InvertedPendulumLQR(control.CTModel):
         return [y + u1, u2 + (m * G * L * sin(x) - b * y) / (m * L**2)]
 
 
-class LorenzSystem(control.ControllableCTModel):
+class LorenzSystem(control.ControllableDynamicalModel):
     n_vars = 3
     n_u = 3
 
@@ -595,7 +595,7 @@ class LorenzSystem(control.ControllableCTModel):
         ]
 
 
-class CtrlCar(control.ControllableCTModel):
+class CtrlCar(control.ControllableDynamicalModel):
     n_vars = 3
 
     def f_torch(self, v, u):
@@ -612,7 +612,7 @@ class CtrlCar(control.ControllableCTModel):
 
 
 # from Tedrake's lecture notes
-class Quadrotor2d(control.ControllableCTModel):
+class Quadrotor2d(control.ControllableDynamicalModel):
     n_vars = 6
     n_u = 2
 
@@ -630,16 +630,21 @@ class Quadrotor2d(control.ControllableCTModel):
         # w1 = u1+u2
         # w2 = u1-u2
         q = v[:, :3]
-        qdot = v[:, 3:]
-        qddot = torch.vstack(
-            [
-                -torch.sin(q[:, 2]) / self.mass * u1,
-                torch.cos(q[:, 2]) / self.mass * u1 - self.gravity,
-                self.length / self.inertia * u2,
-            ]
-        ).T
+        qdot = list(v[:, 3:].T)
+        qddot = [
+            -torch.sin(q[:, 2]) / self.mass * u1,
+            torch.cos(q[:, 2]) / self.mass * u1 - self.gravity,
+            self.length / self.inertia * u2,
+        ]
 
-        return [qdot[:, 0], qdot[:, 1], qdot[:,2], qddot[:, 0], qddot[:, 1], qddot[:,2]]
+        return [
+            qdot[:, 0],
+            qdot[:, 1],
+            qdot[:, 2],
+            qddot[:, 0],
+            qddot[:, 1],
+            qddot[:, 2],
+        ]
 
     def f_smt(self, v, u):
         sin = self.fncs["sin"]
@@ -660,7 +665,7 @@ class Quadrotor2d(control.ControllableCTModel):
 
 
 # from Tedrake's lecture notes
-class LinearSatellite(control.ControllableCTModel):
+class LinearSatellite(control.ControllableDynamicalModel):
     n_vars = 5
     n_u = 3
 
@@ -692,7 +697,14 @@ class LinearSatellite(control.ControllableCTModel):
             ]
         ).T
 
-        return [qdot[:, 0], qdot[:, 1], qdot[:,2], qddot[:, 0], qddot[:, 1], qddot[:,2]]
+        return [
+            qdot[:, 0],
+            qdot[:, 1],
+            qdot[:, 2],
+            qddot[:, 0],
+            qddot[:, 1],
+            qddot[:, 2],
+        ]
 
     def f_smt(self, v, u):
         u1, u2, u3 = u
@@ -710,7 +722,7 @@ class LinearSatellite(control.ControllableCTModel):
         return [*qdot, *qddot]
 
 
-class CtrlObstacleAvoidance(control.ControllableCTModel):
+class CtrlObstacleAvoidance(control.ControllableDynamicalModel):
     n_vars = 3
     n_u = 1
 
@@ -737,7 +749,7 @@ class CtrlObstacleAvoidance(control.ControllableCTModel):
         ]
 
 
-class Identity(control.ControllableCTModel):
+class Identity(control.ControllableDynamicalModel):
     n_vars = 2
     n_u = 2
 
@@ -752,7 +764,7 @@ class Identity(control.ControllableCTModel):
         return [x + u1, y + u2]
 
 
-class DTAhmadi(control.ControllableCTModel):
+class DTAhmadi(control.ControllableDynamicalModel):
     # from Non-monotonic Lyapunov Functions
     # for Stability of Discrete Time Nonlinear and Switched Systems
     # Amir Ali Ahmadi and Pablo A. Parrilo, CDC 2008.
@@ -771,7 +783,7 @@ class DTAhmadi(control.ControllableCTModel):
 
 
 # todo: define DT Model
-class DTAhmadi2(control.CTModel):
+class DTAhmadi2(control.DynamicalModel):
     # from SOS-Convex Lyapunov Functions
     # with Applications to Nonlinear Switched Systems
     # Amir Ali Ahmadi and Raphael M. Jungers, CDC 2013
@@ -780,27 +792,27 @@ class DTAhmadi2(control.CTModel):
 
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return [0.687*x + 0.558*y - 0.0001*x*y, -0.292*x + 0.773*y]
+        return [0.687 * x + 0.558 * y - 0.0001 * x * y, -0.292 * x + 0.773 * y]
 
     def f_smt(self, v):
         x, y = v
-        return [0.687*x + 0.558*y - 0.0001*x*y, -0.292*x + 0.773*y]
+        return [0.687 * x + 0.558 * y - 0.0001 * x * y, -0.292 * x + 0.773 * y]
 
 
-class DebugDT(control.CTModel):
+class DebugDT(control.DynamicalModel):
     # debug model
     n_vars = 2
 
     def f_torch(self, v):
         x, y = v[:, 0], v[:, 1]
-        return [0.5*y, -0.1*x]
+        return [0.5 * y, -0.1 * x]
 
     def f_smt(self, v):
         x, y = v
-        return [0.5*y, -0.1*x ]
+        return [0.5 * y, -0.1 * x]
 
 
-class CtrlRoomTemp(control.ControllableCTModel):
+class CtrlRoomTemp(control.ControllableDynamicalModel):
     # from Data-Driven Safety Verification of
     # Stochastic Systems via Barrier Certificates
     # itself adapted from Girard et al, 2016,
@@ -809,24 +821,28 @@ class CtrlRoomTemp(control.ControllableCTModel):
     n_vars = 1
     n_u = 1
 
-    tau = 5*60  # discretise param
+    tau = 5 * 60  # discretise param
     alpha_e = 8 * 1e-3  # heat exchange room-external
     temp_e = 15  # external temp
     alpha_h = 3.6 * 1e-3  # heat exchange room-heater
     temp_h = 55  # boiler temp
 
     def f_torch(self, v, u):
-        x = v[:,0]
+        x = v[:, 0]
         u1 = u[:, 0]
-        return [x + self.tau*( (self.temp_e - x) + self.alpha_h*(self.temp_h - x) * u1)]
+        return [
+            x + self.tau * ((self.temp_e - x) + self.alpha_h * (self.temp_h - x) * u1)
+        ]
 
     def f_smt(self, v, u):
         x = v[0]
         u1 = u[0]
-        return [x + self.tau*( (self.temp_e - x) + self.alpha_h*(self.temp_h - x) * u1)]
+        return [
+            x + self.tau * ((self.temp_e - x) + self.alpha_h * (self.temp_h - x) * u1)
+        ]
 
 
-class JetEngineCompressor(control.ControllableCTModel):
+class JetEngineCompressor(control.ControllableDynamicalModel):
     # taken from To sample or not to sample: Self-triggered control for nonlinear systems
     # Adolfo Anta and Paulo Tabuada
     # originally from Lean backstepping design for a jet engine compressor model
@@ -835,24 +851,24 @@ class JetEngineCompressor(control.ControllableCTModel):
     n_u = 1
 
     tau = 0.01
-    beta = 1.
+    beta = 1.0
 
-    def f_torch(self, v: torch.Tensor, u:torch.Tensor) -> list:
-        x1, x2 = v[:,0], v[:,1]
-        u1 = u[:,0]
-        q1 = x1 + self.tau * (- x2 - 1.5 * x1 ** 2 - 0.5 * x1 ** 3)
-        q2 = x2 + (1. / self.beta) ** 2 * self.tau * (x1 - u1)
+    def f_torch(self, v: torch.Tensor, u: torch.Tensor) -> list:
+        x1, x2 = v[:, 0], v[:, 1]
+        u1 = u[:, 0]
+        q1 = x1 + self.tau * (-x2 - 1.5 * x1**2 - 0.5 * x1**3)
+        q2 = x2 + (1.0 / self.beta) ** 2 * self.tau * (x1 - u1)
         return [q1, q2]
 
     def f_smt(self, v, u):
         x1, x2 = v
         u1 = u[0]
-        q1 = x1 + self.tau * ( - x2 - 1.5 * x1**2 - 0.5 * x1 ** 3 )
-        q2 = x2 + (1./self.beta)**2 * self.tau * (x1 - u1)
+        q1 = x1 + self.tau * (-x2 - 1.5 * x1**2 - 0.5 * x1**3)
+        q2 = x2 + (1.0 / self.beta) ** 2 * self.tau * (x1 - u1)
         return [q1, q2]
 
 
-class TwoRoomTemp(control.CTModel):
+class TwoRoomTemp(control.DynamicalModel):
     # from Data-Driven Safety Verification of
     # Stochastic Systems via Barrier Certificates
     # itself adapted from Girard et al, 2016,
@@ -869,27 +885,39 @@ class TwoRoomTemp(control.CTModel):
     temp_h = 55  # boiler temp
 
     def f_torch(self, v):
-        x1, x2 = v[:,0], v[:,1]
+        x1, x2 = v[:, 0], v[:, 1]
 
-        q1 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x1 \
-             + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.temp_e
-        q2 = (1 - self.tau * (1. * self.alpha + self.alpha_e2)) * x2 \
-             + self.tau * self.alpha * (x1) + self.tau * self.alpha_e2 * self.temp_e
+        q1 = (
+            (1 - self.tau * (self.alpha + self.alpha_e1)) * x1
+            + self.tau * self.alpha * x2
+            + self.tau * self.alpha_e1 * self.temp_e
+        )
+        q2 = (
+            (1 - self.tau * (1.0 * self.alpha + self.alpha_e2)) * x2
+            + self.tau * self.alpha * (x1)
+            + self.tau * self.alpha_e2 * self.temp_e
+        )
 
         return [q1, q2]
 
     def f_smt(self, v):
         x1, x2 = v
 
-        q1 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x1 \
-             + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.temp_e
-        q2 = (1 - self.tau * (1. * self.alpha + self.alpha_e2)) * x2 \
-             + self.tau * self.alpha * (x1) + self.tau * self.alpha_e2 * self.temp_e
+        q1 = (
+            (1 - self.tau * (self.alpha + self.alpha_e1)) * x1
+            + self.tau * self.alpha * x2
+            + self.tau * self.alpha_e1 * self.temp_e
+        )
+        q2 = (
+            (1 - self.tau * (1.0 * self.alpha + self.alpha_e2)) * x2
+            + self.tau * self.alpha * (x1)
+            + self.tau * self.alpha_e2 * self.temp_e
+        )
 
         return [q1, q2]
 
 
-class CtrlTwoRoomTemp(control.ControllableCTModel):
+class CtrlTwoRoomTemp(control.ControllableDynamicalModel):
     # from Data-Driven Safety Verification of
     # Stochastic Systems via Barrier Certificates
     # itself adapted from Girard et al, 2016,
@@ -907,32 +935,44 @@ class CtrlTwoRoomTemp(control.ControllableCTModel):
     temp_h = 55  # boiler temp
 
     def f_torch(self, v, u):
-        x1, x2 = v[:,0], v[:,1]
+        x1, x2 = v[:, 0], v[:, 1]
         u1, u2 = u[:, 0], u[:, 1]
 
-        q1 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x1 \
-             + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.temp_e \
-             + self.tau * self.alpha_h * (self.temp_h - x1) * u1
-        q2 = (1 - self.tau * (1. * self.alpha + self.alpha_e2)) * x2 \
-             + self.tau * self.alpha * (x1) + self.tau * self.alpha_e2 * self.temp_e \
-             + self.tau * self.alpha_h * (self.temp_h - x2) * u2
+        q1 = (
+            (1 - self.tau * (self.alpha + self.alpha_e1)) * x1
+            + self.tau * self.alpha * x2
+            + self.tau * self.alpha_e1 * self.temp_e
+            + self.tau * self.alpha_h * (self.temp_h - x1) * u1
+        )
+        q2 = (
+            (1 - self.tau * (1.0 * self.alpha + self.alpha_e2)) * x2
+            + self.tau * self.alpha * (x1)
+            + self.tau * self.alpha_e2 * self.temp_e
+            + self.tau * self.alpha_h * (self.temp_h - x2) * u2
+        )
 
         return [q1, q2]
 
     def f_smt(self, v, u):
         x1, x2 = v
         u1, u2 = u
-        q1 = (1 - self.tau * (self.alpha + self.alpha_e1)) * x1 \
-             + self.tau * self.alpha * x2 + self.tau * self.alpha_e1 * self.temp_e \
-             + self.tau * self.alpha_h * (self.temp_h - x1) * u1
-        q2 = (1 - self.tau * (1. * self.alpha + self.alpha_e2)) * x2 \
-             + self.tau * self.alpha * (x1) + self.tau * self.alpha_e2 * self.temp_e \
-             + self.tau * self.alpha_h * (self.temp_h - x2) * u2
+        q1 = (
+            (1 - self.tau * (self.alpha + self.alpha_e1)) * x1
+            + self.tau * self.alpha * x2
+            + self.tau * self.alpha_e1 * self.temp_e
+            + self.tau * self.alpha_h * (self.temp_h - x1) * u1
+        )
+        q2 = (
+            (1 - self.tau * (1.0 * self.alpha + self.alpha_e2)) * x2
+            + self.tau * self.alpha * (x1)
+            + self.tau * self.alpha_e2 * self.temp_e
+            + self.tau * self.alpha_h * (self.temp_h - x2) * u2
+        )
 
         return [q1, q2]
 
 
-class CtrlThermalConvection(control.ControllableCTModel):
+class CtrlThermalConvection(control.ControllableDynamicalModel):
     # taken from Time-triggered control of nonlinear discrete-time systems
     # Romain Postoyan and Dragan Neˇsi´c, CDC 2016
     # this is the original of thermal convection class, has some differences.
@@ -940,30 +980,30 @@ class CtrlThermalConvection(control.ControllableCTModel):
     n_vars = 3
     n_u = 1
 
-    a = 10.
+    a = 10.0
     T = 1e-3
-    b = 28.
-    c = 8./3.
+    b = 28.0
+    c = 8.0 / 3.0
 
     def f_torch(self, v, u):
-        x1, x2, x3 = v[:,0], v[:, 1], v[:,2]
-        u1 = u[:,0]
-        q1 = (1 - self.a*self.T) * x1 + self.a*self.T*x2
-        q2 = (1 - self.T)*x2 - self.T*x1*x3 + self.T * self.b * x1 + self.T * u1
-        q3 = (1 - self.c*self.T)*x3 + self.T*x1*x2
+        x1, x2, x3 = v[:, 0], v[:, 1], v[:, 2]
+        u1 = u[:, 0]
+        q1 = (1 - self.a * self.T) * x1 + self.a * self.T * x2
+        q2 = (1 - self.T) * x2 - self.T * x1 * x3 + self.T * self.b * x1 + self.T * u1
+        q3 = (1 - self.c * self.T) * x3 + self.T * x1 * x2
         return [q1, q2, q3]
 
     def f_smt(self, v, u):
         x1, x2, x3 = v
         u1 = u[0]
         q1 = (1 - self.a * self.T) * x1 + self.a * self.T * x2
-        q2 = (1 - self.T)*x2 - self.T*x1*x3 + self.T * self.b * x1 + self.T * u1
-        q3 = (1 - self.c*self.T)*x3 + self.T*x1*x2
+        q2 = (1 - self.T) * x2 - self.T * x1 * x3 + self.T * self.b * x1 + self.T * u1
+        q3 = (1 - self.c * self.T) * x3 + self.T * x1 * x2
         return [q1, q2, q3]
 
 
 ### Benchmarks taken from RSWS work of Verdier, Mazo
-class Linear1(control.ControllableCTModel):
+class Linear1(control.ControllableDynamicalModel):
     n_vars = 2
     n_u = 1
 
@@ -978,7 +1018,7 @@ class Linear1(control.ControllableCTModel):
         return [y, -x + u1]
 
 
-class Linear1LQR(control.CTModel):
+class Linear1LQR(control.DynamicalModel):
     """Linear1 with LQR controller"""
 
     n_vars = 2
@@ -995,7 +1035,7 @@ class Linear1LQR(control.CTModel):
         return [y, -x + u1]
 
 
-class SecondOrder(control.ControllableCTModel):
+class SecondOrder(control.ControllableDynamicalModel):
     n_vars = 2
     n_u = 1
 
@@ -1010,7 +1050,7 @@ class SecondOrder(control.ControllableCTModel):
         return [y - x**3, u1]
 
 
-class SecondOrderLQR(control.CTModel):
+class SecondOrderLQR(control.DynamicalModel):
     n_vars = 2
     K = [1.0, 1.73]
 
@@ -1025,7 +1065,7 @@ class SecondOrderLQR(control.CTModel):
         return [y - x**3, u1]
 
 
-class ThirdOrder(control.ControllableCTModel):
+class ThirdOrder(control.ControllableDynamicalModel):
     n_vars = 3
     n_u = 1
 
@@ -1040,7 +1080,7 @@ class ThirdOrder(control.ControllableCTModel):
         return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
 
 
-class ThirdOrderLQR(control.CTModel):
+class ThirdOrderLQR(control.DynamicalModel):
     n_vars = 3
     K = [23.71, 18.49, 0.0]
 
@@ -1055,7 +1095,7 @@ class ThirdOrderLQR(control.CTModel):
         return [-10 * x1 + 10 * x2 + u1, 28 * x1 - x2 - x1 * x3, x1 * x2 - 8 / 3 * x3]
 
 
-class LoktaVolterra(control.CTModel):
+class LoktaVolterra(control.DynamicalModel):
     n_vars = 2
 
     def __init__(self) -> None:
@@ -1070,7 +1110,7 @@ class LoktaVolterra(control.CTModel):
         return [0.6 * x - x * y, -0.6 * y + x * y]
 
 
-class VanDerPol(control.CTModel):
+class VanDerPol(control.DynamicalModel):
     n_vars = 2
 
     def __init__(self) -> None:
@@ -1085,7 +1125,7 @@ class VanDerPol(control.CTModel):
         return [y, -0.5 * (1 - x**2) * y - x]
 
 
-class SheModel(control.CTModel):
+class SheModel(control.DynamicalModel):
     n_vars = 6
 
     def f_torch(self, v):
@@ -1111,7 +1151,7 @@ class SheModel(control.CTModel):
         ]
 
 
-class PapaPrajna6(control.CTModel):
+class PapaPrajna6(control.DynamicalModel):
     n_vars = 6
 
     def f_torch(self, v):
@@ -1137,7 +1177,7 @@ class PapaPrajna6(control.CTModel):
         ]
 
 
-def read_model(model_string: str) -> control.CTModel:
+def read_model(model_string: str) -> control.DynamicalModel:
     """Read model from string and return model object"""
     clsmembers = inspect.getmembers(
         sys.modules[__name__],
@@ -1165,7 +1205,7 @@ def _all_models_to_latex() -> str:
     for name, model in clsmembers:
         try:
             m = model()
-            if isinstance(m, control.CTModel):
+            if isinstance(m, control.DynamicalModel):
                 latex += name + "\n"
                 latex += m.to_latex() + "\n\n"
         except (AttributeError, TypeError):

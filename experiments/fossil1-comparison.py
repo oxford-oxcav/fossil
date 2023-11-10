@@ -6,6 +6,8 @@
 
 # pylint: disable=not-callable
 import timeit
+import os.path
+
 import pandas as pd
 
 from experiments.benchmarks import models
@@ -21,12 +23,17 @@ np1_stats = analysis.Stats(0.21, 0.48, 0.04, 1.58)
 np1_succ = 10
 p2_stats = analysis.Stats(11.71, 22.62, 0.35, 70.39)
 p2_succ = 9
-b1_stats = analysis.Stats(1.00, 1.15, 0.34, 2.72)
-b1_succ = 4
+b1_stats = analysis.Stats(100.17, 0, 100.17, 100.17)
+b1_succ = 1
 b3_stats = analysis.Stats(101.72, 134.82, 16.80, 334.79)
 b3_succ = 5
 
 ###
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Change this line for different works
+RESULTS_DIR = BASE_DIR + "/results/"
+RAW_RESULTS_DIR = RESULTS_DIR + "raw_fossil1_comparison.csv"
 
 
 class Barr3Init(domains.Set):
@@ -109,9 +116,8 @@ def run_cegis(opts):
     start = timeit.default_timer()
     res = c.solve()
     stop = timeit.default_timer()
-    rec = analysis.Recorder(
-        analysis.AnalysisConfig(results_file="fossil1_comparison.csv")
-    )
+    res_file = RAW_RESULTS_DIR
+    rec = analysis.Recorder(analysis.AnalysisConfig(results_file=res_file))
     rec.record(opts, res, stop - start)
 
 
@@ -171,7 +177,7 @@ def poly2():
 
 def barr_1():
     system = models.Barr1
-    activations = [ActivationType.LINEAR]
+    activations = [ActivationType.SIGMOID]
     XD = domains.Rectangle([-2, -2], [2, 2])
     XI = domains.Rectangle([0, 1], [1, 2])
     XU = Barr1Unsafe()
@@ -181,7 +187,7 @@ def barr_1():
         certificate.XI: XI._generate_data(500),
         certificate.XU: XU._generate_data(500),
     }
-    n_hidden_neurons = [10] * len(activations)
+    n_hidden_neurons = [5] * len(activations)
     opts_barr_1 = CegisConfig(
         SYSTEM=system,
         DOMAINS=domain,
@@ -193,7 +199,7 @@ def barr_1():
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
-        VERBOSE=False,
+        VERBOSE=0,
         SYMMETRIC_BELT=True,
     )
     run_cegis(opts_barr_1)
@@ -203,13 +209,27 @@ def barr_3():
     system = models.Barr3
     activations = [ActivationType.SIGMOID, ActivationType.SIGMOID]
     XD = domains.Rectangle([-3, -2], [2.5, 1])
-    XU = Barr3Unsafe()
-    XI = Barr3Init()
+    XI = domains.Union(
+        domains.Sphere([1.5, 0], 0.5),
+        domains.Union(
+            domains.Rectangle([-1.8, -0.1], [-1.2, 0.1]),
+            domains.Rectangle([-1.4, -0.5], [-1.2, 0.1]),
+        ),
+    )
+
+    XU = domains.Union(
+        domains.Sphere([-1, -1], 0.4),
+        domains.Union(
+            domains.Rectangle([0.4, 0.1], [0.6, 0.5]),
+            domains.Rectangle([0.4, 0.1], [0.8, 0.3]),
+        ),
+    )
+
     domain = {certificate.XD: XD, certificate.XU: XU, certificate.XI: XI}
     data = {
-        certificate.XD: XD._generate_data(500),
-        certificate.XI: XI._generate_data(500),
-        certificate.XU: XU._generate_data(500),
+        certificate.XD: XD._generate_data(1000),
+        certificate.XI: XI._generate_data(400),
+        certificate.XU: XU._generate_data(400),
     }
 
     n_hidden_neurons = [10] * len(activations)
@@ -224,6 +244,7 @@ def barr_3():
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        SYMMETRIC_BELT=False,
         VERBOSE=False,
     )
     run_cegis(opts_barr_3)
@@ -231,6 +252,8 @@ def barr_3():
 
 def make_table():
     # This function is so ugly
+    output_file = RESULTS_DIR + "fossil_comparison"
+
     benchmarks_names = ["NonPoly0", "Poly2", "Barr1", "Barr3"]
     fossil1_res = {
         "Benchmark": benchmarks_names,
@@ -241,7 +264,7 @@ def make_table():
     }
     f1_df = pd.DataFrame(fossil1_res)
 
-    f2_df = pd.read_csv("fossil1_comparison.csv")
+    f2_df = pd.read_csv(RAW_RESULTS_DIR)
 
     f2_df.rename(
         {"N_s": "$N_s$", "N_u": "$N_u$", "Benchmark_file": "Benchmark"},
@@ -311,14 +334,18 @@ def make_table():
         axis=1,
         inplace=True,
     )
+    pd.options.display.float_format = "{:,.2f}".format
     print(table)
     table.to_latex(
-        "experiments/comparison.tex",
+        output_file + ".tex",
         float_format="%.2f",
         bold_rows=False,
         escape=False,
         multicolumn_format="c",
     )
+
+    table.columns = table.columns.map(" ".join)
+    table.to_csv(output_file + ".csv", float_format="%.2f")
     # To flip multi indexing:
     # table.columns = table.columns.swaplevel(0,1)
     # table.sort_index(axis=1, level=0, inplace=True)
@@ -334,7 +361,4 @@ if __name__ == "__main__":
             torch.manual_seed(BASE_SEED + i)
             benchmark()
 
-    a = analysis.Analyser(
-        analysis.AnalysisConfig(results_file="fossil1_comparison.csv")
-    )
     make_table()

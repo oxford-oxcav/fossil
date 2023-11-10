@@ -1,0 +1,5 @@
+Benchmark,$N_s$,Certificate,Neurons,Activations,Fosill 1.0 $\min$,Fosill 1.0 $\mu$,Fosill 1.0 $\max$,Fosill 1.0 $S$,Fossil 2.0 $\min$,Fossil 2.0 $\mu$,Fossil 2.0 $\max$,Fossil 2.0 $S$
+NonPoly0,2,Stability,[5],[$\varphi\_{2}$],0.04,0.21,1.58,100.00,0.01,0.16,1.47,100
+Poly2,2,Stability,[5],[$\varphi\_{2}$],0.35,11.71,70.39,90.00,0.01,5.64,45.46,90
+Barr1,2,Safety,[5],[$\sigma\_{\mathrm{sig}}$],100.17,100.17,100.17,10.00,1.60,7.11,13.05,100
+Barr3,2,Safety,"[10, 10]","[$\sigma\_{\mathrm{sig}}$,$\sigma\_{\mathrm{sig}}$]",16.80,101.72,334.79,50.00,13.42,29.35,84.55,100

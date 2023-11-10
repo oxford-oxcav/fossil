@@ -5,19 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 # pylint: disable=not-callable
-import pickle
 
 from experiments.benchmarks import models
 from fossil import domains
-from fossil import control
 from fossil import certificate
-from fossil import main, control, logger
+from fossil import main
 from fossil.consts import *
 
 
 def test_lnn(args):
-    # TEST for Control Lyapunov
-    # pass the ctrl parameters from here (i.e. the main)
     open_loop = models.DTAhmadi2
 
     n_vars = open_loop.n_vars
@@ -43,15 +39,13 @@ def test_lnn(args):
         DATA=data,
         N_VARS=n_vars,
         CERTIFICATE=CertificateType.LYAPUNOV,
-        LLO=False,
+        LLO=True,
         TIME_DOMAIN=TimeDomain.DISCRETE,
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
     )
-
-    logger.Logger.set_logger_level(0)
 
     main.run_benchmark(
         opts,
@@ -64,6 +58,4 @@ def test_lnn(args):
 
 if __name__ == "__main__":
     args = main.parse_benchmark_args()
-    args.repeat=10
-    args.record=True
     test_lnn(args)

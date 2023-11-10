@@ -1,0 +1,27 @@
+SYSTEM: ["x1 + u0", "u1 + (0.73575*sin(x0) - 0.1*x1) / (0.0375) "]
+CERTIFICATE: "RAR"
+DOMAINS:
+  XD: Rectangle([-3.5, -3.5], [3.5, 3.5])
+  XS: Rectangle([-3.0, -3.0], [3.0, 3.0])
+  XI: Rectangle([-2.0, -2.0], [2.0, 2.0])
+  XG: Rectangle([-0.1, -0.1], [0.1, 0.1])
+  XF: Rectangle([-0.2, -0.2], [0.2, 0.2])
+TIME_DOMAIN: "CONTINUOUS"
+VERIFIER: "DREAL"
+N_DATA: 
+  XD: 500
+  XI: 500
+  XU: 500
+  XG: 500
+  XF: 500
+  XNF: 500
+VERBOSE: 0
+N_VARS: 2
+N_HIDDEN_NEURONS: [6]
+ACTIVATION: [SIGMOID, SQUARE]
+N_HIDDEN_NEURONS_ALT: [6]
+ACTIVATION_ALT: [SIGMOID, SQUARE]
+CTRLAYER: [8,2]
+CTRLACTIVATION: [LINEAR]
+SEED: 1
+CEGIS_MAX_ITERS: 100

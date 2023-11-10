@@ -71,7 +71,7 @@ def test_lnn(args):
 
     main.run_benchmark(
         opts,
-        record=True,
+        record=args.record,
         plot=args.plot,
         concurrent=args.concurrent,
         repeat=args.repeat,

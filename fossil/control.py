@@ -28,7 +28,7 @@ from fossil.utils import vprint, contains_object
 ctrl_log = logger.Logger.setup_logger(__name__)
 
 
-class CTModel:
+class DynamicalModel:
     def __init__(self) -> None:
         self.fncs = None
 
@@ -132,7 +132,7 @@ class CTModel:
         self.fncs = None
 
 
-class ControllableCTModel:
+class ControllableDynamicalModel:
     """Combine with a GeneralController to create a closed-loop model"""
 
     def __init__(self) -> None:
@@ -187,7 +187,7 @@ class ControllableCTModel:
         return sp.latex(self.f(x, u))
 
 
-class _ParsedCTModel(CTModel):
+class _ParsedDynamicalModel(DynamicalModel):
     """A CTModel that is parsed from a list of strings"""
 
     def __init__(self, f: list[str], verifier: VerifierType) -> None:
@@ -221,7 +221,7 @@ class _ParsedCTModel(CTModel):
         return [fi(v) for fi in self.f_sym]
 
 
-class _ParsedControllableCTModel(ControllableCTModel):
+class _ParsedControllableDynamicalModel(ControllableDynamicalModel):
     """A ControllableCTModel that is parsed from a list of strings"""
 
     def __init__(self, f: list[str], verifier: VerifierType) -> None:
@@ -321,12 +321,12 @@ class GeneralController(torch.nn.Module):
 
 
 # supports not-full-rank-affine and not-affine systems
-class GeneralClosedLoopModel(CTModel):
+class GeneralClosedLoopModel(DynamicalModel):
     """Class for synthesising a controller alongside a certificate with the same loss function.
     Combine a ControllableCTModel with a GeneralController"""
 
     def __init__(
-        self, f_open: ControllableCTModel, controller: GeneralController
+        self, f_open: ControllableDynamicalModel, controller: GeneralController
     ) -> None:
         """Combine a controllable model with a general controller.
 
@@ -376,7 +376,7 @@ class GeneralClosedLoopModel(CTModel):
     #     return E.is_stable()
 
     @classmethod
-    def prepare_from_open(cls, f_open: ControllableCTModel):
+    def prepare_from_open(cls, f_open: ControllableDynamicalModel):
         """Prepare a closed loop model from an open loop model, which then must be called with a controller."""
         return partial(cls, f_open)
 
@@ -543,7 +543,7 @@ if __name__ == "__main__":
 
     f = ["-x1 + u0", "x0-x1"]
     x0, x1 = dreal.Variable("x0"), dreal.Variable("x1")
-    open_model = _ParsedControllableCTModel(f, VerifierType.DREAL)
+    open_model = _ParsedControllableDynamicalModel(f, VerifierType.DREAL)
     model = GeneralClosedLoopModel(
         open_model, GeneralController(2, 1, [5], [consts.ActivationType.LINEAR])
     )

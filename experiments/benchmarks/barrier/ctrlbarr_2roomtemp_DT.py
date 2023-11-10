@@ -10,7 +10,7 @@ import numpy as np
 from experiments.benchmarks import models
 from fossil import domains
 from fossil import certificate
-from fossil import main, control, logger
+from fossil import main, control
 from fossil.consts import *
 
 
@@ -19,9 +19,9 @@ def test_lnn(args):
     open_loop = models.CtrlTwoRoomTemp
     n_vars = open_loop.n_vars
 
-    XD = domains.Rectangle(lb=[17.]*n_vars, ub=[30.]*n_vars)
-    XI = domains.Rectangle(lb=[17.]*n_vars, ub=[18.]*n_vars)
-    XU = domains.Rectangle(lb=[28.]*n_vars, ub=[30.]*n_vars)
+    XD = domains.Rectangle(lb=[17.0] * n_vars, ub=[30.0] * n_vars)
+    XI = domains.Rectangle(lb=[17.0] * n_vars, ub=[18.0] * n_vars)
+    XU = domains.Rectangle(lb=[28.0] * n_vars, ub=[30.0] * n_vars)
 
     system = control.GeneralClosedLoopModel.prepare_from_open(open_loop())
 
@@ -37,8 +37,8 @@ def test_lnn(args):
     }
 
     # define NN parameters
-    barr_activations = [ActivationType.TANH]
-    barr_hidden_neurons = [20] * len(barr_activations)
+    barr_activations = [ActivationType.SIGMOID, ActivationType.SQUARE]
+    barr_hidden_neurons = [10] * len(barr_activations)
 
     # ctrl params
     n_ctrl_inputs = open_loop.n_u
@@ -53,12 +53,11 @@ def test_lnn(args):
         VERIFIER=VerifierType.DREAL,
         ACTIVATION=barr_activations,
         N_HIDDEN_NEURONS=barr_hidden_neurons,
-        CTRLAYER=[20, n_ctrl_inputs],
+        CTRLAYER=[5, n_ctrl_inputs],
         CTRLACTIVATION=[ActivationType.TANH],
         SYMMETRIC_BELT=False,
-        CEGIS_MAX_ITERS=10,
+        CEGIS_MAX_ITERS=25,
     )
-    logger.Logger.set_logger_level(0)
 
     main.run_benchmark(
         opts,
@@ -71,6 +70,4 @@ def test_lnn(args):
 
 if __name__ == "__main__":
     args = main.parse_benchmark_args()
-    args.repeat=10
-    # args.record=True
     test_lnn(args)

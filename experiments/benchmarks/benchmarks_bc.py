@@ -27,43 +27,6 @@ def inf_bounds_n(n):
     return [inf_bounds] * n
 
 
-def barr_1():
-    _And = dreal.And
-    batch_size = 500
-
-    f = models.Barr1()
-
-    class UnsafeDomain(Set):
-        def generate_domain(self, v):
-            x, y = v
-            return x + y**2 <= 0
-
-        def generate_data(self, batch_size):
-            points = []
-            limits = [[-2, -2], [0, 2]]
-            while len(points) < batch_size:
-                dom = square_init_data(limits, batch_size)
-                idx = torch.nonzero(dom[:, 0] + dom[:, 1] ** 2 <= 0)
-                points += dom[idx][:, 0, :]
-            return torch.stack(points[:batch_size])
-
-    XD = Rectangle([-2, -2], [2, 2])
-    XI = Rectangle([0, 1], [1, 2])
-    XU = UnsafeDomain()
-    domains = {
-        "lie": XD.generate_domain,
-        "init": XI.generate_domain,
-        "unsafe": XU.generate_domain,
-    }
-
-    data = {
-        "lie": XD.generate_data(batch_size),
-        "init": XI.generate_data(batch_size),
-        "unsafe": XU.generate_data(batch_size),
-    }
-    return f, domains, data, inf_bounds_n(2)
-
-
 def barr_2():
     batch_size = 500
 

@@ -1,6 +1,8 @@
 # FOSSIL
 
-FOSSIL is a software tool for the sound and automated synthesis of Lyapunov functions and Barrier certificates, for the purposes of verifying the stability or safety of continuous-time dynamical systems modelled as differential equations. The tool leverages a CEGIS-based architecture; the tool is described in detail by a corresponding [tool paper](https://doi.org/10.1145/3447928.3456646) (also [below](#citation)).
+FOSSIL is a software tool for the sound and automated synthesis of Lyapunov functions and Barrier certificates, for the purposes of verifying the stability or safety of continuous-time dynamical systems modelled as differential equations. The tool leverages a CEGIS-based architecture; the verision 1.0 tool is described in detail by a corresponding [tool paper](https://doi.org/10.1145/3447928.3456646) (also [below](#citation)).
+
+*If you are a repeatability reviewer, please see the [repeatability instructions](repeatability_instructions.md).*
 
 ## Requirements
 
@@ -8,65 +10,40 @@ Install:
 
 > python3 python3-pip curl
 
-On Ubuntu you can do it with: `sudo apt-get install -y python3 python3-pip curl`
+On Ubuntu 22.04 you can do it with: `sudo apt-get install -y python3 python3-pip curl`
 
-Run: `pip3 install -r ./requirements.txt`
+We recommend dReal as an SMT solver. Since we rely on dReal's python interface, dReal's prerequisites must be installed as well. These include Bazel, which must be built from source. dReal provide scripts to install the prerequisites on Ubuntu 18.04, 20.04 and 22.04.
 
-dReal instructions available [on their GitHub repository](https://github.com/dreal/dreal4).
+dReal instructions available [on their GitHub repository](https://github.com/dreal/dreal4). The prerequisites for Ubuntu 22.04 can be installed with:
 
-## Jupyter Notebooks
+```console
+curl -fsSL https://raw.githubusercontent.com/dreal/dreal4/master/setup/ubuntu/20.04/install.sh | sudo bash
+```
 
-To run the Jupyter Notebook playgrounds, use:
+Once dReal is installed, you can install the python interface for Fossil 2.0 using:
 
-> jupyter notebook experiments/Fossil-playground.ipynb
-
-Users who wish to use the Jupyter Notebooks with a python virtual environment should use the following commands with the environment activated.
-
-> python3 -m ipykernel install --user --name=venv_name
-
-The virtual environment can then be selected using the kernel menu in the toolbar.
+```console
+pip3 install .
+```
 
 ## Docker
 
-We provide a Docker configuration for your convenience. Begin by installing Docker on your system: 
-on Ubuntu you can use the snap installation with `sudo snap install docker`. 
-On MacOS you can install Docker Desktop following the instructions at this [link](https://docs.docker.com/desktop/install/mac-install/).
-
-Open a terminal window, and make sure you are in the Fossil directory, where the dockerfile is located. 
-You can run the tool as:
+We provide a Docker image of Fossil 2.0 . Begin by installing Docker on your system. Pull the image from Docker Hub:
 
 ```console
-# docker build -t fossil .
-# docker run -it fossil bash
+# docker pull aleccedwards/fossil
+# docer run --rm aleccedwards/fossil fossil -h
 ```
-
-You are now inside the container. `/fossil` contains all these files and Ubuntu has all the requirements pre-installed.
-To run an experiment file, for example `ctrllyap0_ct`, just type 
-```console
-# python3 -m experiments.benchmarks.lyap.ctrllyap0_ct
-```
-
-
-In order to run the Jupyter Notebooks from the docker container, first on the host machine run:
-
-```console
-# docker run -it -p 8888:8888 fossil bash -c 'jupyter notebook project/experiments --ip 0.0.0.0 --no-browser --allow-root'
-```
-
-On the host machine, navigate to ```localhost:8888/tree```.
-You will be prompted to enter a token displayed in the container terminal. Once entered, the notebook will start. Select ```FOSSIL-benchmarks.ipynb``` to run the benchmarks within a Jupyter environment.
 
 ## Citation
 
-To cite FOSSIL in publications use the following BibTeX entry:
+To cite Fossil in publications use the following BibTeX entry:
 
 ```bibtex
- @inproceedings{Abate_Ahmed_Edwards_Giacobbe_Peruffo_2021,
+@inproceedings{Abate_Ahmed_Edwards_Giacobbe_Peruffo_2021,
 place={Nashville, TN, USA},
 series={HSCC ’21},
 title={FOSSIL: A Software Tool for the Formal Synthesis of Lyapunov Functions and Barrier Certificates using Neural Networks}, ISBN={978-1-4503-8339-4/21/05},
-url={https://doi.org/10.1145/3447928.3456646}, DOI={10.1145/3447928.3456646},
-abstractNote={This paper accompanies FOSSIL: a software tool for the synthesis of Lyapunov functions and of barrier certificates (or functions) for dynamical systems modelled as differential equations. Lyapunov functions are formal certificates for stability analysis, whereas barrier functions are formal certificates for the safety of dynamical models. FOSSIL is sound and automatic thanks to a counterexampleguided inductive synthesis loop. This method exploits the flexibility of candidate functions generated by training neural network templates, the formal assertions provided by a verifier (namely, an SMT solver), and finally new procedures to ease the exchange of information between the two mentioned components. We endow the tool with features of usability, scalability, and robustness—all of which are showcased on benchmarks.},
 booktitle={Proceedings of the 24th International Conference on Hybrid Systems: Computation and Control},
 publisher={Association for Computing Machinery},
 author={Abate, Alessandro and Ahmed, Daniele and Edwards, Alec and Giacobbe, Mirco and Peruffo, Andrea}, year={2021},

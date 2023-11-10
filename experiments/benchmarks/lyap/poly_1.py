@@ -9,7 +9,7 @@
 from experiments.benchmarks import models
 from fossil import certificate
 from fossil import domains
-from fossil import main, control
+from fossil import main
 from fossil.consts import *
 
 
@@ -49,6 +49,7 @@ def test_lnn(args):
         N_HIDDEN_NEURONS=n_hidden_neurons,
         LLO=True,
         CEGIS_MAX_ITERS=25,
+        VERBOSE=2,
     )
 
     main.run_benchmark(

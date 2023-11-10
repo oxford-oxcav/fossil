@@ -47,7 +47,7 @@ def benchmark(
     ax2 = benchmark_3d(certificate, domains, levels, xrange, yrange)
 
     ax3 = benchmark_lie(model, certificate, domains, levels, xrange, yrange)
-    show()
+
     # plotting lie does not work with concurrency. Something to do with autograd call and multiprocessing.
     return (ax1, "plane"), (ax2, "surface")  # , (ax3, "Cdot")
 
@@ -62,7 +62,7 @@ def save_plot_with_tags(ax, config: consts.CegisConfig, plot_type: str):
         name = type(model(None).open_loop).__name__
 
     plot_name = f"model={name}_property={prop}_type={plot_type}_seed={seed}.pdf"
-    plot_name = "plots/" + plot_name
+    plot_name = "results/" + plot_name
     try:
         fig = ax.get_figure()
         fig.savefig(plot_name, bbox_inches="tight")
@@ -98,7 +98,15 @@ def benchmark_plane(
         if cert is not None:
             ax = certificate_countour(cert, ax=ax, levels=lev)
 
+    try:
+        xrange = domains[consts.XD].lower_bounds[0], domains[consts.XD].upper_bounds[0]
+        yrange = domains[consts.XD].lower_bounds[1], domains[consts.XD].upper_bounds[1]
+    except (KeyError, AttributeError):
+        pass
+
     ax = add_legend(ax)
+    ax.set_xlim(xrange)
+    ax.set_ylim(yrange)
     ax.set_title("Phase Plane")
     return ax
 
@@ -265,7 +273,6 @@ def certificate_countour(certificate, ax=None, levels=[0]):
 
 def add_legend(ax):
     """Add legend to the axis without duplicate labels."""
-    return ax
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), loc="upper right")

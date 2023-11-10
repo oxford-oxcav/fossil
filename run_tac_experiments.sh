@@ -43,8 +43,8 @@ python3 -m experiments.benchmarks.rswa.ctrl_rswa_2 --record --plot --repeat $N_E
 # python3 -m experiments.benchmarks.rswa.ctrl_rswa_3 --record --plot --repeat $N_EXP 
 python3 -m experiments.benchmarks.rswa.ctrl_rswa_invpend --record --plot --repeat $N_EXP 
  
-python3 -m experiments.benchmarks.rar.rar_1 --record --plot --repeat $N_EXP #31
-python3 -m experiments.benchmarks.rar.ctrl_rar_1 --record --plot --repeat $N_EXP 
+python3 -m experiments.benchmarks.rar.rar_softplus --record --plot --repeat $N_EXP #31
+python3 -m experiments.benchmarks.rar.ctrl_rar_invpend --record --plot --repeat $N_EXP 
 
 # Plot results
 python3 -m experiments.analysis
