@@ -505,9 +505,19 @@ class Rectangle(Set):
         """
 
         f = self.set_functions(x)
-        lower = f["Or"](*[self.lower_bounds[i] == x[i] for i in range(self.dimension)])
-        upper = f["Or"](*[x[i] == self.upper_bounds[i] for i in range(self.dimension)])
-        return f["Or"](lower, upper)
+        Or = f["Or"]
+        And = f["And"]
+
+        in_bounds = self.generate_domain(x)
+        on_boundary = []
+
+        for i in range(self.dimension):
+            on_boundary.append(x[i] == self.lower_bounds[i])
+            on_boundary.append(x[i] == self.upper_bounds[i])
+
+        on_boundary = Or(*on_boundary)
+
+        return And(on_boundary, in_bounds)
 
     def generate_interior(self, x):
         """Returns interior of the rectangle
@@ -1216,6 +1226,8 @@ if __name__ == "__main__":
     C = Rectangle([-3, -4], [-2, -2])
 
     S4 = C.sample_border(200)
+    x = [z3.Real("x" + str(i)) for i in range(2)]
+    f = C.generate_boundary(x)
 
     from matplotlib import pyplot as plt
 

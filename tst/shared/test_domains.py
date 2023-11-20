@@ -6,6 +6,7 @@
 
 import unittest
 import numpy as np
+import torch
 import z3
 
 try:
@@ -56,6 +57,63 @@ class DomainsTest(unittest.TestCase):
         self.assertTrue(dreal_r2.EqualTo(gen_r2))
         self.assertTrue(dreal_s1.EqualTo(gen_s1))
         self.assertTrue(dreal_s2.EqualTo(gen_s2))
+
+    def test_hyperbox_boundaries(self):
+        two_dim = Rectangle([0, -1], [1, 2])
+        three_dim = Rectangle([0, -1, 2], [1, 2, 3])
+        torch.manual_seed(0)
+        points_on_two_dim = two_dim.sample_border(10).detach().numpy()
+        points_on_three_dim = three_dim.sample_border(10).detach().numpy()
+        points_outside_two_dim = np.array([[-1, -1], [2, -1], [0, -2], [1, 3]])
+        points_outside_three_dim = np.array(
+            [
+                [-1, -1, 2],
+                [2, -1, 2],
+                [0, -2, 2],
+                [1, 3, 2],
+                [-1, -1, 3],
+                [2, -1, 3],
+                [0, -2, 3],
+                [1, 3, 3],
+            ]
+        )
+        x2 = [z3.Real("x%d" % i) for i in range(2)]
+        x3 = [z3.Real("x%d" % i) for i in range(3)]
+        twod_sym = two_dim.generate_boundary(x2)
+        threed_sym = three_dim.generate_boundary(x3)
+        twod = z3.simplify(twod_sym)
+        threed = z3.simplify(threed_sym)
+        for p in points_on_two_dim:
+            p = p.round(3)
+            sub = [(x2[i], z3.RealVal(p[i])) for i in range(2)]
+            self.assertTrue(z3.simplify(z3.substitute(twod, sub)))
+        for p in points_on_three_dim:
+            p = p.round(3)
+            sub = [(x3[i], z3.RealVal(p[i])) for i in range(3)]
+            self.assertTrue(z3.simplify(z3.substitute(threed, sub)))
+        for p in points_outside_two_dim:
+            sub = [(x2[i], z3.RealVal(p[i])) for i in range(2)]
+            self.assertFalse(z3.simplify(z3.substitute(twod, sub)))
+        for p in points_outside_three_dim:
+            sub = [(x3[i], z3.RealVal(p[i])) for i in range(3)]
+            self.assertFalse(z3.simplify(z3.substitute(threed, sub)))
+
+    def test_hyperbox_boundaries_2(self):
+        two_dim = Rectangle([0, -1], [1, 2])
+        three_dim = Rectangle([0, -1, 2], [1, 2, 3])
+        four_dim = Rectangle([0, -1, 2, 3], [1, 2, 3, 4])
+        boxes = [two_dim, three_dim, four_dim]
+        for box in boxes:
+            x = [z3.Real("x%d" % i) for i in range(box.dimension)]
+            border = box.generate_boundary(x)
+            all = box.generate_domain(x)
+            interior = box.generate_interior(x)
+            border_alt = z3.And(all, z3.Not(interior))
+            s = z3.Solver()
+            # check if any point lies on the border and not in all minus interior
+            s.add(border != border_alt)
+            res = s.check()
+            self.assertTrue(res == z3.unsat)
 
 
 if __name__ == "__main__":
