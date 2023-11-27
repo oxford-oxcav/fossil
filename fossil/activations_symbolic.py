@@ -35,10 +35,16 @@ def activation_sym(select, p):
         return requ_z3(p)
     elif select == consts.ActivationType.TANH:
         return hyper_tan_dr(p)
+    elif select == consts.ActivationType.TANH_SQUARE:
+        return tanh_square_dr(p)
     elif select == consts.ActivationType.SIGMOID:
         return sigm_dr(p)
     elif select == consts.ActivationType.SOFTPLUS:
         return softplus_dr(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS:
+        return shifted_softplus_dr(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS_SQUARE:
+        return shifted_softplus_square_dr(p)
     elif select == consts.ActivationType.COSH:
         return cosh(p)
     elif select == consts.ActivationType.POLY_3:
@@ -82,10 +88,16 @@ def activation_der_sym(select, p):
         return requ_der_z3(p)
     elif select == consts.ActivationType.TANH:
         return hyper_tan_der_dr(p)
+    elif select == consts.ActivationType.TANH_SQUARE:
+        return tanh_square_der_dr(p)
     elif select == consts.ActivationType.SIGMOID:
         return sigm_der_dr(p)
     elif select == consts.ActivationType.SOFTPLUS:
         return softplus_der_dr(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS:
+        return softplus_der_dr(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS_SQUARE:
+        return shifted_softplus_square_der_dr(p)
     elif select == consts.ActivationType.COSH:
         return sinh(p)
     elif select == consts.ActivationType.POLY_3:
@@ -171,6 +183,30 @@ def softplus_dr(x):
     y = x.copy()
     for idx in range(len(y)):
         y[idx, 0] = dr.log(1 + dr.exp(y[idx, 0]))
+    return y
+
+
+def shifted_softplus_dr(x):
+    # softplus is f(x) = ln(1 + e^x)
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = dr.log(1 + dr.exp(y[idx, 0])) - dr.log(2)
+    return y
+
+
+def shifted_softplus_square_dr(x):
+    # softplus is f(x) = ln(1 + e^x)
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = (dr.log(1 + dr.exp(y[idx, 0])) - dr.log(2)) ** 2
+    return y
+
+
+def tanh_square_dr(x):
+    # tanh is f(x) = tanh(x)
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = dr.tanh(y[idx, 0]) ** 2
     return y
 
 
@@ -609,7 +645,26 @@ def even_poly10_der_sym(x):
 def softplus_der_dr(x):
     y = x.copy()
     for idx in range(len(y)):
-        y[idx, 0] = dr.exp(y[idx, 0]) / (1 + dr.exp(y[idx, 0]))
+        y[idx, 0] = dr.exp(y[idx, 0]) / (1 - dr.exp(y[idx, 0]) ** 2)
+    return y
+
+
+def shifted_softplus_square_der_dr(x):
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = (
+            2
+            * dr.exp(y[idx, 0])
+            * dr.log(0.5 * (1 + dr.exp(y[idx, 0])))
+            / (1 + dr.exp(y[idx, 0]))
+        )
+    return y
+
+
+def tanh_square_der_dr(x):
+    y = x.copy()
+    for idx in range(len(y)):
+        y[idx, 0] = 2 * dr.tanh(y[idx, 0]) * (1 - dr.tanh(y[idx, 0]))
     return y
 
 

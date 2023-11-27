@@ -3,7 +3,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Callable, Literal
+from typing import Callable
 import warnings
 
 import numpy as np
@@ -484,7 +484,7 @@ class CtrlLearnerDT(LearnerDT):
         return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
 
-def get_learner(time_domain: Literal, ctrl: Literal) -> LearnerNN:
+def get_learner(time_domain: TimeDomain, ctrl: bool) -> LearnerNN:
     if ctrl and time_domain == TimeDomain.CONTINUOUS:
         return CtrlLearnerCT
     elif ctrl and time_domain == TimeDomain.DISCRETE:

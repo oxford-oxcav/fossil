@@ -17,6 +17,7 @@ import torch
 
 from fossil import domains
 from fossil import logger
+from fossil import consts
 
 parser_log = logger.Logger.setup_logger(__name__)
 
@@ -43,7 +44,7 @@ def func_names_to_match_first(funcs):
 
 
 class SymbolicParser:
-    """Base class for parsing symbolic expressions."""
+    """Base class for parsing a symbolic expression."""
 
     def __init__(self):
         self.xs = {}
@@ -51,6 +52,9 @@ class SymbolicParser:
         self.funcs = self.get_funcs()
         self.variable = self.get_variable()
         self.expr = self.create_grammar()
+
+    def _set_xs(self, xs):
+        self.xs = xs
 
     def parse_dynamical_system(self, s) -> list:
         """Parse a  list of strings into a list of symbolic expressions
@@ -71,6 +75,37 @@ class SymbolicParser:
             dynamical_system.append(symbolic_expr)
 
         return dynamical_system
+
+    def parse_dynamical_system_to_lambda(self, s) -> list[callable]:
+        """Parse a list of strings into a (list of) lambda function. Calling the lambda function with
+        a list of symbolic variables will return the dynamical system in terms of the symbols.
+
+        """
+        ds = self.parse_dynamical_system(s)
+        if len(self.us) > 0:
+            return [partial(self.substition_function_u, expr) for expr in ds]
+        else:
+            return [partial(self.subsitution_function, expr) for expr in ds]
+
+    def parse_certificate(self, s):
+        """Parse a single string into a symbolic expression
+
+        This function is intended to parse a user provided function that represents
+        a candidate certificate for a given problem, so that this can be checked using SMT.
+
+
+        Args:
+            s (str): A string representing a symbolic expression
+
+        Returns:
+            A symbolic expression
+        """
+
+        [certificate] = s
+        parsed_certificate = self.expr.parseString(certificate, parseAll=True).asList()
+        symbolic_certificate = self.convert_parse_to_ast(parsed_certificate)
+
+        return partial(self.subsitution_function, symbolic_certificate)
 
     def get_funcs(self):
         return {}
@@ -250,13 +285,6 @@ class Z3Parser(SymbolicParser):
         res = z3.substitute(expr, *subs_dict)
         return res
 
-    def parse_dynamical_system(self, s):
-        ds = super().parse_dynamical_system(s)
-        if len(self.us) > 0:
-            return [partial(self.substition_function_u, expr) for expr in ds]
-        else:
-            return [partial(self.subsitution_function, expr) for expr in ds]
-
 
 class CVC5Parser(SymbolicParser):
     """Parser for CVC5 expressions"""
@@ -293,13 +321,6 @@ class CVC5Parser(SymbolicParser):
         subs_dict.extend([(u, ux[i]) for i, (_, u) in enumerate(sorted_us)])
         res = cvpy.substitute(expr, *subs_dict)
         return res
-
-    def parse_dynamical_system(self, s):
-        ds = super().parse_dynamical_system(s)
-        if len(self.us) > 0:
-            return [partial(self.substition_function_u, expr) for expr in ds]
-        else:
-            return [partial(self.subsitution_function, expr) for expr in ds]
 
 
 class DrealParser(SymbolicParser):
@@ -369,13 +390,6 @@ class DrealParser(SymbolicParser):
         subs_dict.update({u: ux[i] for i, (_, u) in enumerate(sorted_us)})
         return expr.Substitute(subs_dict)
 
-    def parse_dynamical_system(self, s) -> list[callable]:
-        ds = super().parse_dynamical_system(s)
-        if len(self.us) > 0:
-            return [partial(self.substition_function_u, expr) for expr in ds]
-        else:
-            return [partial(self.subsitution_function, expr) for expr in ds]
-
 
 class SympyParser(SymbolicParser):
     """Parser for sympy expressions"""
@@ -400,6 +414,16 @@ class SympyParser(SymbolicParser):
     def var_function(name: str):
         parser_log.debug(f"Creating sympy variable {name}")
         return sp.var(name)
+
+    def subsitution_function(self, expr, xs):
+        subs_dict = {self.xs[str(variable)]: variable for variable in xs}
+        return expr.subs(subs_dict)
+
+    def subsitution_function_u(self, expr, xs, ux):
+        sorted_us = sorted(self.us.items(), key=lambda x: x[0])
+        subs_dict = {self.xs[str(variable)]: variable for variable in xs}
+        subs_dict.update({u: ux[i] for i, (_, u) in enumerate(sorted_us)})
+        return expr.subs(subs_dict)
 
 
 class DomainParser:
@@ -463,7 +487,7 @@ class DomainParser:
 
 
 def __lambdify_to_numpy(expr, state_symbols):
-    """Convert a sympy expression to a numpy function
+    """Convert a sympy expression to a numpy function (without control variables)
 
     This may only be called on expressions parsed using this module to
     ensure the input is sanitized.
@@ -484,7 +508,7 @@ def __lambdify_to_numpy(expr, state_symbols):
 
 
 def _lamdify_to_numpy_u(expr, state_symbols, control_symbols):
-    """Convert a sympy expression to a numpy function
+    """Convert a sympy expression to a numpy function (with control variables)
 
     This may only be called on expressions parsed using this module to
     ensure the input is sanitized.
@@ -581,6 +605,23 @@ def parse_dynamical_system_to_numpy(dynamical_system: list[str]):
         return [_lamdify_to_numpy_u(expr, x, u) for expr in exprs]
     else:
         return [__lambdify_to_numpy(expr, x) for expr in exprs]
+
+
+def get_parser_from_verifier(verifier_type: consts.VerifierType):
+    VerifierType = consts.VerifierType
+    if verifier_type == VerifierType.DREAL:
+        p = DrealParser()
+    elif verifier_type == VerifierType.Z3:
+        p = Z3Parser()
+    elif verifier_type == VerifierType.CVC5:
+        p = CVC5Parser()
+    elif verifier_type == VerifierType.NONE:
+        p = SympyParser()
+    else:
+        raise ValueError(
+            "Verifier {} not supported from command line".format(verifier_type)
+        )
+    return p
 
 
 if __name__ == "__main__":

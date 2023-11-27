@@ -7,7 +7,7 @@
 import math
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Literal
+from typing import Any, Union
 
 import torch
 import z3
@@ -38,8 +38,11 @@ class ActivationType(Enum):
     RATIONAL = auto()
     # dReal only from here
     TANH = auto()
+    TANH_SQUARE = auto()
     SIGMOID = auto()
     SOFTPLUS = auto()
+    SHIFTED_SOFTPLUS = auto()
+    SHIFTED_SOFTPLUS_SQUARE = auto()
     COSH = auto()
 
 
@@ -53,6 +56,7 @@ class VerifierType(Enum):
     DREAL = auto()
     CVC5 = auto()
     MARABOU = auto()
+    NONE = auto()
 
 
 class ConsolidatorType(Enum):
@@ -178,7 +182,7 @@ class CegisConfig:
     TRANSLATOR: TranslatorType = TranslatorType.CONTINUOUS
     N_DATA: int = 500
     LEARNING_RATE: float = 0.1
-    FACTORS: Literal = LearningFactors.NONE
+    FACTORS: LearningFactors = LearningFactors.NONE
     LLO: bool = False  # last layer of ones
     ROUNDING: int = 3
     N_VARS: int = 0
@@ -194,6 +198,7 @@ class CegisConfig:
     )  # For DoubleCegis
     SEED: int = None
     CUSTOM_CERTIFICATE: Any = None
+    CANDIDATE = None
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -302,3 +307,7 @@ CVC5_FNCS = {
     "cos": cvpy.Cosine,
     "exp": cvpy.Exponential,
 }
+
+SYMBOLIC = Union[
+    z3.ArithRef, dreal.Variable, dreal.Expression, cvpy.ArithRef, sp.Symbol, sp.Expr
+]

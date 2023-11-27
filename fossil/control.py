@@ -201,18 +201,8 @@ class _ParsedDynamicalModel(DynamicalModel):
         return parser.parse_dynamical_system_to_numpy(f)
 
     def get_symbolic_f(self, f):
-        if self.verifier == VerifierType.DREAL:
-            p = parser.DrealParser()
-        elif self.verifier == VerifierType.Z3:
-            p = parser.Z3Parser()
-        elif self.verifier == VerifierType.CVC5:
-            p = parser.CVC5Parser()
-        else:
-            raise ValueError(
-                "Verifier {} not supported from command line".format(self.verifier)
-            )
-
-        return p.parse_dynamical_system(f)
+        p = parser.get_parser_from_verifier(self.verifier)
+        return p.parse_dynamical_system_to_lambda(f)
 
     def f_torch(self, v):
         return [fi(v.T) for fi in self.f_num]
@@ -247,7 +237,7 @@ class _ParsedControllableDynamicalModel(ControllableDynamicalModel):
                 "Verifier {} not supported from command line".format(self.verifier)
             )
 
-        res = p.parse_dynamical_system(f)
+        res = p.parse_dynamical_system_to_lambda(f)
         self.n_u = len(p.us)
         assert self.n_u > 0
         assert self.n_vars == len(p.xs)

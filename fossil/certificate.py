@@ -5,6 +5,7 @@ certify properties of a system, such as stability or safety. The module also def
 functions for logging loss and accuracy during the learning process, and for checking 
 that the domains and data are as expected for a given certificate.
 """
+
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
 #
@@ -19,7 +20,7 @@ from torch.optim import Optimizer
 import fossil.control as control
 import fossil.logger as logger
 import fossil.learner as learner
-from fossil.consts import CegisConfig, CertificateType, DomainNames
+from fossil.consts import CegisConfig, CertificateType, SYMBOLIC, DomainNames
 
 
 XD = DomainNames.XD.value
@@ -473,7 +474,6 @@ class ROA(Certificate):
         # be done with XI or XD, because they might not contain B and the conditions must hold everywhere
         # in B (except sphere around origin). This could be a goal set?
         sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01**2
-        sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01 * 2
 
         B_less_sphere = _And(B, _Not(sphere))
         lyap_condition = _And(B_less_sphere, lyap_negated)
@@ -1622,6 +1622,24 @@ class DoubleCertificate(Certificate):
         cert2_cs = self.certificate2.get_constraints(verifier, C2, Cdot2)
         for cs in (*cert1_cs, *cert2_cs):
             yield cs
+
+
+class CertificateSolution:
+    """Class for storing solutions to a certificate problem (e.g. a Lyapunov function).
+
+    Attributes:
+        certificate: The type of certificate
+        numeric: The numeric solution (i.e. a NN learner). This is a tuple for double certificates
+        symbolic: The symbolic solution (i.e. an SMT formula). This is a tuple for double certificates
+
+    """
+
+    def __init__(
+        self, certificate: CertificateType, learner: learner.Learner, symbolic: SYMBOLIC
+    ) -> None:
+        self.certificate = certificate
+        self.learner = learner
+        self.symbolic = symbolic
 
 
 class AutoSets:

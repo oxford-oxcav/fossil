@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import z3
 from cvc5 import pythonic as cvpy
+import sympy as sp
 
 try:
     import dreal as dr
@@ -32,7 +33,7 @@ from fossil.utils import (
 )
 
 T = Timer()
-SYMBOL = Union[z3.ArithRef, dr.Variable, dr.Expression]
+
 ver_log = logger.Logger.setup_logger(__name__)
 
 
@@ -285,6 +286,16 @@ class Verifier(Component):
     def get_timer():
         return T
 
+    def compute_gradient(self, expr) -> list:
+        """
+        Computes the gradient of dreal expression expr with respect to all variables in self.xs
+
+        :param expr: dreal expression
+
+        :returns: list of dreal expressions of derivatives
+        """
+        return [self.differentiate(expr, var) for var in self.xs]
+
 
 class VerifierDReal(Verifier):
     @staticmethod
@@ -351,6 +362,28 @@ class VerifierDReal(Verifier):
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
 
+    def differentiate(self, expr, var):
+        """
+        Computes the derivative of dreal expression expr with respect to variable var
+
+        :param expr: dreal expression
+        :param var: dreal variable
+
+        :returns: dreal expression of derivative
+        """
+        assert var in self.xs
+        return expr.Differentiate(var)
+
+    def compute_gradient(self, expr):
+        """
+        Computes the gradient of dreal expression expr with respect to all variables in self.xs
+
+        :param expr: dreal expression
+
+        :returns: list of dreal expressions of derivatives
+        """
+        return [self.differentiate(expr, var) for var in self.xs]
+
 
 class VerifierZ3(Verifier):
     @staticmethod
@@ -407,6 +440,9 @@ class VerifierZ3(Verifier):
                 return float(model[x[0, 0]].as_fraction())
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
+
+    def differentiate(self, expr, var):
+        raise NotImplementedError("Cannot compute derivative of Z3 expressions")
 
 
 class VerifierCVC5(Verifier):
@@ -485,6 +521,9 @@ class VerifierCVC5(Verifier):
                 return float(model[x[0, 0]].as_fraction())
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
+
+    def differentiate(self, expr, var):
+        raise NotImplementedError("Cannot compute derivative of CVC5 expressions")
 
 
 class VerifierMarabou(Verifier):
@@ -577,7 +616,58 @@ class VerifierMarabou(Verifier):
             yield cs
 
 
-def get_verifier_type(verifier: Literal) -> Verifier:
+class VerifierNone(Verifier):
+    """Dummy verifier that always returns True"""
+
+    def __init__(self, n_vars, constraints_method, solver_vars, verbose):
+        super().__init__(n_vars, constraints_method, solver_vars, verbose)
+
+    def verify(self, C, dC):
+        return {CegisStateKeys.found: True, CegisStateKeys.cex: {}}
+
+    def new_vars(n, base="x"):
+        return [sp.symbols(base + str(i)) for i in range(n)]
+
+    @staticmethod
+    def solver_fncts() -> Dict[str, Callable]:
+        return {
+            "sin": sp.sin,
+            "cos": sp.cos,
+            "exp": sp.exp,
+            "And": sp.And,
+            "Or": sp.Or,
+            "If": sp.If,
+            "Not": sp.Not,
+            "False": True,
+            "True": False,
+        }
+
+    def new_solver(self):
+        """Example: return z3.Solver()"""
+        return None
+
+    def is_sat(self, res) -> bool:
+        """Example: return res == sat"""
+        return False
+
+    def is_unsat(self, res) -> bool:
+        """Example: return res == unsat"""
+        return True
+
+    def _solver_solve(self, solver, fml):
+        """Example: solver.add(fml); return solver.check()"""
+        return None
+
+    def _solver_model(self, solver, res):
+        """Example: return solver.model()"""
+        return None
+
+    def _model_result(self, solver, model, var, idx):
+        """Example: return float(model[var[0, 0]].as_fraction())"""
+        return None
+
+
+def get_verifier_type(verifier: VerifierType) -> Verifier:
     if verifier == VerifierType.DREAL:
         return VerifierDReal
     elif verifier == VerifierType.Z3:
@@ -586,6 +676,8 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         return VerifierCVC5
     elif verifier == VerifierType.MARABOU:
         return VerifierMarabou
+    elif verifier == VerifierType.NONE:
+        return VerifierNone
     else:
         raise ValueError("No verifier of type {}".format(verifier))
 
@@ -596,6 +688,7 @@ def get_verifier(verifier, n_vars, constraints_method, solver_vars, verbose):
         or verifier == VerifierZ3
         or verifier == VerifierCVC5
         or verifier == VerifierMarabou
+        or verifier == VerifierNone
     ):
         return verifier(n_vars, constraints_method, solver_vars, verbose)
     else:

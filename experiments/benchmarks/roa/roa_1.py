@@ -39,7 +39,7 @@ def test_lnn(args):
     }
 
     # define NN parameters
-    activations = [ActivationType.SOFTPLUS]
+    activations = [ActivationType.TANH_SQUARE]
     n_hidden_neurons = [5] * len(activations)
 
     opts = CegisConfig(
@@ -53,7 +53,9 @@ def test_lnn(args):
         ACTIVATION=activations,
         N_HIDDEN_NEURONS=n_hidden_neurons,
         CEGIS_MAX_ITERS=25,
+        VERBOSE=0,
         LLO=True,
+        # FACTORS=LearningFactors.QUADRATIC,
     )
 
     main.run_benchmark(
@@ -61,7 +63,7 @@ def test_lnn(args):
         record=args.record,
         plot=True,
         concurrent=args.concurrent,
-        repeat=args.repeat,
+        repeat=10,
     )
 
 

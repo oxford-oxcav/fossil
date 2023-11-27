@@ -34,10 +34,16 @@ def activation(select: consts.ActivationType, p):
         return requ(p)
     elif select == consts.ActivationType.TANH:
         return hyper_tan(p)
+    elif select == consts.ActivationType.TANH_SQUARE:
+        return tanh_squared(p)
     elif select == consts.ActivationType.SIGMOID:
         return sigm(p)
     elif select == consts.ActivationType.SOFTPLUS:
         return softplus(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS:
+        return shifted_softplus(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS_SQUARE:
+        return shifted_softplus_square(p)
     elif select == consts.ActivationType.COSH:
         return cosh(p)
     elif select == consts.ActivationType.POLY_3:
@@ -86,10 +92,16 @@ def activation_der(select: consts.ActivationType, p):
         return 2 * relu(p)
     elif select == consts.ActivationType.TANH:
         return hyper_tan_der(p)
+    elif select == consts.ActivationType.TANH_SQUARE:
+        return tanh_squared_der(p)
     elif select == consts.ActivationType.SIGMOID:
         return sigm_der(p)
     elif select == consts.ActivationType.SOFTPLUS:
         return softplus_der(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS:
+        return softplus_der(p)
+    elif select == consts.ActivationType.SHIFTED_SOFTPLUS_SQUARE:
+        return shifted_softplus_squared_der(p)
     elif select == consts.ActivationType.COSH:
         return sinh(p)
     elif select == consts.ActivationType.POLY_3:
@@ -339,6 +351,18 @@ def softplus(x):
     return torch.nn.functional.softplus(x)
 
 
+def shifted_softplus(x):
+    return torch.nn.functional.softplus(x) - torch.log(torch.tensor(2.0))
+
+
+def shifted_softplus_square(x):
+    return (torch.nn.functional.softplus(x) - torch.log(torch.tensor(2.0))) ** 2
+
+
+def tanh_squared(x):
+    return torch.pow(torch.tanh(x), 2)
+
+
 def cosh(x):
     return torch.cosh(x) - 1
 
@@ -385,6 +409,14 @@ def sigm_der(x):
 
 def softplus_der(x):
     return torch.sigmoid(x)
+
+
+def shifted_softplus_squared_der(x):
+    return 2 * torch.exp(x) * torch.log(0.5 * (1 + torch.exp(x)) / (1 + torch.exp(x)))
+
+
+def tanh_squared_der(x):
+    return 2 * torch.tanh(x) * (1 - torch.pow(torch.tanh(x), 2))
 
 
 def sinh(x):

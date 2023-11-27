@@ -12,6 +12,7 @@ import argparse
 import warnings
 
 import torch
+import numpy as np
 
 from fossil.cegis import Cegis, Result
 import fossil.plotting as plotting
@@ -85,8 +86,9 @@ def run_benchmark(
             if cegis_options.N_VARS != 2:
                 warnings.warn("Plotting is only supported for 2-dimensional problems")
             else:
+                cert_learner = result.cert.learner
                 axes = plotting.benchmark(
-                    result.f, result.cert, domains=cegis_options.DOMAINS, **kwargs
+                    result.f, cert_learner, domains=cegis_options.DOMAINS, **kwargs
                 )
                 # for ax, name in axes:
                 #     plotting.save_plot_with_tags(ax, cegis_options, name)
@@ -124,11 +126,12 @@ def learn(opts: consts.CegisConfig) -> Result:
         Result: Result of synthesis (success flag, certificate, final model and stats)
 
     """
+    torch.set_num_threads(1)
     raise NotImplementedError
 
 
 def verify(opts: consts.CegisConfig) -> Result:
-    """Verifies a given certificate and controller.
+    """Verifies a given certificate and model
 
     Args:
         opts (consts.CegisConfig): Cegis configuration
@@ -136,7 +139,13 @@ def verify(opts: consts.CegisConfig) -> Result:
         Result: Result of synthesis (success flag, certificate, final model and stats)
 
     """
-    raise NotImplementedError
+    cegis = Cegis(opts)
+    ver = cegis.verifier
+    C = opts.CANDIDATE(ver.xs)
+    gradC = np.atleast_2d(ver.compute_gradient(C))
+    Cdot = (gradC @ np.atleast_2d(cegis.xdot).T)[0, 0]
+    res = ver.verify(C, Cdot)
+    return res
 
 
 def _cli_entry():
@@ -145,12 +154,17 @@ def _cli_entry():
     if args.certificate is not None:
         cli.print_certificate_sets(args.certificate)
     opts = cli.parse_yaml_to_cegis_config(args.file)
-    result = synthesise(opts)
+    if opts.CANDIDATE is not None:
+        result = verify(opts)
+    else:
+        result = synthesise(opts)
     if args.plot:
         if opts.N_VARS != 2:
             warnings.warn("Plotting is only supported for 2-dimensional problems")
         else:
-            axes = plotting.benchmark(result.f, result.cert, domains=opts.DOMAINS)
+            axes = plotting.benchmark(
+                result.f, result.cert.learner, domains=opts.DOMAINS
+            )
             for ax, type in axes:
                 plotting.save_plot_with_tags(ax, opts, type)
 
