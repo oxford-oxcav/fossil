@@ -14,8 +14,6 @@ from z3 import *
 import dreal
 import torch
 
-from fossil.activations import activation, activation_der
-from fossil.activations_symbolic import activation_sym, activation_der_sym
 from fossil.consts import CegisStateKeys, LearningFactors
 
 

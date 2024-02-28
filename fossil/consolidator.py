@@ -9,7 +9,6 @@ import torch
 
 from fossil.consts import CegisStateKeys
 from fossil.component import Component
-from fossil.activations import activation, activation_der
 from fossil.utils import Timer, timer
 
 T = Timer()

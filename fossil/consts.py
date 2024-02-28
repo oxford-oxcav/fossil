@@ -168,36 +168,49 @@ class CertificateType(Enum):
 
 @dataclass
 class CegisConfig:
+    # Required Parameters
     SYSTEM: Any = None
+    N_VARS: int = 0
     CERTIFICATE: CertificateType = CertificateType.LYAPUNOV
     DOMAINS: dict[str, Any] = None
     DATA: dict[str : torch.Tensor] = None
-    SYMMETRIC_BELT: bool = False
+    TIME_DOMAIN: TimeDomain = TimeDomain.CONTINUOUS
+    VERIFIER: VerifierType = VerifierType.Z3
+
+    # CEGIS Parameters
+    N_DATA: int = 500
     CEGIS_MAX_ITERS: int = 10
     CEGIS_MAX_TIME_S: float = math.inf  # in sec
-    TIME_DOMAIN: TimeDomain = TimeDomain.CONTINUOUS
-    LEARNER: LearnerType = LearnerType.CONTINUOUS
-    VERIFIER: VerifierType = VerifierType.Z3
-    CONSOLIDATOR: ConsolidatorType = ConsolidatorType.DEFAULT
-    TRANSLATOR: TranslatorType = TranslatorType.CONTINUOUS
-    N_DATA: int = 500
-    LEARNING_RATE: float = 0.1
-    FACTORS: LearningFactors = LearningFactors.NONE
-    LLO: bool = False  # last layer of ones
-    ROUNDING: int = 3
-    N_VARS: int = 0
+    SEED: int = None
+    CUSTOM_CERTIFICATE: Any = None
+
+    # Learner Parameters
     N_HIDDEN_NEURONS: tuple[int] = (10,)
     ACTIVATION: tuple[ActivationType, ...] = (ActivationType.SQUARE,)
-    VERBOSE: int = 0
-    ENET: Any = None
     CTRLAYER: tuple[int] = None  # not None means control certificate
     CTRLACTIVATION: tuple[ActivationType, ...] = None
     N_HIDDEN_NEURONS_ALT: tuple[int] = (10,)  # For DoubleCegis
     ACTIVATION_ALT: tuple[ActivationType, ...] = (
         ActivationType.SQUARE,
     )  # For DoubleCegis
-    SEED: int = None
-    CUSTOM_CERTIFICATE: Any = None
+
+    # Verifier Parameters
+    PRECISION: float = 1e-5  # for dReal
+    DREAL_JOBS: int = 1
+    ROUNDING: int = 3
+
+    # Margins
+    LOSS_MARGIN: tuple[float, float] = 0, 0  # Shift loss by this amount: C, Cdot
+    ACCURACY_MARGIN: tuple[float, float] = 0, 0  # Shift Acc check: C, Cdot
+    # VERIFICATION_MARGIN: tuple[float, float] = 0, 0  # Shift verification by this amount
+
+    # Other Parameters
+    SYMMETRIC_BELT: bool = False
+    LEARNING_RATE: float = 0.1
+    FACTORS: LearningFactors = LearningFactors.NONE
+    LLO: bool = False  # last layer of ones
+    VERBOSE: int = 0
+    ENET: Any = None
     CANDIDATE = None
 
     def __getitem__(self, item):
@@ -277,7 +290,13 @@ Z3_FNCS = {
     "And": z3.And,
     "Or": z3.Or,
     "If": z3.If,
+    "Not": z3.Not,
+    "ReLU": lambda x: z3.If(x > 0, x, 0),
+    "simplify": z3.simplify,
+    "True": True,
+    "False": False,
 }
+
 DREAL_FNCS = {
     "sin": dreal.sin,
     "cos": dreal.cos,
@@ -286,7 +305,34 @@ DREAL_FNCS = {
     "Or": dreal.Or,
     "If": dreal.if_then_else,
     "Not": dreal.Not,
+    "ReLU": lambda x: dreal.Max(x, 0),
+    "tanh": dreal.tanh,
+    "sigmoid": lambda x: 1 / (1 + dreal.exp(-x)),
+    "softplus": lambda x: dreal.log(1 + dreal.exp(x)),
+    "cosh": dreal.cosh,
+    "simplify": lambda x: x,
+    "sinh": dreal.sinh,
+    "True": dreal.Formula.TRUE(),
+    "False": dreal.Formula.FALSE(),
 }
+
+CVC5_FNCS = {
+    "And": cvpy.And,
+    "Or": cvpy.Or,
+    "If": cvpy.If,
+    "sin": cvpy.Sine,
+    "cos": cvpy.Cosine,
+    "exp": cvpy.Exponential,
+    "Not": cvpy.Not,
+    "simplify": cvpy.simplify,
+    "ReLU": lambda x: cvpy.If(x > 0, x, 0),
+    "tanh": lambda x: (cvpy.Exponential(x) - cvpy.Exponential(-x))
+    / (cvpy.Exponential(x) + cvpy.Exponential(-x)),
+    "sigmoid": lambda x: 1 / (1 + cvpy.Exponential(-x)),
+    "True": True,
+    False: False,
+}
+
 MATH_FNCS = {
     "sin": np.sin,
     "cos": np.cos,
@@ -299,14 +345,6 @@ SP_FNCS = {
     "exp": sp.exp,
 }
 
-CVC5_FNCS = {
-    "And": cvpy.And,
-    "Or": cvpy.Or,
-    "If": cvpy.If,
-    "sin": cvpy.Sine,
-    "cos": cvpy.Cosine,
-    "exp": cvpy.Exponential,
-}
 
 SYMBOLIC = Union[
     z3.ArithRef, dreal.Variable, dreal.Expression, cvpy.ArithRef, sp.Symbol, sp.Expr

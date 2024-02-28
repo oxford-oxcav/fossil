@@ -20,10 +20,9 @@ from matplotlib import pyplot as plt
 
 from fossil import parser
 from fossil import logger
-from fossil.activations import activation
-from fossil.activations_symbolic import activation_sym
+from fossil import activations as activationpy
 from fossil.consts import Z3_FNCS, DREAL_FNCS, SP_FNCS, VerifierType, CVC5_FNCS
-from fossil.utils import vprint, contains_object
+from fossil.utils import contains_object
 
 ctrl_log = logger.Logger.setup_logger(__name__)
 
@@ -262,7 +261,7 @@ class GeneralController(torch.nn.Module):
         super(GeneralController, self).__init__()
         self.inp = inputs
         self.out = output
-        self.acts = activations
+        self.acts = tuple(activationpy.activation_fcn(act) for act in activations)
         self.layers = []
 
         n_prev = self.inp
@@ -281,7 +280,7 @@ class GeneralController(torch.nn.Module):
         y = x
         for act, layer in zip(self.acts, self.layers):
             z = layer(y)
-            y = activation(act, z)
+            y = act(z)
         z = self.layers[-1](y)
         return z
 
@@ -300,7 +299,7 @@ class GeneralController(torch.nn.Module):
             W = layer.weight.detach().numpy().round(rounding)
             # b = layer.bias.detach().numpy().round(rounding)
             z = np.atleast_2d(W @ y)  # + b
-            y = activation_sym(act, z)
+            y = act.forward_symbolic(z)
         W = self.layers[-1].weight.detach().numpy().round(rounding)
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
         z = W @ y  # + b

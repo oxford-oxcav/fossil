@@ -75,7 +75,7 @@ class SingleCegis:
             self.config.N_VARS,
             self.certificate.get_constraints,
             self.x,
-            self.config.VERBOSE,
+            self.config,
         )
         return verifier_instance
 
@@ -139,10 +139,7 @@ class SingleCegis:
         )
 
     def _initialise_consolidator(self):
-        if self.config.CONSOLIDATOR == ConsolidatorType.DEFAULT:
-            return consolidator.Consolidator(self.f)
-        else:
-            raise TypeError("Not Implemented Consolidator")
+        return consolidator.Consolidator(self.f)
 
     def _initialise_translator(self):
         translator_type = translator.get_translator_type(
@@ -443,10 +440,7 @@ class DoubleCegis(SingleCegis):
         return translator_type, translator_instance
 
     def _initialise_consolidator(self):
-        if self.config.CONSOLIDATOR == ConsolidatorType.DEFAULT:
-            return consolidator.DoubleConsolidator(self.f)
-        else:
-            raise TypeError("Not Implemented Consolidator")
+        return consolidator.DoubleConsolidator(self.f)
 
     def solve(self) -> Result:
         Sdot = {lab: self.f(S) for lab, S in self.S.items()}
