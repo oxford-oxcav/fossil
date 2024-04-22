@@ -267,6 +267,7 @@ ACTIVATION_NAMES = {
     ActivationType.EVEN_POLY_10: "$\\varphi_{10}$",
     ActivationType.RATIONAL: "$\\varphi_{rat}$",
     ActivationType.TANH: "$\\sigma_{\\mathrm{t}}$",
+    ActivationType.TANH_SQUARE: "$\\sigma_{\\mathrm{t}}^{2}$",
     ActivationType.SIGMOID: "$\\sigma_{\\mathrm{sig}}$",
     ActivationType.SOFTPLUS: "$\\sigma_{\\mathrm{soft}}$",
     ActivationType.COSH: "$cosh$",

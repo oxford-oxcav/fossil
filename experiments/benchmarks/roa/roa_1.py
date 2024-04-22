@@ -21,7 +21,7 @@ def test_lnn(args):
     n_vars = 2
 
     system = models.NonPoly1
-    batch_size = 500
+    batch_size = 1000
 
     XD = domains.Union(
         domains.Sphere([0.75, -0.75], 1), domains.Sphere([-0.75, 0.75], 1)
@@ -40,7 +40,7 @@ def test_lnn(args):
 
     # define NN parameters
     activations = [ActivationType.TANH_SQUARE]
-    n_hidden_neurons = [5] * len(activations)
+    n_hidden_neurons = [10] * len(activations)
 
     opts = CegisConfig(
         N_VARS=n_vars,
@@ -61,7 +61,7 @@ def test_lnn(args):
     main.run_benchmark(
         opts,
         record=args.record,
-        plot=True,
+        plot=False,
         concurrent=args.concurrent,
         repeat=10,
     )
