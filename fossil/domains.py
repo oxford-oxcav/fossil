@@ -14,6 +14,7 @@ import torch
 from matplotlib import pyplot as plt
 
 from fossil import verifier
+from fossil import consts
 
 inf = 1e300
 inf_bounds = [-inf, inf]
@@ -311,7 +312,7 @@ class Set:
     def __init__(self) -> None:
         pass
 
-    def generate_domain(self, x) -> verifier.SYMBOL:
+    def generate_domain(self, x) -> consts.SYMBOLIC:
         raise NotImplementedError
 
     def generate_data(self, batch_size) -> torch.Tensor:
@@ -323,7 +324,7 @@ class Set:
         except TypeError:
             return self.__class__.__name__
 
-    def generate_complement(self, x) -> verifier.SYMBOL:
+    def generate_complement(self, x) -> consts.SYMBOLIC:
         """Generates complement of the set as a symbolic formulas
 
         Args:
@@ -505,9 +506,19 @@ class Rectangle(Set):
         """
 
         f = self.set_functions(x)
-        lower = f["Or"](*[self.lower_bounds[i] == x[i] for i in range(self.dimension)])
-        upper = f["Or"](*[x[i] == self.upper_bounds[i] for i in range(self.dimension)])
-        return f["Or"](lower, upper)
+        Or = f["Or"]
+        And = f["And"]
+
+        in_bounds = self.generate_domain(x)
+        on_boundary = []
+
+        for i in range(self.dimension):
+            on_boundary.append(x[i] == self.lower_bounds[i])
+            on_boundary.append(x[i] == self.upper_bounds[i])
+
+        on_boundary = Or(*on_boundary)
+
+        return And(on_boundary, in_bounds)
 
     def generate_interior(self, x):
         """Returns interior of the rectangle
@@ -638,8 +649,7 @@ class Sphere(Set):
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return (
-            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
-            <= self.radius**2
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))]) <= self.radius**2
         )
 
     def generate_boundary(self, x):
@@ -684,9 +694,7 @@ class Sphere(Set):
         param batch_size: number of data points to generate
         returns: data points generated on the border of the set
         """
-        return round_init_data(
-            self.centre, self.radius**2, batch_size, on_border=True
-        )
+        return round_init_data(self.centre, self.radius**2, batch_size, on_border=True)
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
         if self.dim_select:
@@ -744,8 +752,7 @@ class OpenSphere(Sphere):
             x = [x[i] for i in self.dim_select]
         f = self.set_functions(x)
         return (
-            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))])
-            < self.radius**2
+            sum([(x[i] - self.centre[i]) ** 2 for i in range(len(x))]) < self.radius**2
         )
 
     def check_containment(self, x: torch.Tensor) -> torch.Tensor:
@@ -796,7 +803,7 @@ class Ellipse(Set):
             # check that the coeffs are only for the selected dimensions
             assert len(self.coeffs) == len(self.dim_select)
             x = [x[i] for i in self.dim_select]
-        return f["And"](
+        return (
             sum(
                 [
                     (self.coeffs[i] * x[i] - self.centre[i]) ** 2
@@ -1216,6 +1223,8 @@ if __name__ == "__main__":
     C = Rectangle([-3, -4], [-2, -2])
 
     S4 = C.sample_border(200)
+    x = [z3.Real("x" + str(i)) for i in range(2)]
+    f = C.generate_boundary(x)
 
     from matplotlib import pyplot as plt
 

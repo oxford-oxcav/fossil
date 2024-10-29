@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import z3
 from cvc5 import pythonic as cvpy
+import sympy as sp
 
 try:
     import dreal as dr
@@ -32,7 +33,7 @@ from fossil.utils import (
 )
 
 T = Timer()
-SYMBOL = Union[z3.ArithRef, dr.Variable, dr.Expression]
+
 ver_log = logger.Logger.setup_logger(__name__)
 
 
@@ -60,7 +61,7 @@ class VerifierConfig:
 
 
 class Verifier(Component):
-    def __init__(self, n_vars, constraints_method, solver_vars, verbose):
+    def __init__(self, n_vars, constraints_method, solver_vars, config):
         super().__init__()
         self.iter = -1
         self.n = n_vars
@@ -70,7 +71,8 @@ class Verifier(Component):
         self.xs = solver_vars
         self._solver_timeout = 30
         self.constraints_method = constraints_method
-        self.verbose = verbose
+        self.verbose = config.VERBOSE
+        self.config = config
         self.optional_configs = VerifierConfig()
         self._vars_bounds = [self.optional_configs.VARS_BOUNDS for _ in range(n_vars)]
         assert self.counterexample_n > 0
@@ -285,6 +287,16 @@ class Verifier(Component):
     def get_timer():
         return T
 
+    def compute_gradient(self, expr) -> list:
+        """
+        Computes the gradient of dreal expression expr with respect to all variables in self.xs
+
+        :param expr: dreal expression
+
+        :returns: list of dreal expressions of derivatives
+        """
+        return [self.differentiate(expr, var) for var in self.xs]
+
 
 class VerifierDReal(Verifier):
     @staticmethod
@@ -304,18 +316,7 @@ class VerifierDReal(Verifier):
 
     @staticmethod
     def solver_fncts() -> Dict[str, Callable]:
-        return {
-            "sin": dr.sin,
-            "cos": dr.cos,
-            "exp": dr.exp,
-            "And": dr.And,
-            "Or": dr.Or,
-            "If": dr.if_then_else,
-            "Check": VerifierDReal.check_type,
-            "Not": dr.Not,
-            "False": dr.Formula.FALSE(),
-            "True": dr.Formula.TRUE(),
-        }
+        return DREAL_FNCS
 
     def is_sat(self, res) -> bool:
         return isinstance(res, dr.Box)
@@ -336,12 +337,17 @@ class VerifierDReal(Verifier):
         )
 
     def _solver_solve(self, solver, fml):
-        res = dr.CheckSatisfiability(fml, 0.0001)
+        config = dr.Config()
+        # config.use_polytope = True
+        config.number_of_jobs = self.config.DREAL_JOBS
+        config.precision = self.config.PRECISION
+        config.use_polytope = True
+        res = dr.CheckSatisfiability(fml, config)
         if self.is_sat(res) and not self.within_bounds(res):
             ver_log.info("Second chance bound used")
             new_bound = self.optional_configs.DREAL_SECOND_CHANCE_BOUND
             fml = dr.And(fml, *(dr.And(x < new_bound, x > -new_bound) for x in self.xs))
-            res = dr.CheckSatisfiability(fml, 0.0001)
+            res = dr.CheckSatisfiability(fml, config)
         return res
 
     def _solver_model(self, solver, res):
@@ -350,6 +356,28 @@ class VerifierDReal(Verifier):
 
     def _model_result(self, solver, model, x, idx):
         return float(model[idx].mid())
+
+    def differentiate(self, expr, var):
+        """
+        Computes the derivative of dreal expression expr with respect to variable var
+
+        :param expr: dreal expression
+        :param var: dreal variable
+
+        :returns: dreal expression of derivative
+        """
+        assert var in self.xs
+        return expr.Differentiate(var)
+
+    def compute_gradient(self, expr):
+        """
+        Computes the gradient of dreal expression expr with respect to all variables in self.xs
+
+        :param expr: dreal expression
+
+        :returns: list of dreal expressions of derivatives
+        """
+        return [self.differentiate(expr, var) for var in self.xs]
 
 
 class VerifierZ3(Verifier):
@@ -370,15 +398,7 @@ class VerifierZ3(Verifier):
 
     @staticmethod
     def solver_fncts() -> Dict[str, Callable]:
-        return {
-            "And": z3.And,
-            "Or": z3.Or,
-            "If": z3.If,
-            "Check": VerifierZ3.check_type,
-            "Not": z3.Not,
-            "False": False,
-            "True": True,
-        }
+        return Z3_FNCS
 
     @staticmethod
     def replace_point(expr, ver_vars, point):
@@ -408,6 +428,9 @@ class VerifierZ3(Verifier):
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
 
+    def differentiate(self, expr, var):
+        raise NotImplementedError("Cannot compute derivative of Z3 expressions")
+
 
 class VerifierCVC5(Verifier):
     @staticmethod
@@ -415,10 +438,9 @@ class VerifierCVC5(Verifier):
         return [cvpy.Real(base + str(i)) for i in range(n)]
 
     def new_solver(self):
-        s = cvpy.Solver()
+        s = cvpy.Solver("QF_NRAT")
         # set logic to QF_NRA. This step seems unnecessary but also seems to massively speed up cvc5.
         # I think there must be better ways to interface with cvc5 but sticking with the z3 interface is most convenient for now
-        s.solver.setLogic("NRA")
         # s.solver.setOption("nl-ext", "full")
         # s.solver.setOption("nl-cov", "false")
         return s
@@ -433,15 +455,7 @@ class VerifierCVC5(Verifier):
 
     @staticmethod
     def solver_fncts() -> Dict[str, Callable]:
-        return {
-            "And": cvpy.And,
-            "Or": cvpy.Or,
-            "If": cvpy.If,
-            "Check": VerifierCVC5.check_type,
-            "Not": cvpy.Not,
-            "False": False,
-            "True": True,
-        }
+        return CVC5_FNCS
 
     @staticmethod
     def replace_point(expr, ver_vars, point):
@@ -485,6 +499,9 @@ class VerifierCVC5(Verifier):
                 return float(model[x[0, 0]].as_fraction())
             except:  # when z3 finds non-rational numbers, prints them w/ '?' at the end --> approx 10 decimals
                 return float(model[x[0, 0]].approx(10).as_fraction())
+
+    def differentiate(self, expr, var):
+        raise NotImplementedError("Cannot compute derivative of CVC5 expressions")
 
 
 class VerifierMarabou(Verifier):
@@ -577,7 +594,58 @@ class VerifierMarabou(Verifier):
             yield cs
 
 
-def get_verifier_type(verifier: Literal) -> Verifier:
+class VerifierNone(Verifier):
+    """Dummy verifier that always returns True"""
+
+    def __init__(self, n_vars, constraints_method, solver_vars, verbose):
+        super().__init__(n_vars, constraints_method, solver_vars, verbose)
+
+    def verify(self, C, dC):
+        return {CegisStateKeys.found: True, CegisStateKeys.cex: {}}
+
+    def new_vars(n, base="x"):
+        return [sp.symbols(base + str(i)) for i in range(n)]
+
+    @staticmethod
+    def solver_fncts() -> Dict[str, Callable]:
+        return {
+            "sin": sp.sin,
+            "cos": sp.cos,
+            "exp": sp.exp,
+            "And": sp.And,
+            "Or": sp.Or,
+            "If": sp.If,
+            "Not": sp.Not,
+            "False": True,
+            "True": False,
+        }
+
+    def new_solver(self):
+        """Example: return z3.Solver()"""
+        return None
+
+    def is_sat(self, res) -> bool:
+        """Example: return res == sat"""
+        return False
+
+    def is_unsat(self, res) -> bool:
+        """Example: return res == unsat"""
+        return True
+
+    def _solver_solve(self, solver, fml):
+        """Example: solver.add(fml); return solver.check()"""
+        return None
+
+    def _solver_model(self, solver, res):
+        """Example: return solver.model()"""
+        return None
+
+    def _model_result(self, solver, model, var, idx):
+        """Example: return float(model[var[0, 0]].as_fraction())"""
+        return None
+
+
+def get_verifier_type(verifier: VerifierType) -> Verifier:
     if verifier == VerifierType.DREAL:
         return VerifierDReal
     elif verifier == VerifierType.Z3:
@@ -586,17 +654,20 @@ def get_verifier_type(verifier: Literal) -> Verifier:
         return VerifierCVC5
     elif verifier == VerifierType.MARABOU:
         return VerifierMarabou
+    elif verifier == VerifierType.NONE:
+        return VerifierNone
     else:
         raise ValueError("No verifier of type {}".format(verifier))
 
 
-def get_verifier(verifier, n_vars, constraints_method, solver_vars, verbose):
+def get_verifier(verifier, n_vars, constraints_method, solver_vars, config):
     if (
         verifier == VerifierDReal
         or verifier == VerifierZ3
         or verifier == VerifierCVC5
         or verifier == VerifierMarabou
+        or verifier == VerifierNone
     ):
-        return verifier(n_vars, constraints_method, solver_vars, verbose)
+        return verifier(n_vars, constraints_method, solver_vars, config)
     else:
         raise ValueError("No verifier of type {}".format(verifier))

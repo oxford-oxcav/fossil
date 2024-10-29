@@ -20,10 +20,9 @@ from matplotlib import pyplot as plt
 
 from fossil import parser
 from fossil import logger
-from fossil.activations import activation
-from fossil.activations_symbolic import activation_sym
+from fossil import activations as activationpy
 from fossil.consts import Z3_FNCS, DREAL_FNCS, SP_FNCS, VerifierType, CVC5_FNCS
-from fossil.utils import vprint, contains_object
+from fossil.utils import contains_object
 
 ctrl_log = logger.Logger.setup_logger(__name__)
 
@@ -201,18 +200,8 @@ class _ParsedDynamicalModel(DynamicalModel):
         return parser.parse_dynamical_system_to_numpy(f)
 
     def get_symbolic_f(self, f):
-        if self.verifier == VerifierType.DREAL:
-            p = parser.DrealParser()
-        elif self.verifier == VerifierType.Z3:
-            p = parser.Z3Parser()
-        elif self.verifier == VerifierType.CVC5:
-            p = parser.CVC5Parser()
-        else:
-            raise ValueError(
-                "Verifier {} not supported from command line".format(self.verifier)
-            )
-
-        return p.parse_dynamical_system(f)
+        p = parser.get_parser_from_verifier(self.verifier)
+        return p.parse_dynamical_system_to_lambda(f)
 
     def f_torch(self, v):
         return [fi(v.T) for fi in self.f_num]
@@ -247,7 +236,7 @@ class _ParsedControllableDynamicalModel(ControllableDynamicalModel):
                 "Verifier {} not supported from command line".format(self.verifier)
             )
 
-        res = p.parse_dynamical_system(f)
+        res = p.parse_dynamical_system_to_lambda(f)
         self.n_u = len(p.us)
         assert self.n_u > 0
         assert self.n_vars == len(p.xs)
@@ -272,7 +261,7 @@ class GeneralController(torch.nn.Module):
         super(GeneralController, self).__init__()
         self.inp = inputs
         self.out = output
-        self.acts = activations
+        self.acts = tuple(activationpy.activation_fcn(act) for act in activations)
         self.layers = []
 
         n_prev = self.inp
@@ -291,7 +280,7 @@ class GeneralController(torch.nn.Module):
         y = x
         for act, layer in zip(self.acts, self.layers):
             z = layer(y)
-            y = activation(act, z)
+            y = act(z)
         z = self.layers[-1](y)
         return z
 
@@ -310,7 +299,7 @@ class GeneralController(torch.nn.Module):
             W = layer.weight.detach().numpy().round(rounding)
             # b = layer.bias.detach().numpy().round(rounding)
             z = np.atleast_2d(W @ y)  # + b
-            y = activation_sym(act, z)
+            y = act.forward_symbolic(z)
         W = self.layers[-1].weight.detach().numpy().round(rounding)
         # b = self.layers[-1].bias.detach().numpy().round(rounding)
         z = W @ y  # + b

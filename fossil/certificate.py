@@ -5,6 +5,7 @@ certify properties of a system, such as stability or safety. The module also def
 functions for logging loss and accuracy during the learning process, and for checking 
 that the domains and data are as expected for a given certificate.
 """
+
 # Copyright (c) 2021, Alessandro Abate, Daniele Ahmed, Alec Edwards, Mirco Giacobbe, Andrea Peruffo
 # All rights reserved.
 #
@@ -19,7 +20,7 @@ from torch.optim import Optimizer
 import fossil.control as control
 import fossil.logger as logger
 import fossil.learner as learner
-from fossil.consts import CegisConfig, CertificateType, DomainNames
+from fossil.consts import CegisConfig, CertificateType, SYMBOLIC, DomainNames
 
 
 XD = DomainNames.XD.value
@@ -473,7 +474,6 @@ class ROA(Certificate):
         # be done with XI or XD, because they might not contain B and the conditions must hold everywhere
         # in B (except sphere around origin). This could be a goal set?
         sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01**2
-        sphere = sum([xs**2 for xs in verifier.xs]) <= 0.01 * 2
 
         B_less_sphere = _And(B, _Not(sphere))
         lyap_condition = _And(B_less_sphere, lyap_negated)
@@ -912,6 +912,7 @@ class RWS(Certificate):
         self.goal = domains[XG]
         self.bias = True
         self.BORDERS = (XS,)
+        self.gamma = 0.01
 
     def alt_Vdot_loss(self, gradV: torch.Tensor, f: torch.Tensor) -> torch.Tensor:
         """
@@ -945,10 +946,12 @@ class RWS(Certificate):
             Vdot = torch.sum(torch.mul(grad_V, f), dim=1)
             A_lie = torch.index_select(Vdot, dim=0, index=lie_index[:, 0])
             lie_accuracy = (
-                ((A_lie <= -margin).count_nonzero()).item() * 100 / A_lie.shape[0]
+                ((A_lie <= -margin - self.gamma).count_nonzero()).item()
+                * 100
+                / A_lie.shape[0]
             )
 
-            lie_loss = (relu(A_lie + margin_lie)).mean()
+            lie_loss = (relu(A_lie + margin_lie + self.gamma)).mean()
             loss = loss + lie_loss
         else:
             # If this set is empty then the function is not negative enough across XS, so only penalise the initial set
@@ -1051,11 +1054,10 @@ class RWS(Certificate):
         unsafe_constr = _And(C <= 0, self.safe_border)
 
         # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
-        gamma = 0
 
         # Define A as the set of points where C <= 0, within the domain, not in the goal set, and not in the unsafe set
         A = _And(C <= 0, self.safe, _Not(self.goal))
-        lie_constr = _And(A, Cdot >= gamma)
+        lie_constr = _And(A, Cdot + self.gamma > 0)
 
         # add domain constraints
         inital_constr = _And(initial_constr, self.domain)
@@ -1124,6 +1126,7 @@ class RSWS(RWS):
         self.goal_border = domains[XG_BORDER]
         self.BORDERS = (XS, XG)
         self.bias = True
+        self.gamma = 0.01
 
     def compute_beta_loss(self, beta, V_g, Vdot_g, V_d):
         """Compute the loss for the beta condition
@@ -1134,8 +1137,12 @@ class RSWS(RWS):
         relu = torch.nn.Softplus()
         if lie_index.nelement() != 0:
             beta_lie = torch.index_select(Vdot_g, dim=0, index=lie_index[:, 0])
-            beta_lie_loss = relu(beta_lie).mean()
-            accuracy = (beta_lie <= 0).count_nonzero().item() * 100 / beta_lie.shape[0]
+            beta_lie_loss = relu(beta_lie + self.gamma).mean()
+            accuracy = (
+                (beta_lie <= -self.gamma).count_nonzero().item()
+                * 100
+                / beta_lie.shape[0]
+            )
         else:
             # Do we penalise V > beta in safe set, or  V < beta in goal set?
             beta_lie_loss = 0
@@ -1258,7 +1265,7 @@ class RSWS(RWS):
 
         B = _And(self.safe, C < beta)
         XG_less_B = _And(self.goal, _Not(B))
-        lie_condition = _And(XG_less_B, Cdot >= 0)
+        lie_condition = _And(XG_less_B, Cdot + self.gamma > 0)
         s_lie = verifier.new_solver()
         res2, _ = verifier.solve_with_timeout(s_lie, lie_condition)
 
@@ -1622,6 +1629,24 @@ class DoubleCertificate(Certificate):
         cert2_cs = self.certificate2.get_constraints(verifier, C2, Cdot2)
         for cs in (*cert1_cs, *cert2_cs):
             yield cs
+
+
+class CertificateSolution:
+    """Class for storing solutions to a certificate problem (e.g. a Lyapunov function).
+
+    Attributes:
+        certificate: The type of certificate
+        numeric: The numeric solution (i.e. a NN learner). This is a tuple for double certificates
+        symbolic: The symbolic solution (i.e. an SMT formula). This is a tuple for double certificates
+
+    """
+
+    def __init__(
+        self, certificate: CertificateType, learner: learner.Learner, symbolic: SYMBOLIC
+    ) -> None:
+        self.certificate = certificate
+        self.learner = learner
+        self.symbolic = symbolic
 
 
 class AutoSets:

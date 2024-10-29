@@ -6,25 +6,38 @@
 
 import tempfile
 import logging
-from typing import Literal, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 import sympy as sp
 import torch
-import z3
+from cvc5 import pythonic as cvpy
 
 
 import fossil.learner as learner
 import fossil.logger as logger
-from fossil.activations_symbolic import activation_der_sym, activation_sym
 from fossil.component import Component
 from fossil.consts import *
-from fossil.sympy_converter import sympy_converter
 from fossil.utils import Timer, timer
 
 T = Timer()
 
 trl_log = logger.Logger.setup_logger(__name__)
+
+
+def round_ast(ast, dp=5):
+    for term in ast:
+        if term.getNumChildren() == 0:
+            if term.isRealValue():
+                val = cvpy.RatVal(*term.getRealValue().__round__(dp).as_integer_ratio())
+                ast = ast.substitute(term, val.ast)
+        else:
+            ast = ast.substitute(term, round_ast(term, dp=dp))
+    return ast
+
+
+def round_arith(arith, dp=5):
+    return cvpy.ArithRef(round_ast(cvpy.simplify(arith).ast, dp))
 
 
 def optional_Marabou_import():
@@ -115,6 +128,10 @@ class TranslatorCT(TranslatorNN):
             derivative_e, np.broadcast_to(z[0, 0], jacobian.shape)
         )
 
+        if self.config.VERIFIER == VerifierType.CVC5:
+            gradV[0, 0] = round_arith(gradV[0, 0], dp=self.round)
+            z[0, 0] = round_arith(z[0, 0], dp=self.round)
+
         # Vdot = gradV * f(x)
         Vdot = gradV @ xdot
 
@@ -153,6 +170,7 @@ class TranslatorCT(TranslatorNN):
         jacobian = np.eye(net.input_size, net.input_size)
 
         for idx, layer in enumerate(net.layers[:-1]):
+            act = net.acts[idx]
             if self.round < 0:
                 w = layer.weight.data.numpy()
                 if layer.bias is not None:
@@ -167,10 +185,12 @@ class TranslatorCT(TranslatorNN):
                     b = np.zeros((layer.out_features, 1))
 
             zhat = w @ z + b
-            z = activation_sym(net.acts[idx], zhat)
+            z = act.forward_symbolic(zhat)
+            # z = activation_sym(net.acts[idx], zhat)
             # Vdot
             jacobian = w @ jacobian
-            jacobian = np.diagflat(activation_der_sym(net.acts[idx], zhat)) @ jacobian
+            jacobian = np.diagflat(act.derivative_symbolic(zhat)) @ jacobian
+            # jacobian = np.diagflat(activation_der_sym(net.acts[idx], zhat)) @ jacobian
 
         return z, jacobian
 
@@ -226,6 +246,7 @@ class TranslatorDT(TranslatorNN):
         z = x
 
         for idx, layer in enumerate(net.layers[:-1]):
+            act = net.acts[idx]
             if self.round < 0:
                 w = layer.weight.data.numpy()
                 if layer.bias is not None:
@@ -240,7 +261,7 @@ class TranslatorDT(TranslatorNN):
                     b = np.zeros((layer.out_features, 1))
 
             zhat = w @ z + b
-            z = activation_sym(net.acts[idx], zhat)
+            z = act.forward_symbolic(zhat)
             # Vdot
         return z
 
@@ -334,7 +355,7 @@ class MarabouTranslator(Component):
         return T
 
 
-def get_translator_type(time_domain: Literal, verifier: Literal) -> Component:
+def get_translator_type(time_domain: TimeDomain, verifier: VerifierType) -> Component:
     if verifier == VerifierType.MARABOU:
         if time_domain != TimeDomain.DISCRETE:
             raise ValueError(

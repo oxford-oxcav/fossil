@@ -9,7 +9,6 @@ import torch
 
 from fossil.consts import CegisStateKeys
 from fossil.component import Component
-from fossil.activations import activation, activation_der
 from fossil.utils import Timer, timer
 
 T = Timer()
@@ -68,17 +67,6 @@ class Consolidator(Component):
         assert not torch.isnan(torch.stack(trajectory)).any()
         return {CegisStateKeys.trajectory: torch.stack(trajectory)}
 
-    def compute_V_grad(self, net, point):
-        """
-        :param net:
-        :param point:
-        :return:
-        """
-        num_v = self.forward_V(net, point)[0]
-        num_v.backward()
-        grad_v = point.grad
-        return grad_v, num_v
-
     def compute_Vdot_grad(self, net, point):
         """
         :param net:
@@ -100,68 +88,25 @@ class Consolidator(Component):
         """
         y = x[None, :]
         xdot = self.f(y)
-        jacobian = torch.diag_embed(torch.ones(x.shape[0], net.input_size))
 
-        for idx, layer in enumerate(net.layers[:-1]):
-            z = layer(y)
-            y = activation(net.acts[idx], z)
-            jacobian = torch.matmul(layer.weight, jacobian)
-            jacobian = torch.matmul(
-                torch.diag_embed(activation_der(net.acts[idx], z)), jacobian
-            )
+        _, Vdot, _ = net.get_all(y, xdot)
 
-        jacobian = torch.matmul(net.layers[-1].weight, jacobian)
-
-        return torch.sum(torch.mul(jacobian[:, 0, :], xdot), dim=1)[0]
-
-    def compute_V_grad(self, net, point):
-        """
-        :param net:
-        :param point:
-        :return:
-        """
-        num_v = self.forward_V(net, point)[0]
-        num_v.backward()
-        grad_v = point.grad
-        return grad_v, num_v
-
-    def forward_V(self, net, x):
-        """
-        :param x: tensor of data points
-        :param xdot: tensor of data points
-        :return:
-                V: tensor, evaluation of x in net
-        """
-        y = x.double()
-        for layer in net.layers[:-1]:
-            z = layer(y)
-            y = activation(net.activation, z)
-        y = torch.matmul(y, net.layers[-1].weight.T)
-        return y
-
-    def add_ces_to_data(self, S, Sdot, ces):
-        """
-        :param S: torch tensor
-        :param Sdot: torch tensor
-        :param ces: list of ctx
-        :return:
-                S: torch tensor, added new ctx
-                Sdot torch tensor, added  f(new_ctx)
-        """
-        for idx in range(3):
-            if len(ces[idx]) != 0:
-                S[idx] = torch.cat([S[idx], ces[idx]], dim=0)
-                Sdot[idx] = torch.cat(
-                    [
-                        Sdot[idx],
-                        torch.stack(
-                            list(map(torch.tensor, map(self.f_learner, ces[idx])))
-                        ),
-                    ],
-                    dim=0,
-                )
-        return S, Sdot
+        return Vdot
 
     @staticmethod
     def get_timer():
         return T
+
+
+class DoubleConsolidator(Consolidator):
+    def __init__(self, f):
+        super().__init__(f)
+
+    def get(self, index, **kw):
+        net = kw[CegisStateKeys.net][index]
+        for label, cex in kw[CegisStateKeys.cex].items():
+            if (
+                "lie" in label and cex != []
+            ):  # Trying to 'generalise' when we use the trajectoriser
+                return self.compute_trajectory(net, cex[-1])
+        return {CegisStateKeys.trajectory: []}

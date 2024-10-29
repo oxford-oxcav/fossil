@@ -3,14 +3,14 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Callable, Literal
+from typing import Callable
 import warnings
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from fossil.activations import activation
+import fossil.activations as activations
 from fossil.component import Component
 from fossil.consts import *
 from fossil.utils import Timer, timer
@@ -52,7 +52,7 @@ class LearnerNN(nn.Module, Learner):
         self.input_size = input_size
         n_prev = self.input_size
         self._diagonalise = False
-        self.acts = activation
+        self.acts = tuple(activations.activation_fcn(act) for act in activation)
         self._is_there_bias = bias
         self.verbose = config.VERBOSE
         ZaZ = config.FACTORS  # kw.get(CegisConfig.FACTORS.k, CegisConfig.FACTORS.v)
@@ -132,7 +132,7 @@ class LearnerNN(nn.Module, Learner):
 
         for idx, layer in enumerate(self.layers[:-1]):
             z = layer(y)
-            y = activation(self.acts[idx], z)
+            y = self.acts[idx](z)
 
         y = self.layers[-1](y)[:, 0]
         return y
@@ -288,8 +288,10 @@ class LearnerNN(nn.Module, Learner):
             ActivationType.EVEN_POLY_6,
             ActivationType.EVEN_POLY_8,
             ActivationType.EVEN_POLY_10,
+            ActivationType.TANH_SQUARE,
+            ActivationType.SHIFTED_SOFTPLUS_SQUARE,
         ]
-        return (activations[-1] in pd_acts) and (layers[-1].bias is None)
+        return (activations[-1].TYPE in pd_acts) and (layers[-1].bias is None)
 
     def is_final_polynomial(self):
         """Checks if the final layer is a polynomial"""
@@ -484,7 +486,7 @@ class CtrlLearnerDT(LearnerDT):
         return self.learn_method(net, optimizer, S, Sdot, xdot_func)
 
 
-def get_learner(time_domain: Literal, ctrl: Literal) -> LearnerNN:
+def get_learner(time_domain: TimeDomain, ctrl: bool) -> LearnerNN:
     if ctrl and time_domain == TimeDomain.CONTINUOUS:
         return CtrlLearnerCT
     elif ctrl and time_domain == TimeDomain.DISCRETE:

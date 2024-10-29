@@ -63,6 +63,14 @@ class CegisConfigParser:
         return control.GeneralClosedLoopModel.prepare_from_open(model)
 
     @staticmethod
+    def read_candidate(candidate: list[str], verifier: consts.VerifierType) -> Callable:
+        """Read model based on presence of a controller layer."""
+
+        p = parser.get_parser_from_verifier(verifier)
+        candidate_cert = p.parse_certificate(candidate)
+        return candidate_cert
+
+    @staticmethod
     def get_domains_from_dict(domains_dict: dict[str, str]) -> dict:
         names = consts.DomainNames
         return {
@@ -223,6 +231,9 @@ def parse_yaml_to_cegis_config(file_path: str) -> consts.CegisConfig:
             warnings.warn(f"Warning: Unknown field {field} in the YAML file. Ignoring.")
 
     system = CFP.read_model(config_data["SYSTEM"], config.VERIFIER, config.CTRLAYER)
+    if config.CANDIDATE is not None:
+        candidate = CFP.read_candidate(config_data["CANDIDATE"], config.VERIFIER)
+        config.CANDIDATE = candidate
     domains = CFP.read_domains(config_data["DOMAINS"])
     domains = CFP.add_borders(domains, config.CERTIFICATE)
     data = CFP.read_data(config_data["N_DATA"], domains)

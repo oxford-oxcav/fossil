@@ -31,7 +31,7 @@ class CegisStats(NamedTuple):
 
 class Result(NamedTuple):
     res: bool
-    cert: learner.LearnerNN
+    cert: certificate.CertificateSolution
     f: Any
     cegis_stats: CegisStats
 
@@ -75,7 +75,7 @@ class SingleCegis:
             self.config.N_VARS,
             self.certificate.get_constraints,
             self.x,
-            self.config.VERBOSE,
+            self.config,
         )
         return verifier_instance
 
@@ -104,9 +104,11 @@ class SingleCegis:
         )
         x_map = {str(x): x for x in x}
         domains = {
-            label: domain.generate_boundary(x)
-            if label in certificate.BORDERS
-            else domain.generate_domain(x)
+            label: (
+                domain.generate_boundary(x)
+                if label in certificate.BORDERS
+                else domain.generate_domain(x)
+            )
             for label, domain in self.config.DOMAINS.items()
         }
         if self.config.CERTIFICATE == CertificateType.RAR:
@@ -123,7 +125,9 @@ class SingleCegis:
 
     def _initialise_certificate(self):
         custom_certificate = self.config.CUSTOM_CERTIFICATE
-        certificate_type = certificate.get_certificate(self.config.CERTIFICATE, custom_certificate)
+        certificate_type = certificate.get_certificate(
+            self.config.CERTIFICATE, custom_certificate
+        )
         if self.config.CERTIFICATE == certificate.CertificateType.STABLESAFE:
             raise ValueError("StableSafe not compatible with default CEGIS")
         return certificate_type(self.domains, self.config)
@@ -135,10 +139,7 @@ class SingleCegis:
         )
 
     def _initialise_consolidator(self):
-        if self.config.CONSOLIDATOR == ConsolidatorType.DEFAULT:
-            return consolidator.Consolidator(self.f)
-        else:
-            raise TypeError("Not Implemented Consolidator")
+        return consolidator.Consolidator(self.f)
 
     def _initialise_translator(self):
         translator_type = translator.get_translator_type(
@@ -220,7 +221,10 @@ class SingleCegis:
         stats = CegisStats(
             iters, N_data, state["components_times"], torch.initial_seed()
         )
-        self._result = Result(state[CegisStateKeys.found], state["net"], self.f, stats)
+        solution = certificate.CertificateSolution(
+            self.config.CERTIFICATE, state[CegisStateKeys.net], state[CegisStateKeys.V]
+        )
+        self._result = Result(state[CegisStateKeys.found], solution, self.f, stats)
         return self._result
 
     def update_controller(self, state):
@@ -435,6 +439,9 @@ class DoubleCegis(SingleCegis):
         )
         return translator_type, translator_instance
 
+    def _initialise_consolidator(self):
+        return consolidator.DoubleConsolidator(self.f)
+
     def solve(self) -> Result:
         Sdot = {lab: self.f(S) for lab, S in self.S.items()}
         S = self.S
@@ -447,6 +454,9 @@ class DoubleCegis(SingleCegis):
         self.translator.get_timer().reset()
         self.verifier.get_timer().reset()
         self.consolidator.get_timer().reset()
+        cex_learner_index = (
+            0  # refers to the index of the learner that last found a cex
+        )
 
         iters = 0
         stop = False
@@ -472,20 +482,25 @@ class DoubleCegis(SingleCegis):
 
             if isinstance(self.certificate, certificate.SafeROA):
                 if certificate.XI in state["cex"].keys():
+                    cex_learner_index = 1
                     # This means we've got the this check in the verifier, so the Lyapunov in SafeROA is correct.
                     if not self.config.CTRLAYER:
                         self.lyap_learner.freeze()
+                else:
+                    cex_learner_index = 0
             elif isinstance(self.certificate, certificate.ReachAvoidRemain):
                 if certificate.XG in state["cex"].keys():
+                    cex_learner_index = 1
                     # This means we've got the this check in the verifier, so the RWS function in RAR is correct.
                     if not self.config.CTRLAYER:
                         self.lyap_learner.freeze()
+                else:
+                    cex_learner_index = 0
 
             # Consolidator component does not exist for DoubleCegis
-            # if self.config.VERBOSE:
-            #     print_section("consolidator", iters)
-            # outputs = self.consolidator.get(**state)
-            # state = {**state, **outputs}
+            cegis_log.debug("\033[1m Consolidator \033[0m")
+            outputs = self.consolidator.get(cex_learner_index, **state)
+            state = {**state, **outputs}
 
             if state[CegisStateKeys.found]:
                 stop = self.process_certificate(S, state, iters)
@@ -515,7 +530,10 @@ class DoubleCegis(SingleCegis):
         stats = CegisStats(
             iters, N_data, state["components_times"], torch.initial_seed()
         )
-        self._result = Result(state[CegisStateKeys.found], state["net"], self.f, stats)
+        solution = certificate.CertificateSolution(
+            self.config.CERTIFICATE, state[CegisStateKeys.net], state[CegisStateKeys.V]
+        )
+        self._result = Result(state[CegisStateKeys.found], solution, self.f, stats)
         return self._result
 
     def process_cex(
