@@ -912,6 +912,7 @@ class RWS(Certificate):
         self.goal = domains[XG]
         self.bias = True
         self.BORDERS = (XS,)
+        self.gamma = 0.01
 
     def alt_Vdot_loss(self, gradV: torch.Tensor, f: torch.Tensor) -> torch.Tensor:
         """
@@ -945,10 +946,12 @@ class RWS(Certificate):
             Vdot = torch.sum(torch.mul(grad_V, f), dim=1)
             A_lie = torch.index_select(Vdot, dim=0, index=lie_index[:, 0])
             lie_accuracy = (
-                ((A_lie <= -margin).count_nonzero()).item() * 100 / A_lie.shape[0]
+                ((A_lie <= -margin - self.gamma).count_nonzero()).item()
+                * 100
+                / A_lie.shape[0]
             )
 
-            lie_loss = (relu(A_lie + margin_lie)).mean()
+            lie_loss = (relu(A_lie + margin_lie + self.gamma)).mean()
             loss = loss + lie_loss
         else:
             # If this set is empty then the function is not negative enough across XS, so only penalise the initial set
@@ -1051,11 +1054,10 @@ class RWS(Certificate):
         unsafe_constr = _And(C <= 0, self.safe_border)
 
         # lie_constr = And(C >= -0.05, C <= 0.05, Cdot > 0)
-        gamma = 0
 
         # Define A as the set of points where C <= 0, within the domain, not in the goal set, and not in the unsafe set
         A = _And(C <= 0, self.safe, _Not(self.goal))
-        lie_constr = _And(A, Cdot >= gamma)
+        lie_constr = _And(A, Cdot + self.gamma > 0)
 
         # add domain constraints
         inital_constr = _And(initial_constr, self.domain)
@@ -1124,6 +1126,7 @@ class RSWS(RWS):
         self.goal_border = domains[XG_BORDER]
         self.BORDERS = (XS, XG)
         self.bias = True
+        self.gamma = 0.01
 
     def compute_beta_loss(self, beta, V_g, Vdot_g, V_d):
         """Compute the loss for the beta condition
@@ -1134,8 +1137,12 @@ class RSWS(RWS):
         relu = torch.nn.Softplus()
         if lie_index.nelement() != 0:
             beta_lie = torch.index_select(Vdot_g, dim=0, index=lie_index[:, 0])
-            beta_lie_loss = relu(beta_lie).mean()
-            accuracy = (beta_lie <= 0).count_nonzero().item() * 100 / beta_lie.shape[0]
+            beta_lie_loss = relu(beta_lie + self.gamma).mean()
+            accuracy = (
+                (beta_lie <= -self.gamma).count_nonzero().item()
+                * 100
+                / beta_lie.shape[0]
+            )
         else:
             # Do we penalise V > beta in safe set, or  V < beta in goal set?
             beta_lie_loss = 0
@@ -1258,7 +1265,7 @@ class RSWS(RWS):
 
         B = _And(self.safe, C < beta)
         XG_less_B = _And(self.goal, _Not(B))
-        lie_condition = _And(XG_less_B, Cdot >= 0)
+        lie_condition = _And(XG_less_B, Cdot + self.gamma > 0)
         s_lie = verifier.new_solver()
         res2, _ = verifier.solve_with_timeout(s_lie, lie_condition)
 
