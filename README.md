@@ -1,6 +1,6 @@
 # FOSSIL
 
-FOSSIL is a software tool for the sound and automated synthesis of Lyapunov functions and Barrier certificates, for the purposes of verifying the stability or safety of continuous-time dynamical systems modelled as differential equations. The tool leverages a CEGIS-based architecture; the verision 1.0 tool is described in detail by a corresponding [tool paper](https://doi.org/10.1145/3447928.3456646) (also [below](#citation)).
+FOSSIL is a software tool for the sound and automated synthesis of Lyapunov-like functions, for the purposes of verifying the stability or safety of continuous-time dynamical systems modelled as differential equations. The tool leverages a CEGIS-based architecture; the verision 1.0 tool is described in detail by a corresponding [tool paper](https://doi.org/10.1145/3447928.3456646) (also [below](#citation)).
 
 ## Requirements
 
@@ -25,7 +25,7 @@ We provide a Docker image of Fossil 2.0 . Begin by installing Docker on your sys
 
 ```console
 # docker pull aleccedwards/fossil
-# docer run --rm aleccedwards/fossil fossil -h
+# docker run --rm aleccedwards/fossil fossil -h
 ```
 
 ## Command-line Interface

@@ -29,7 +29,7 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
-        "numpy",
+        "numpy<2.0",
         "pandas",
         "torch",
         "sympy",
